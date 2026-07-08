@@ -1,2 +1,3 @@
-// Supabase module barrel export will go here
-export {};
+export { storageService } from './storage';
+export * from './storage.constants';
+export * from './storage.types';

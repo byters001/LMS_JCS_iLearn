@@ -1,4 +1,16 @@
 {
   "name": "jcs-ilearn-backend",
-  "//": "dependencies and scripts will be added in a later phase"
+  "//": "dependencies and scripts will be added in a later phase",
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@supabase/supabase-js": "^2.110.1",
+    "argon2": "^0.44.0",
+    "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.11.1",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0"
+  }
 }
