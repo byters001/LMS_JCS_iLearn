@@ -155,7 +155,7 @@ export const questionOptions = pgTable(
       .notNull()
       .references(() => questionVersions.id, { onDelete: 'cascade' }),
     optionText: text('option_text').notNull(),
-    imageUrl: text('image_url'),
+    imageUrl: text('option_image_url'),
     isCorrect: boolean('is_correct').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
   },
