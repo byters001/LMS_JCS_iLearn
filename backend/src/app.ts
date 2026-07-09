@@ -1,15 +1,101 @@
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
+import authRoutes from './modules/auth/auth.routes';
+import usersRoutes from './modules/users/users.routes';
+import authenticatePlugin from './plugins/authenticate.plugin';
+import corsHelmetPlugin from './plugins/cors-helmet.plugin';
+import errorHandlerPlugin from './plugins/error-handler.plugin';
+import healthPlugin from './plugins/health.plugin';
+import rateLimitPlugin from './plugins/rate-limit.plugin';
+import requestContextPlugin from './plugins/request-context.plugin';
 
-// Minimal composition root for now — this phase only needs the Fastify
-// instance to exist so @fastify/cookie can be registered (auth.controller.ts
-// reads/writes the refresh token cookie via request.cookies/reply.setCookie).
-// Wiring the rest of the plugins/routes/modules together is a later,
-// dedicated phase per CLAUDE.md's phased build process.
+const API_PREFIX = '/api/v1';
+
+// Largest bucket limit across integrations/supabase/storage.constants.ts
+// (the `temporary` bucket, 20MB), not the `avatars` bucket's own tighter
+// 5MB — this is a transport-level ceiling shared by every multipart route
+// in the app. The tighter, bucket-specific limit is still enforced where it
+// belongs: storage.ts's validateUpload() (server-side truth) and
+// users.controller.ts's upfront MIME/size check for avatars specifically.
+const MULTIPART_MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify();
 
+  // Registration order:
+  //
+  // 1. cors-helmet — must wrap literally everything, including error
+  //    responses, so even a 500 out of error-handler carries CORS/helmet
+  //    security headers.
+  await app.register(corsHelmetPlugin);
+
+  // 2. request-context — assigns request.id/request.log before anything
+  //    else runs, so every later log line (including error-handler's) is
+  //    correlated to the same request id.
+  await app.register(requestContextPlugin);
+
+  // 3. error-handler — in place before anything that could throw
+  //    (authenticate, rate-limit exhaustion, route handlers) is registered.
+  await app.register(errorHandlerPlugin);
+
+  // Not in the originally given order — added here because it's required
+  // for correctness, not optional. usersRoutes' preHandlers reference
+  // `fastify.authenticate` directly at *registration* time
+  // (`preHandler: [fastify.authenticate, requirePermission(...)]`), so the
+  // decorator must already exist by the time usersRoutes is registered
+  // below, or that line throws immediately (fastify.authenticate would be
+  // undefined). It has no ordering dependency on rate-limit/cookie/
+  // multipart/health, so it's placed right after error-handler — it only
+  // needs to precede the module route registrations at the bottom.
+  await app.register(authenticatePlugin);
+
+  // 4. rate-limit (global default; per-route overrides like
+  //    ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG are consumed by future route
+  //    files, not wired here).
+  await app.register(rateLimitPlugin);
+
+  // 5. cookie — auth.controller.ts reads/writes the refresh token cookie
+  //    via request.cookies/reply.setCookie.
   await app.register(fastifyCookie);
+
+  // 6. multipart — users.controller.ts's avatar upload handler calls
+  //    request.file().
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: MULTIPART_MAX_FILE_SIZE_BYTES,
+    },
+  });
+
+  // 7. health — deliberately unprefixed (no /api/v1): liveness/readiness
+  //    probes are conventionally bare paths for load balancers/orchestrators.
+  await app.register(healthPlugin);
+
+  // --- Module routes, all under API_PREFIX ---
+  //
+  // No prefix convention existed before this: auth.routes.ts and
+  // users.routes.ts both register bare paths today (e.g. '/auth/login',
+  // '/users'). '/api/v1' is being established here for the first time,
+  // applied via Fastify's register-time `prefix` option rather than baked
+  // into each route file's path strings — e.g. '/auth/login' becomes
+  // '/api/v1/auth/login'. authRoutes/usersRoutes are plain (non-fp-wrapped)
+  // functions, which is what lets Fastify's prefix option apply to the
+  // routes they register; the fp-wrapped plugins above still propagate
+  // their decorators/hooks (fastify.authenticate, the onRequest hook, the
+  // error handler) down into this prefixed child context regardless.
+  //
+  // Of CLAUDE.md's 13 modules, only 2 — auth, users — currently export a
+  // registrable route plugin. The remaining 11 are still stub files
+  // (`export {};`, nothing to import):
+  //   organization, students, trainers, question-bank, assessments,
+  //   coding, attempts, reports, analytics, notifications, settings
+  // Importing/registering any of those today would either fail to compile
+  // (nothing named to import) or register `undefined` as a plugin at
+  // runtime. Each needs exactly one line added here —
+  // `await app.register(xRoutes, { prefix: API_PREFIX });` — once its
+  // routes.ts is actually built out. Not done speculatively.
+  await app.register(authRoutes, { prefix: API_PREFIX });
+  await app.register(usersRoutes, { prefix: API_PREFIX });
 
   return app;
 }

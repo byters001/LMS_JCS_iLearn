@@ -7,21 +7,25 @@ x-logging:
 
 services:
   server:
-    image: judge0/judge0:latest
+    image: mrkushalsm/judge0:latest
     volumes:
       - ./judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     ports:
       - "2358:2358"
     privileged: true
+    cgroup: host
     <<: *default-logging
     restart: always
 
   worker:
-    image: judge0/judge0:latest
+    image: mrkushalsm/judge0:latest
     command: ["./scripts/workers"]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     privileged: true
+    cgroup: host
     <<: *default-logging
     restart: always
 

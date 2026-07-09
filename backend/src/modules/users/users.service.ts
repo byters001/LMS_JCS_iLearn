@@ -1,3 +1,4 @@
+import { STORAGE_BUCKET, storageService } from '../../integrations/supabase';
 import { permissionCache } from '../../rbac/permission-cache';
 import type { UserRoleAssignment } from '../../rbac/role-assignments';
 import { ConflictError, NotFoundError } from '../../shared/errors/app-error';
@@ -5,6 +6,10 @@ import type { User } from '../../db/types';
 import type { AssignRoleInput, ListUsersQuery, UpdateUserInput } from './users.schema';
 import type { ListUsersResult, SafeUser } from './users.types';
 import { usersRepository } from './users.repository';
+
+function avatarPath(userId: string): string {
+  return `${userId}/avatar`;
+}
 
 function toSafeUser(user: User): SafeUser {
   const { passwordHash, ...safeUser } = user;
@@ -47,6 +52,34 @@ async function update(id: string, input: UpdateUserInput): Promise<SafeUser> {
   }
 
   return toSafeUser(updated);
+}
+
+async function uploadAvatar(userId: string, file: Buffer, contentType: string): Promise<string> {
+  const user = await usersRepository.findById(userId);
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  // upsert: true — re-uploading a new avatar replaces the old one at the
+  // same path rather than accumulating files. This is exactly the upsert
+  // case the upload() signature was extended for in Phase 6.
+  await storageService.upload(STORAGE_BUCKET.AVATARS, avatarPath(userId), file, contentType, true);
+
+  const { url } = storageService.getPublicUrl(STORAGE_BUCKET.AVATARS, avatarPath(userId));
+
+  await usersRepository.updateAvatarUrl(userId, url);
+
+  return url;
+}
+
+async function removeAvatar(userId: string): Promise<void> {
+  const user = await usersRepository.findById(userId);
+  if (!user) {
+    throw new NotFoundError('User not found');
+  }
+
+  await storageService.delete(STORAGE_BUCKET.AVATARS, avatarPath(userId));
+  await usersRepository.updateAvatarUrl(userId, null);
 }
 
 async function assignRole(
@@ -130,6 +163,8 @@ export const usersService = {
   list,
   findById,
   update,
+  uploadAvatar,
+  removeAvatar,
   assignRole,
   revokeRole,
   resolvePermissionsForUser,

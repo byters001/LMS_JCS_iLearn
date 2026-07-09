@@ -159,3 +159,34 @@ export async function judge0Post<T>(
 ): Promise<T> {
   return judge0Request<T>({ method: 'POST', path, body, query });
 }
+
+const HEALTH_CHECK_TIMEOUT_MS = 2000;
+
+// For plugins/health.plugin.ts's GET /readyz. Deliberately bypasses
+// judge0Request/withResilience/withTimeout entirely — a readiness probe
+// needs to be fast and cheap (orchestrators expect a quick yes/no, not a
+// check that can take up to ~15s across 3 retried, backed-off attempts).
+// This is a single fetch with its own short timeout, no retry, and no
+// interaction with the circuit breaker state above: a failed health check
+// shouldn't itself count as a "consecutive failure" that trips the breaker
+// protecting real submission traffic, and an already-open breaker shouldn't
+// make readiness reporting slower than it needs to be either.
+export async function checkJudge0Reachable(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+
+  try {
+    const url = new URL('/languages', env.JUDGE0_BASE_URL);
+    const headers: Record<string, string> = {};
+    if (env.JUDGE0_API_KEY) {
+      headers['X-Auth-Token'] = env.JUDGE0_API_KEY;
+    }
+
+    const response = await fetch(url, { headers, signal: controller.signal });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}

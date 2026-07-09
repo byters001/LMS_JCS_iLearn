@@ -73,6 +73,16 @@ async function update(id: string, data: UpdateUserData): Promise<User | undefine
   return updated;
 }
 
+// Deliberately separate from update(): that one is driven by a validated
+// PATCH body (UpdateUserData is fullName/isActive only, by design — see the
+// comment above it). avatar_url has a different provenance entirely — it's
+// derived server-side from a successful storage upload, never user-supplied
+// JSON — so it gets its own narrow, single-purpose write path instead of
+// being folded into the general-purpose update().
+async function updateAvatarUrl(userId: string, avatarUrl: string | null): Promise<void> {
+  await db.update(users).set({ avatarUrl }).where(eq(users.id, userId));
+}
+
 export interface AssignRoleData {
   userId: string;
   roleId: string;
@@ -146,6 +156,7 @@ export const usersRepository = {
   list,
   findById,
   update,
+  updateAvatarUrl,
   roleExists,
   assignRole,
   revokeRole,

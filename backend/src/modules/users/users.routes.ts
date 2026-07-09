@@ -76,6 +76,32 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     usersController.update,
   );
 
+  // requirePermission('users.update') here is only the baseline gate (same
+  // permission as PATCH /users/:id above). usersController.uploadAvatar /
+  // removeAvatar additionally check, per-request, whether the target :id is
+  // the caller's own (always allowed) or requires 'users.manage_roles' as
+  // the elevated/admin-scope override (see assertCanManageAvatar in
+  // users.controller.ts) — that finer-grained check can't be expressed by
+  // requirePermission() alone, which only supports one unconditionally
+  // required permission.
+  fastify.post<{ Params: UserIdParams }>(
+    '/users/:id/avatar',
+    {
+      preHandler: [fastify.authenticate, requirePermission('users.update')],
+      preValidation: validateParams(userIdParamsSchema),
+    },
+    usersController.uploadAvatar,
+  );
+
+  fastify.delete<{ Params: UserIdParams }>(
+    '/users/:id/avatar',
+    {
+      preHandler: [fastify.authenticate, requirePermission('users.update')],
+      preValidation: validateParams(userIdParamsSchema),
+    },
+    usersController.removeAvatar,
+  );
+
   fastify.post<{ Params: UserIdParams; Body: AssignRoleInput }>(
     '/users/:id/roles',
     {
