@@ -12,15 +12,19 @@ const paginationFields = {
 // still works as a plain SET (nothing to bump), delete is hard (see
 // question-bank.repository.ts).
 
-export const listQuestionCategoriesQuerySchema = z.object({
-  parentCategoryId: z.string().uuid('parentCategoryId must be a valid UUID').optional(),
-  ...paginationFields,
-});
+export const listQuestionCategoriesQuerySchema = z
+  .object({
+    parentCategoryId: z.string().uuid('parentCategoryId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createQuestionCategorySchema = z.object({
-  name: z.string().min(1, 'name is required'),
-  parentCategoryId: z.string().uuid('parentCategoryId must be a valid UUID').optional(),
-});
+export const createQuestionCategorySchema = z
+  .object({
+    name: z.string().min(1, 'name is required'),
+    parentCategoryId: z.string().uuid('parentCategoryId must be a valid UUID').optional(),
+  })
+  .strict();
 
 export const updateQuestionCategorySchema = z
   .object({
@@ -31,58 +35,76 @@ export const updateQuestionCategorySchema = z
       .nullable()
       .optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const questionCategoryIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const questionCategoryIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Question topics ---
 
-export const listQuestionTopicsQuerySchema = z.object({
-  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
-  ...paginationFields,
-});
+export const listQuestionTopicsQuerySchema = z
+  .object({
+    categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createQuestionTopicSchema = z.object({
-  name: z.string().min(1, 'name is required'),
-  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
-});
+export const createQuestionTopicSchema = z
+  .object({
+    name: z.string().min(1, 'name is required'),
+    categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+  })
+  .strict();
 
 export const updateQuestionTopicSchema = z
   .object({
     name: z.string().min(1).optional(),
     categoryId: z.string().uuid('categoryId must be a valid UUID').nullable().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const questionTopicIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const questionTopicIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Question tags ---
 // question_tags is the most minimal table in this schema — just id + a
 // unique name, no created_at even.
 
-export const listQuestionTagsQuerySchema = z.object({
-  ...paginationFields,
-});
+export const listQuestionTagsQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
 
-export const createQuestionTagSchema = z.object({
-  name: z.string().min(1, 'name is required'),
-});
+export const createQuestionTagSchema = z
+  .object({
+    name: z.string().min(1, 'name is required'),
+  })
+  .strict();
 
-export const updateQuestionTagSchema = z.object({
-  name: z.string().min(1, 'name is required'),
-});
+export const updateQuestionTagSchema = z
+  .object({
+    name: z.string().min(1, 'name is required'),
+  })
+  .strict();
 
-export const questionTagIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const questionTagIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Questions / question_versions (the versioned entity) ---
 //
@@ -95,18 +117,22 @@ export const questionTagIdParamsSchema = z.object({
 // question_tag_map similarly have no dedicated routes; topicIds/tagIds are
 // only settable at question-creation time in this phase.
 
-const questionOptionInputSchema = z.object({
-  optionText: z.string().min(1, 'optionText is required'),
-  imageUrl: z.string().url('imageUrl must be a valid URL').optional(),
-  isCorrect: z.boolean().optional().default(false),
-  sortOrder: z.coerce.number().int().optional().default(0),
-});
+const questionOptionInputSchema = z
+  .object({
+    optionText: z.string().min(1, 'optionText is required'),
+    imageUrl: z.string().url('imageUrl must be a valid URL').optional(),
+    isCorrect: z.boolean().optional().default(false),
+    sortOrder: z.coerce.number().int().optional().default(0),
+  })
+  .strict();
 
-const questionImageInputSchema = z.object({
-  imageUrl: z.string().url('imageUrl must be a valid URL'),
-  caption: z.string().min(1).optional(),
-  sortOrder: z.coerce.number().int().optional().default(0),
-});
+const questionImageInputSchema = z
+  .object({
+    imageUrl: z.string().url('imageUrl must be a valid URL'),
+    caption: z.string().min(1).optional(),
+    sortOrder: z.coerce.number().int().optional().default(0),
+  })
+  .strict();
 
 // --- Type-specific detail payloads (Part 2) ---
 //
@@ -122,47 +148,57 @@ const questionImageInputSchema = z.object({
 const JUDGE0_LANGUAGE_KEYS = Object.keys(JUDGE0_LANGUAGE_ID) as [string, ...string[]];
 const codingLanguageSchema = z.enum(JUDGE0_LANGUAGE_KEYS);
 
-const codingQuestionDetailsInputSchema = z.object({
-  problemStatement: z.string().min(1, 'problemStatement is required'),
-  inputFormat: z.string().min(1).optional(),
-  outputFormat: z.string().min(1).optional(),
-  constraints: z.string().min(1).optional(),
-  timeLimitMs: z.coerce.number().int().positive().optional(),
-  memoryLimitKb: z.coerce.number().int().positive().optional(),
-  supportedLanguages: z.array(codingLanguageSchema).optional(),
-});
+const codingQuestionDetailsInputSchema = z
+  .object({
+    problemStatement: z.string().min(1, 'problemStatement is required'),
+    inputFormat: z.string().min(1).optional(),
+    outputFormat: z.string().min(1).optional(),
+    constraints: z.string().min(1).optional(),
+    timeLimitMs: z.coerce.number().int().positive().optional(),
+    memoryLimitKb: z.coerce.number().int().positive().optional(),
+    supportedLanguages: z.array(codingLanguageSchema).optional(),
+  })
+  .strict();
 
-const codingTestCaseInputSchema = z.object({
-  input: z.string().optional(),
-  expectedOutput: z.string().optional(),
-  isHidden: z.boolean().optional().default(true),
-  points: z.coerce.number().positive().optional(),
-  sortOrder: z.coerce.number().int().optional().default(0),
-});
+const codingTestCaseInputSchema = z
+  .object({
+    input: z.string().optional(),
+    expectedOutput: z.string().optional(),
+    isHidden: z.boolean().optional().default(true),
+    points: z.coerce.number().positive().optional(),
+    sortOrder: z.coerce.number().int().optional().default(0),
+  })
+  .strict();
 
 // scale_type is plain TEXT with a default in schema.sql — only a code
 // comment documents 'likert'/'scenario' as the intended values, no CREATE
 // TYPE enum backs it at the DB level. Enforced here anyway as defensive
 // input validation; the DB itself would accept any string.
-const psychometricDetailsInputSchema = z.object({
-  traitCategory: z.string().min(1).optional(),
-  scaleType: z.enum(['likert', 'scenario']).optional(),
-});
+const psychometricDetailsInputSchema = z
+  .object({
+    traitCategory: z.string().min(1).optional(),
+    scaleType: z.enum(['likert', 'scenario']).optional(),
+  })
+  .strict();
 
-const psychometricOptionInputSchema = z.object({
-  optionText: z.string().min(1, 'optionText is required'),
-  traitWeight: z.coerce.number().optional(),
-  sortOrder: z.coerce.number().int().optional().default(0),
-});
+const psychometricOptionInputSchema = z
+  .object({
+    optionText: z.string().min(1, 'optionText is required'),
+    traitWeight: z.coerce.number().optional(),
+    sortOrder: z.coerce.number().int().optional().default(0),
+  })
+  .strict();
 
-export const listQuestionsQuerySchema = z.object({
-  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
-  type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
-  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  status: z.enum(['draft', 'pending_review', 'approved', 'rejected', 'archived']).optional(),
-  ...paginationFields,
-});
+export const listQuestionsQuerySchema = z
+  .object({
+    categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
+    difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    status: z.enum(['draft', 'pending_review', 'approved', 'rejected', 'archived']).optional(),
+    ...paginationFields,
+  })
+  .strict();
 
 // categoryId/collegeId omitted (not required) => global/uncategorized;
 // college_id NULL means the global bank per schema.sql's design.
@@ -176,22 +212,24 @@ export const listQuestionsQuerySchema = z.object({
 // psychometricDetails payload, etc.) enforced at the service layer, since
 // nothing here can see the sibling `type` field mid-parse for a
 // cross-field check this codebase's Zod schemas don't otherwise use.
-export const createQuestionSchema = z.object({
-  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
-  type: z.enum(['mcq', 'coding', 'psychometric']),
-  difficulty: z.enum(['easy', 'medium', 'hard']),
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  questionText: z.string().min(1, 'questionText is required'),
-  marks: z.coerce.number().positive().optional(),
-  options: z.array(questionOptionInputSchema).optional(),
-  images: z.array(questionImageInputSchema).optional(),
-  codingDetails: codingQuestionDetailsInputSchema.optional(),
-  testCases: z.array(codingTestCaseInputSchema).optional(),
-  psychometricDetails: psychometricDetailsInputSchema.optional(),
-  psychometricOptions: z.array(psychometricOptionInputSchema).optional(),
-  topicIds: z.array(z.string().uuid('topicIds entries must be valid UUIDs')).optional(),
-  tagIds: z.array(z.string().uuid('tagIds entries must be valid UUIDs')).optional(),
-});
+export const createQuestionSchema = z
+  .object({
+    categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    type: z.enum(['mcq', 'coding', 'psychometric']),
+    difficulty: z.enum(['easy', 'medium', 'hard']),
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    questionText: z.string().min(1, 'questionText is required'),
+    marks: z.coerce.number().positive().optional(),
+    options: z.array(questionOptionInputSchema).optional(),
+    images: z.array(questionImageInputSchema).optional(),
+    codingDetails: codingQuestionDetailsInputSchema.optional(),
+    testCases: z.array(codingTestCaseInputSchema).optional(),
+    psychometricDetails: psychometricDetailsInputSchema.optional(),
+    psychometricOptions: z.array(psychometricOptionInputSchema).optional(),
+    topicIds: z.array(z.string().uuid('topicIds entries must be valid UUIDs')).optional(),
+    tagIds: z.array(z.string().uuid('tagIds entries must be valid UUIDs')).optional(),
+  })
+  .strict();
 
 // Deliberately excludes questionText/marks/options/images (that's
 // createQuestionVersion's job — content is never edited in place, see
@@ -203,31 +241,38 @@ export const updateQuestionSchema = z
     difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
     collegeId: z.string().uuid('collegeId must be a valid UUID').nullable().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const questionIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const questionIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Question versions ---
 
-export const createQuestionVersionSchema = z.object({
-  questionText: z.string().min(1, 'questionText is required'),
-  marks: z.coerce.number().positive().optional(),
-  options: z.array(questionOptionInputSchema).optional(),
-  images: z.array(questionImageInputSchema).optional(),
-  codingDetails: codingQuestionDetailsInputSchema.optional(),
-  testCases: z.array(codingTestCaseInputSchema).optional(),
-  psychometricDetails: psychometricDetailsInputSchema.optional(),
-  psychometricOptions: z.array(psychometricOptionInputSchema).optional(),
-});
+export const createQuestionVersionSchema = z
+  .object({
+    questionText: z.string().min(1, 'questionText is required'),
+    marks: z.coerce.number().positive().optional(),
+    options: z.array(questionOptionInputSchema).optional(),
+    images: z.array(questionImageInputSchema).optional(),
+    codingDetails: codingQuestionDetailsInputSchema.optional(),
+    testCases: z.array(codingTestCaseInputSchema).optional(),
+    psychometricDetails: psychometricDetailsInputSchema.optional(),
+    psychometricOptions: z.array(psychometricOptionInputSchema).optional(),
+  })
+  .strict();
 
-export const questionVersionIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  versionId: z.string().uuid('versionId must be a valid UUID'),
-});
+export const questionVersionIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    versionId: z.string().uuid('versionId must be a valid UUID'),
+  })
+  .strict();
 
 // --- Coding question details (dedicated post-creation CRUD) ---
 
@@ -243,6 +288,7 @@ export const updateCodingQuestionDetailsSchema = z
     memoryLimitKb: z.coerce.number().int().positive().optional(),
     supportedLanguages: z.array(codingLanguageSchema).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
@@ -259,15 +305,18 @@ export const updateCodingTestCaseSchema = z
     points: z.coerce.number().positive().optional(),
     sortOrder: z.coerce.number().int().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const codingTestCaseIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  versionId: z.string().uuid('versionId must be a valid UUID'),
-  testCaseId: z.string().uuid('testCaseId must be a valid UUID'),
-});
+export const codingTestCaseIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    versionId: z.string().uuid('versionId must be a valid UUID'),
+    testCaseId: z.string().uuid('testCaseId must be a valid UUID'),
+  })
+  .strict();
 
 // --- Psychometric details (dedicated post-creation CRUD) ---
 
@@ -278,6 +327,7 @@ export const updatePsychometricDetailsSchema = z
     traitCategory: z.string().min(1).nullable().optional(),
     scaleType: z.enum(['likert', 'scenario']).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
@@ -292,15 +342,18 @@ export const updatePsychometricOptionSchema = z
     traitWeight: z.coerce.number().optional(),
     sortOrder: z.coerce.number().int().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const psychometricOptionIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  versionId: z.string().uuid('versionId must be a valid UUID'),
-  optionId: z.string().uuid('optionId must be a valid UUID'),
-});
+export const psychometricOptionIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    versionId: z.string().uuid('versionId must be a valid UUID'),
+    optionId: z.string().uuid('optionId must be a valid UUID'),
+  })
+  .strict();
 
 export type ListQuestionCategoriesQuery = z.infer<typeof listQuestionCategoriesQuerySchema>;
 export type CreateQuestionCategoryInput = z.infer<typeof createQuestionCategorySchema>;
@@ -345,13 +398,17 @@ export type PsychometricOptionIdParams = z.infer<typeof psychometricOptionIdPara
 // question_approval_history row, never required since a self-explanatory
 // approval shouldn't be blocked on writing a comment.
 
-export const approvalActionSchema = z.object({
-  notes: z.string().min(1).optional(),
-});
+export const approvalActionSchema = z
+  .object({
+    notes: z.string().min(1).optional(),
+  })
+  .strict();
 
-export const listQuestionApprovalHistoryQuerySchema = z.object({
-  ...paginationFields,
-});
+export const listQuestionApprovalHistoryQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
 
 export type ApprovalActionInput = z.infer<typeof approvalActionSchema>;
 export type ListQuestionApprovalHistoryQuery = z.infer<
@@ -360,22 +417,26 @@ export type ListQuestionApprovalHistoryQuery = z.infer<
 
 // --- Question pools (Part 3) ---
 
-export const listQuestionPoolsQuerySchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
-  type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
-  ...paginationFields,
-});
+export const listQuestionPoolsQuerySchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createQuestionPoolSchema = z.object({
-  name: z.string().min(1, 'name is required'),
-  description: z.string().min(1).optional(),
-  // Omitted => global reusable pool, matching questions.collegeId's own
-  // "NULL = global bank" convention (see db/schema/question-bank.schema.ts).
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
-  type: z.enum(['mcq', 'coding', 'psychometric']),
-});
+export const createQuestionPoolSchema = z
+  .object({
+    name: z.string().min(1, 'name is required'),
+    description: z.string().min(1).optional(),
+    // Omitted => global reusable pool, matching questions.collegeId's own
+    // "NULL = global bank" convention (see db/schema/question-bank.schema.ts).
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    type: z.enum(['mcq', 'coding', 'psychometric']),
+  })
+  .strict();
 
 export const updateQuestionPoolSchema = z
   .object({
@@ -388,25 +449,30 @@ export const updateQuestionPoolSchema = z
     // those rows' intent; not part of the update surface, same call as
     // updateQuestionSchema excluding `type` for the same reason.
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const questionPoolIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const questionPoolIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Question pool criteria (Part 3) ---
 // tagFilter is modeled as an array of question_tags.id UUIDs — ANY-match
 // semantics (a question qualifies if it has at least one listed tag), see
 // question-bank.service.ts's resolvePoolCriterion.
 
-export const createQuestionPoolCriteriaSchema = z.object({
-  difficulty: z.enum(['easy', 'medium', 'hard']),
-  topicId: z.string().uuid('topicId must be a valid UUID').optional(),
-  tagFilter: z.array(z.string().uuid('tagFilter entries must be valid UUIDs')).optional(),
-  countRequired: z.coerce.number().int().positive().optional().default(1),
-});
+export const createQuestionPoolCriteriaSchema = z
+  .object({
+    difficulty: z.enum(['easy', 'medium', 'hard']),
+    topicId: z.string().uuid('topicId must be a valid UUID').optional(),
+    tagFilter: z.array(z.string().uuid('tagFilter entries must be valid UUIDs')).optional(),
+    countRequired: z.coerce.number().int().positive().optional().default(1),
+  })
+  .strict();
 
 export const updateQuestionPoolCriteriaSchema = z
   .object({
@@ -418,14 +484,17 @@ export const updateQuestionPoolCriteriaSchema = z
       .optional(),
     countRequired: z.coerce.number().int().positive().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const questionPoolCriteriaIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  criteriaId: z.string().uuid('criteriaId must be a valid UUID'),
-});
+export const questionPoolCriteriaIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    criteriaId: z.string().uuid('criteriaId must be a valid UUID'),
+  })
+  .strict();
 
 export type ListQuestionPoolsQuery = z.infer<typeof listQuestionPoolsQuerySchema>;
 export type CreateQuestionPoolInput = z.infer<typeof createQuestionPoolSchema>;

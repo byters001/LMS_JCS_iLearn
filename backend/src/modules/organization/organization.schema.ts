@@ -12,18 +12,20 @@ const paginationFields = {
 
 // --- Colleges ---
 
-export const listCollegesQuerySchema = z.object(paginationFields);
+export const listCollegesQuerySchema = z.object(paginationFields).strict();
 
-export const createCollegeSchema = z.object({
-  name: z.string().min(1, 'name is required'),
-  code: z.string().min(1, 'code is required'),
-  logoUrl: z.string().url('logoUrl must be a valid URL').optional(),
-  address: z.string().min(1).optional(),
-  contactEmail: z.string().email('contactEmail must be a valid email').optional(),
-  contactPhone: z.string().min(1).optional(),
-  contractStartDate: dateString('contractStartDate').optional(),
-  contractEndDate: dateString('contractEndDate').optional(),
-});
+export const createCollegeSchema = z
+  .object({
+    name: z.string().min(1, 'name is required'),
+    code: z.string().min(1, 'code is required'),
+    logoUrl: z.string().url('logoUrl must be a valid URL').optional(),
+    address: z.string().min(1).optional(),
+    contactEmail: z.string().email('contactEmail must be a valid email').optional(),
+    contactPhone: z.string().min(1).optional(),
+    contractStartDate: dateString('contractStartDate').optional(),
+    contractEndDate: dateString('contractEndDate').optional(),
+  })
+  .strict();
 
 export const updateCollegeSchema = z
   .object({
@@ -37,53 +39,67 @@ export const updateCollegeSchema = z
     contractEndDate: dateString('contractEndDate').optional(),
     status: z.enum(['active', 'expired', 'archived']).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const collegeIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const collegeIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Departments ---
 
-export const listDepartmentsQuerySchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  ...paginationFields,
-});
+export const listDepartmentsQuerySchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createDepartmentSchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID'),
-  name: z.string().min(1, 'name is required'),
-  code: z.string().min(1).optional(),
-});
+export const createDepartmentSchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID'),
+    name: z.string().min(1, 'name is required'),
+    code: z.string().min(1).optional(),
+  })
+  .strict();
 
 export const updateDepartmentSchema = z
   .object({
     name: z.string().min(1).optional(),
     code: z.string().min(1).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const departmentIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const departmentIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Academic years ---
 
-export const listAcademicYearsQuerySchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  ...paginationFields,
-});
+export const listAcademicYearsQuerySchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createAcademicYearSchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID'),
-  yearLabel: z.string().min(1, 'yearLabel is required'),
-  startDate: dateString('startDate').optional(),
-  endDate: dateString('endDate').optional(),
-});
+export const createAcademicYearSchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID'),
+    yearLabel: z.string().min(1, 'yearLabel is required'),
+    startDate: dateString('startDate').optional(),
+    endDate: dateString('endDate').optional(),
+  })
+  .strict();
 
 export const updateAcademicYearSchema = z
   .object({
@@ -91,13 +107,16 @@ export const updateAcademicYearSchema = z
     startDate: dateString('startDate').optional(),
     endDate: dateString('endDate').optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const academicYearIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const academicYearIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 export type ListCollegesQuery = z.infer<typeof listCollegesQuerySchema>;
 export type CreateCollegeInput = z.infer<typeof createCollegeSchema>;
@@ -116,21 +135,25 @@ export type AcademicYearIdParams = z.infer<typeof academicYearIdParamsSchema>;
 
 // --- Training programs ---
 
-export const listTrainingProgramsQuerySchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
-  departmentId: z.string().uuid('departmentId must be a valid UUID').optional(),
-  ...paginationFields,
-});
+export const listTrainingProgramsQuerySchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    departmentId: z.string().uuid('departmentId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createTrainingProgramSchema = z.object({
-  collegeId: z.string().uuid('collegeId must be a valid UUID'),
-  departmentId: z.string().uuid('departmentId must be a valid UUID'),
-  academicYearId: z.string().uuid('academicYearId must be a valid UUID').optional(),
-  name: z.string().min(1, 'name is required'),
-  description: z.string().min(1).optional(),
-  startDate: dateString('startDate').optional(),
-  endDate: dateString('endDate').optional(),
-});
+export const createTrainingProgramSchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID'),
+    departmentId: z.string().uuid('departmentId must be a valid UUID'),
+    academicYearId: z.string().uuid('academicYearId must be a valid UUID').optional(),
+    name: z.string().min(1, 'name is required'),
+    description: z.string().min(1).optional(),
+    startDate: dateString('startDate').optional(),
+    endDate: dateString('endDate').optional(),
+  })
+  .strict();
 
 export const updateTrainingProgramSchema = z
   .object({
@@ -140,42 +163,55 @@ export const updateTrainingProgramSchema = z
     endDate: dateString('endDate').optional(),
     status: z.enum(['planned', 'ongoing', 'completed', 'archived']).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const trainingProgramIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const trainingProgramIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Training program trainers ---
 
-export const listTrainingProgramTrainersQuerySchema = z.object({
-  ...paginationFields,
-});
+export const listTrainingProgramTrainersQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
 
-export const assignTrainingProgramTrainerSchema = z.object({
-  trainerId: z.string().uuid('trainerId must be a valid UUID'),
-  roleInProgram: z.enum(['lead', 'co_trainer']).optional(),
-});
+export const assignTrainingProgramTrainerSchema = z
+  .object({
+    trainerId: z.string().uuid('trainerId must be a valid UUID'),
+    roleInProgram: z.enum(['lead', 'co_trainer']).optional(),
+  })
+  .strict();
 
-export const trainingProgramTrainerParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  trainerId: z.string().uuid('trainerId must be a valid UUID'),
-});
+export const trainingProgramTrainerParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    trainerId: z.string().uuid('trainerId must be a valid UUID'),
+  })
+  .strict();
 
 // --- Batches ---
 
-export const listBatchesQuerySchema = z.object({
-  trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID').optional(),
-  ...paginationFields,
-});
+export const listBatchesQuerySchema = z
+  .object({
+    trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
 
-export const createBatchSchema = z.object({
-  trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID'),
-  name: z.string().min(1, 'name is required'),
-  maxStudents: z.coerce.number().int().positive().optional(),
-});
+export const createBatchSchema = z
+  .object({
+    trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID'),
+    name: z.string().min(1, 'name is required'),
+    maxStudents: z.coerce.number().int().positive().optional(),
+  })
+  .strict();
 
 export const updateBatchSchema = z
   .object({
@@ -183,13 +219,16 @@ export const updateBatchSchema = z
     maxStudents: z.coerce.number().int().positive().optional(),
     status: z.enum(['active', 'completed', 'archived']).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const batchIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const batchIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 export type ListTrainingProgramsQuery = z.infer<typeof listTrainingProgramsQuerySchema>;
 export type CreateTrainingProgramInput = z.infer<typeof createTrainingProgramSchema>;

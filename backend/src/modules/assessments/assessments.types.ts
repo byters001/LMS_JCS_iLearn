@@ -60,4 +60,23 @@ export interface ResolvedSectionQuestions {
   poolResolutions?: ResolvedQuestionPool[];
 }
 
+// A section as returned by GET /assessments/:id/full — the section's own
+// fields (spread) plus whatever resolveSectionQuestions already produces for
+// it, renamed questions -> resolvedQuestions at this composed level to read
+// unambiguously next to the section's own fields. poolResolutions is only
+// present for 'pool' sections, same optionality as ResolvedSectionQuestions.
+export interface AssessmentSectionWithResolvedQuestions extends AssessmentSection {
+  resolvedQuestions: ResolvedAssessmentQuestion[];
+  poolResolutions?: ResolvedQuestionPool[];
+}
+
+// GET /assessments/:id/full's response shape: the assessment (with
+// batchIds, same as GET /assessments/:id) plus every section in order, each
+// carrying its resolved questions. Pure composition of
+// findAssessmentWithBatches + listAssessmentSections + resolveSectionQuestions
+// — no new query.
+export interface FullAssessment extends AssessmentWithBatches {
+  sections: AssessmentSectionWithResolvedQuestions[];
+}
+
 export type { AssessmentQuestion, AssessmentSection, AssessmentSectionPool };

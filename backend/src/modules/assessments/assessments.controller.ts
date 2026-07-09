@@ -90,6 +90,18 @@ async function listAssessmentBatches(
   reply.status(200).send(response);
 }
 
+// Composed read: the assessment (with batchIds) plus every section, each
+// carrying its resolvedQuestions — see assessments.service.ts's
+// findFullAssessment.
+async function getFullAssessment(
+  request: FastifyRequest<{ Params: AssessmentIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const assessment = await assessmentsService.findFullAssessment(request.params.id);
+  const response: ApiSuccessResponse<typeof assessment> = { success: true, data: assessment };
+  reply.status(200).send(response);
+}
+
 // --- Assessment sections ---
 
 async function listAssessmentSections(
@@ -359,6 +371,7 @@ export const assessmentsController = {
   updateAssessment,
   deleteAssessment,
   listAssessmentBatches,
+  getFullAssessment,
   listAssessmentSections,
   getAssessmentSectionById,
   createAssessmentSection,

@@ -8,36 +8,40 @@ const paginationFields = {
 
 // --- Assessments ---
 
-export const listAssessmentsQuerySchema = z.object({
-  trainingSessionId: z.string().uuid('trainingSessionId must be a valid UUID').optional(),
-  status: z
-    .enum(['draft', 'review', 'approved', 'scheduled', 'live', 'completed', 'archived'])
-    .optional(),
-  testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']).optional(),
-  ...paginationFields,
-});
+export const listAssessmentsQuerySchema = z
+  .object({
+    trainingSessionId: z.string().uuid('trainingSessionId must be a valid UUID').optional(),
+    status: z
+      .enum(['draft', 'review', 'approved', 'scheduled', 'live', 'completed', 'archived'])
+      .optional(),
+    testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']).optional(),
+    ...paginationFields,
+  })
+  .strict();
 
 // batchIds here drives assessment_batches rows created atomically alongside
 // the assessment — see assessments.service.ts's module comment for why
 // this isn't a separate top-level CRUD resource.
-export const createAssessmentSchema = z.object({
-  trainingSessionId: z.string().uuid('trainingSessionId must be a valid UUID'),
-  title: z.string().min(1, 'title is required'),
-  description: z.string().min(1).optional(),
-  testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']),
-  timerMinutes: z.coerce.number().int().positive().optional(),
-  startAt: z.coerce.date().optional(),
-  endAt: z.coerce.date().optional(),
-  maxAttempts: z.coerce.number().int().positive().optional().default(1),
-  shuffleQuestions: z.boolean().optional().default(false),
-  randomQuestionCount: z.coerce.number().int().positive().optional(),
-  negativeMarking: z.boolean().optional().default(false),
-  negativeMarkingValue: z.coerce.number().min(0).optional(),
-  proctoringCameraRequired: z.boolean().optional().default(false),
-  proctoringFullscreenRequired: z.boolean().optional().default(false),
-  isPractice: z.boolean().optional().default(false),
-  batchIds: z.array(z.string().uuid('batchIds entries must be valid UUIDs')).optional(),
-});
+export const createAssessmentSchema = z
+  .object({
+    trainingSessionId: z.string().uuid('trainingSessionId must be a valid UUID'),
+    title: z.string().min(1, 'title is required'),
+    description: z.string().min(1).optional(),
+    testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']),
+    timerMinutes: z.coerce.number().int().positive().optional(),
+    startAt: z.coerce.date().optional(),
+    endAt: z.coerce.date().optional(),
+    maxAttempts: z.coerce.number().int().positive().optional().default(1),
+    shuffleQuestions: z.boolean().optional().default(false),
+    randomQuestionCount: z.coerce.number().int().positive().optional(),
+    negativeMarking: z.boolean().optional().default(false),
+    negativeMarkingValue: z.coerce.number().min(0).optional(),
+    proctoringCameraRequired: z.boolean().optional().default(false),
+    proctoringFullscreenRequired: z.boolean().optional().default(false),
+    isPractice: z.boolean().optional().default(false),
+    batchIds: z.array(z.string().uuid('batchIds entries must be valid UUIDs')).optional(),
+  })
+  .strict();
 
 // trainingSessionId and testCategory deliberately excluded — same call as
 // question-bank's updateQuestionPoolSchema excluding `type`: sections/
@@ -66,27 +70,32 @@ export const updateAssessmentSchema = z
     isPractice: z.boolean().optional(),
     batchIds: z.array(z.string().uuid('batchIds entries must be valid UUIDs')).optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const assessmentIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-});
+export const assessmentIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
 
 // --- Assessment sections ---
 
-export const createAssessmentSectionSchema = z.object({
-  title: z.string().min(1, 'title is required'),
-  instructions: z.string().min(1).optional(),
-  sectionOrder: z.coerce.number().int().optional().default(0),
-  timerMinutes: z.coerce.number().int().positive().optional(),
-  passingMarks: z.coerce.number().min(0).optional(),
-  negativeMarking: z.boolean().optional().default(false),
-  negativeMarkingValue: z.coerce.number().min(0).optional(),
-  shuffleQuestions: z.boolean().optional().default(false),
-  selectionMode: z.enum(['manual', 'pool']).optional().default('manual'),
-});
+export const createAssessmentSectionSchema = z
+  .object({
+    title: z.string().min(1, 'title is required'),
+    instructions: z.string().min(1).optional(),
+    sectionOrder: z.coerce.number().int().optional().default(0),
+    timerMinutes: z.coerce.number().int().positive().optional(),
+    passingMarks: z.coerce.number().min(0).optional(),
+    negativeMarking: z.boolean().optional().default(false),
+    negativeMarkingValue: z.coerce.number().min(0).optional(),
+    shuffleQuestions: z.boolean().optional().default(false),
+    selectionMode: z.enum(['manual', 'pool']).optional().default('manual'),
+  })
+  .strict();
 
 // selectionMode deliberately excluded from update — switching a section
 // between manual/pool after questions or pools are already attached to it
@@ -105,65 +114,81 @@ export const updateAssessmentSectionSchema = z
     negativeMarkingValue: z.coerce.number().min(0).nullable().optional(),
     shuffleQuestions: z.boolean().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const assessmentSectionIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  sectionId: z.string().uuid('sectionId must be a valid UUID'),
-});
+export const assessmentSectionIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    sectionId: z.string().uuid('sectionId must be a valid UUID'),
+  })
+  .strict();
 
 // --- Assessment questions (manual selection_mode) ---
 
-export const createAssessmentQuestionSchema = z.object({
-  questionVersionId: z.string().uuid('questionVersionId must be a valid UUID'),
-  marksOverride: z.coerce.number().positive().optional(),
-  sortOrder: z.coerce.number().int().optional().default(0),
-});
+export const createAssessmentQuestionSchema = z
+  .object({
+    questionVersionId: z.string().uuid('questionVersionId must be a valid UUID'),
+    marksOverride: z.coerce.number().positive().optional(),
+    sortOrder: z.coerce.number().int().optional().default(0),
+  })
+  .strict();
 
 export const updateAssessmentQuestionSchema = z
   .object({
     marksOverride: z.coerce.number().positive().nullable().optional(),
     sortOrder: z.coerce.number().int().optional(),
   })
+  .strict()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',
   });
 
-export const assessmentQuestionIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  sectionId: z.string().uuid('sectionId must be a valid UUID'),
-  questionId: z.string().uuid('questionId must be a valid UUID'),
-});
+export const assessmentQuestionIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    sectionId: z.string().uuid('sectionId must be a valid UUID'),
+    questionId: z.string().uuid('questionId must be a valid UUID'),
+  })
+  .strict();
 
 // --- Assessment section pools (pool selection_mode) ---
 // No update schema — a pure junction row (question_pool_id + parent), same
 // treatment as question-bank's question_topic_map/question_tag_map:
 // create/delete only.
 
-export const createAssessmentSectionPoolSchema = z.object({
-  questionPoolId: z.string().uuid('questionPoolId must be a valid UUID'),
-});
+export const createAssessmentSectionPoolSchema = z
+  .object({
+    questionPoolId: z.string().uuid('questionPoolId must be a valid UUID'),
+  })
+  .strict();
 
-export const assessmentSectionPoolIdParamsSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
-  sectionId: z.string().uuid('sectionId must be a valid UUID'),
-  poolId: z.string().uuid('poolId must be a valid UUID'),
-});
+export const assessmentSectionPoolIdParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    sectionId: z.string().uuid('sectionId must be a valid UUID'),
+    poolId: z.string().uuid('poolId must be a valid UUID'),
+  })
+  .strict();
 
 // --- Approval workflow ---
 // Same optional-notes shape as question-bank's approvalActionSchema — each
 // module defines its own copy rather than sharing one, matching how every
 // other Zod schema in this codebase is module-local, not cross-imported.
 
-export const assessmentApprovalActionSchema = z.object({
-  notes: z.string().min(1).optional(),
-});
+export const assessmentApprovalActionSchema = z
+  .object({
+    notes: z.string().min(1).optional(),
+  })
+  .strict();
 
-export const listAssessmentApprovalHistoryQuerySchema = z.object({
-  ...paginationFields,
-});
+export const listAssessmentApprovalHistoryQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
 
 export type ListAssessmentsQuery = z.infer<typeof listAssessmentsQuerySchema>;
 export type CreateAssessmentInput = z.infer<typeof createAssessmentSchema>;

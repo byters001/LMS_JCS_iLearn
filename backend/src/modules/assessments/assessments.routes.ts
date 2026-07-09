@@ -155,6 +155,21 @@ export async function assessmentsRoutes(fastify: FastifyInstance): Promise<void>
     assessmentsController.listAssessmentBatches,
   );
 
+  // Composed read: assessment + all sections + each section's resolved
+  // questions (manual join or live pool re-run), in one response. Pure
+  // composition of getAssessmentById + listAssessmentSections +
+  // resolveSectionQuestions — see assessments.service.ts's
+  // findFullAssessment. Gated the same as GET /assessments/:id
+  // (ASSESSMENTS_MANAGE), not a new permission key.
+  fastify.get<{ Params: AssessmentIdParams }>(
+    '/assessments/:id/full',
+    {
+      preHandler: [fastify.authenticate, ASSESSMENTS_MANAGE],
+      preValidation: validateParams(assessmentIdParamsSchema),
+    },
+    assessmentsController.getFullAssessment,
+  );
+
   // --- Assessment sections ---
   // No deleted_at on assessment_sections — hard delete, lifecycle tied to
   // the parent assessment's cascade (see db/schema/assessments.schema.ts).

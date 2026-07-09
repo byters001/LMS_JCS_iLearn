@@ -22,7 +22,9 @@ import type {
   UpdateAssessmentSectionInput,
 } from './assessments.schema';
 import type {
+  AssessmentSectionWithResolvedQuestions,
   AssessmentWithBatches,
+  FullAssessment,
   ListAssessmentsResult,
   ListQuestionApprovalHistoryResult,
   ResolvedAssessmentQuestion,
@@ -491,6 +493,27 @@ async function resolveSectionQuestions(
   return { section, questions, poolResolutions };
 }
 
+// --- Full fetch: assessment + sections + resolved questions in one call ---
+//
+// Pure composition — reuses findAssessmentWithBatches, listAssessmentSections,
+// and resolveSectionQuestions exactly as they already exist (same function
+// GET /sections/:sectionId/resolve calls, one section at a time). No new
+// query, no duplicated pool/manual branching logic.
+async function findFullAssessment(id: string): Promise<FullAssessment> {
+  const assessment = await findAssessmentWithBatches(id);
+  const sections = await listAssessmentSections(id);
+
+  const sectionsWithResolvedQuestions: AssessmentSectionWithResolvedQuestions[] =
+    await Promise.all(
+      sections.map(async (section) => {
+        const { questions, poolResolutions } = await resolveSectionQuestions(id, section.id);
+        return { ...section, resolvedQuestions: questions, poolResolutions };
+      }),
+    );
+
+  return { ...assessment, sections: sectionsWithResolvedQuestions };
+}
+
 // --- Approval workflow ---
 // Dedicated action endpoints (submit/approve/reject/schedule/publish), not
 // folded into updateAssessmentSchema — same call as question-bank Part 3's
@@ -651,6 +674,7 @@ export const assessmentsService = {
   createAssessmentSectionPool,
   deleteAssessmentSectionPool,
   resolveSectionQuestions,
+  findFullAssessment,
   submitAssessment,
   approveAssessment,
   rejectAssessment,
