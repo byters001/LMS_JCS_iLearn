@@ -13,6 +13,18 @@ import type {
   trainingSessionTrainers,
   trainingSessions,
 } from './schema/trainers.schema';
+import type { studentProfiles, trainingProgramStudents } from './schema/students.schema';
+import type {
+  questionCategories,
+  questionImages,
+  questionOptions,
+  questionTagMap,
+  questionTags,
+  questionTopicMap,
+  questionTopics,
+  questionVersions,
+  questions,
+} from './schema/question-bank.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -55,3 +67,36 @@ export type NewTrainingSession = InferInsertModel<typeof trainingSessions>;
 
 export type TrainingSessionTrainer = InferSelectModel<typeof trainingSessionTrainers>;
 export type NewTrainingSessionTrainer = InferInsertModel<typeof trainingSessionTrainers>;
+
+export type StudentProfile = InferSelectModel<typeof studentProfiles>;
+export type NewStudentProfile = InferInsertModel<typeof studentProfiles>;
+
+export type TrainingProgramStudent = InferSelectModel<typeof trainingProgramStudents>;
+export type NewTrainingProgramStudent = InferInsertModel<typeof trainingProgramStudents>;
+
+export type QuestionCategory = InferSelectModel<typeof questionCategories>;
+export type NewQuestionCategory = InferInsertModel<typeof questionCategories>;
+
+export type QuestionTopic = InferSelectModel<typeof questionTopics>;
+export type NewQuestionTopic = InferInsertModel<typeof questionTopics>;
+
+export type QuestionTag = InferSelectModel<typeof questionTags>;
+export type NewQuestionTag = InferInsertModel<typeof questionTags>;
+
+export type Question = InferSelectModel<typeof questions>;
+export type NewQuestion = InferInsertModel<typeof questions>;
+
+export type QuestionVersion = InferSelectModel<typeof questionVersions>;
+export type NewQuestionVersion = InferInsertModel<typeof questionVersions>;
+
+export type QuestionOption = InferSelectModel<typeof questionOptions>;
+export type NewQuestionOption = InferInsertModel<typeof questionOptions>;
+
+export type QuestionImage = InferSelectModel<typeof questionImages>;
+export type NewQuestionImage = InferInsertModel<typeof questionImages>;
+
+export type QuestionTopicMap = InferSelectModel<typeof questionTopicMap>;
+export type NewQuestionTopicMap = InferInsertModel<typeof questionTopicMap>;
+
+export type QuestionTagMap = InferSelectModel<typeof questionTagMap>;
+export type NewQuestionTagMap = InferInsertModel<typeof questionTagMap>;

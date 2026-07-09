@@ -29,6 +29,27 @@
       "when": 1783596617194,
       "tag": "0003_add-trainers-permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783603367614,
+      "tag": "0004_concerned_banshee",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783603388725,
+      "tag": "0005_add-students-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783605094332,
+      "tag": "0006_powerful_sersi",
+      "breakpoints": true
     }
   ]
 }

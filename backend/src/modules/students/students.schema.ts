@@ -1,2 +1,50 @@
-// Zod validation schemas for students module will go here
-export {};
+import { z } from 'zod';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../../config/constants';
+
+const paginationFields = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+};
+
+export const listStudentProfilesQuerySchema = z.object({
+  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+  departmentId: z.string().uuid('departmentId must be a valid UUID').optional(),
+  batchId: z.string().uuid('batchId must be a valid UUID').optional(),
+  // Default false: excludes archived students, matching the deletedAt
+  // IS NULL convention every other soft-delete-equivalent list endpoint
+  // follows. Gated behind the same 'students.view' permission as the rest
+  // of this endpoint — no separate key (see students.routes.ts).
+  includeArchived: z.coerce.boolean().optional().default(false),
+  ...paginationFields,
+});
+
+export const createStudentProfileSchema = z.object({
+  userId: z.string().uuid('userId must be a valid UUID'),
+  collegeId: z.string().uuid('collegeId must be a valid UUID'),
+  departmentId: z.string().uuid('departmentId must be a valid UUID').optional(),
+  rollNumber: z.string().min(1).optional(),
+  photoUrl: z.string().url('photoUrl must be a valid URL').optional(),
+  contactEmailAlt: z.string().email('contactEmailAlt must be a valid email').optional(),
+  contactPhone: z.string().min(1).optional(),
+});
+
+export const updateStudentProfileSchema = z
+  .object({
+    rollNumber: z.string().min(1).optional(),
+    photoUrl: z.string().url('photoUrl must be a valid URL').optional(),
+    contactEmailAlt: z.string().email('contactEmailAlt must be a valid email').optional(),
+    contactPhone: z.string().min(1).optional(),
+    status: z.enum(['active', 'archived']).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export const studentProfileIdParamsSchema = z.object({
+  id: z.string().uuid('id must be a valid UUID'),
+});
+
+export type ListStudentProfilesQuery = z.infer<typeof listStudentProfilesQuerySchema>;
+export type CreateStudentProfileInput = z.infer<typeof createStudentProfileSchema>;
+export type UpdateStudentProfileInput = z.infer<typeof updateStudentProfileSchema>;
+export type StudentProfileIdParams = z.infer<typeof studentProfileIdParamsSchema>;
