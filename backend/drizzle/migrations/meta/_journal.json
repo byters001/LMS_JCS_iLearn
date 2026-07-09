@@ -15,6 +15,20 @@
       "when": 1783582602678,
       "tag": "0001_absent_yellowjacket",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783596570713,
+      "tag": "0002_wise_slipstream",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783596617194,
+      "tag": "0003_add-trainers-permissions",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,11 @@ import type {
   trainingProgramTrainers,
   trainingPrograms,
 } from './schema/organization.schema';
+import type {
+  trainerProfiles,
+  trainingSessionTrainers,
+  trainingSessions,
+} from './schema/trainers.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -41,3 +46,12 @@ export type NewTrainingProgramTrainer = InferInsertModel<typeof trainingProgramT
 
 export type Batch = InferSelectModel<typeof batches>;
 export type NewBatch = InferInsertModel<typeof batches>;
+
+export type TrainerProfile = InferSelectModel<typeof trainerProfiles>;
+export type NewTrainerProfile = InferInsertModel<typeof trainerProfiles>;
+
+export type TrainingSession = InferSelectModel<typeof trainingSessions>;
+export type NewTrainingSession = InferInsertModel<typeof trainingSessions>;
+
+export type TrainingSessionTrainer = InferSelectModel<typeof trainingSessionTrainers>;
+export type NewTrainingSessionTrainer = InferInsertModel<typeof trainingSessionTrainers>;
