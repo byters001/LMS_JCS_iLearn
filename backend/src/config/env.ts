@@ -1,6 +1,15 @@
+import type { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
 
 const DURATION_PATTERN = /^\d+(s|m|h|d)$/;
+
+// jsonwebtoken's SignOptions.expiresIn is `ms`'s StringValue | number (a
+// template-literal type like '15m' | '7d', not a bare string). `ms` itself
+// is only a transitive dependency here (via jsonwebtoken), not hoisted into
+// this project's own node_modules under pnpm's strict layout, so it can't be
+// imported by name — derive the string-only half of the type structurally
+// from jsonwebtoken's own (directly-depended-on) types instead.
+type JwtExpiry = Exclude<NonNullable<SignOptions['expiresIn']>, number>;
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -26,10 +35,12 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   JWT_ACCESS_EXPIRY: z
     .string()
-    .regex(DURATION_PATTERN, 'JWT_ACCESS_EXPIRY must look like "15m", "1h", or "7d"'),
+    .regex(DURATION_PATTERN, 'JWT_ACCESS_EXPIRY must look like "15m", "1h", or "7d"')
+    .transform((value): JwtExpiry => value as JwtExpiry),
   JWT_REFRESH_EXPIRY: z
     .string()
-    .regex(DURATION_PATTERN, 'JWT_REFRESH_EXPIRY must look like "15m", "1h", or "7d"'),
+    .regex(DURATION_PATTERN, 'JWT_REFRESH_EXPIRY must look like "15m", "1h", or "7d"')
+    .transform((value): JwtExpiry => value as JwtExpiry),
 
   REDIS_URL: z
     .string()

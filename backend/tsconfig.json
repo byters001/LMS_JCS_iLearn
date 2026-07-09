@@ -1,3 +1,24 @@
 {
-  "//": "tsconfig will be configured in a later phase"
+  "compilerOptions": {
+    // Node 22 (see `node --version` in dev / no `engines` field pinning this
+    // in package.json) supports ES2022 fully; ES2023 lib adds Array
+    // findLast/toSorted etc. that V8 in Node 22 also supports.
+    "target": "ES2022",
+    "lib": ["ES2023"],
+
+    // No "type": "module" in package.json and every relative import across
+    // src/ is extensionless (e.g. `from './organization.schema'`, not
+    // `'./organization.schema.js'`) — that's classic CommonJS resolution,
+    // which is also what tsx actually runs this project as. NodeNext/Node16
+    // would require explicit extensions on relative imports and reject this
+    // codebase outright, so they'd fight the code as it's actually written.
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts"]
 }
