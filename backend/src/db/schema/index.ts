@@ -1,2 +1,2 @@
-// Schema barrel export will go here
-export {};
+export * from './identity.schema';
+export * from './organization.schema';

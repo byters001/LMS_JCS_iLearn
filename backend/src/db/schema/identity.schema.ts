@@ -9,6 +9,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { colleges } from './organization.schema';
 
 export const users = pgTable(
   'users',
@@ -74,11 +75,6 @@ export const rolePermissions = pgTable(
   }),
 );
 
-// NOTE: college_id references colleges(id) ON DELETE CASCADE in schema.sql, but
-// the organization module (colleges table) is out of scope for this phase.
-// The column is defined here without a FK constraint; wire up
-// `.references(() => colleges.id, { onDelete: 'cascade' })` once
-// organization.schema.ts exists.
 export const userRoles = pgTable(
   'user_roles',
   {
@@ -89,7 +85,11 @@ export const userRoles = pgTable(
     roleId: uuid('role_id')
       .notNull()
       .references(() => roles.id, { onDelete: 'cascade' }),
-    collegeId: uuid('college_id'),
+    // NULL = global (e.g. Super Admin), matching schema.sql's comment on
+    // this column. FK wired now that organization.schema.ts (colleges)
+    // exists — this was previously deferred, see the git history on this
+    // file for the old TODO.
+    collegeId: uuid('college_id').references(() => colleges.id, { onDelete: 'cascade' }),
     assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -2,6 +2,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
 import authRoutes from './modules/auth/auth.routes';
+import organizationRoutes from './modules/organization/organization.routes';
 import usersRoutes from './modules/users/users.routes';
 import authenticatePlugin from './plugins/authenticate.plugin';
 import corsHelmetPlugin from './plugins/cors-helmet.plugin';
@@ -84,18 +85,24 @@ export async function buildApp(): Promise<FastifyInstance> {
   // their decorators/hooks (fastify.authenticate, the onRequest hook, the
   // error handler) down into this prefixed child context regardless.
   //
-  // Of CLAUDE.md's 13 modules, only 2 — auth, users — currently export a
-  // registrable route plugin. The remaining 11 are still stub files
-  // (`export {};`, nothing to import):
-  //   organization, students, trainers, question-bank, assessments,
-  //   coding, attempts, reports, analytics, notifications, settings
+  // Of CLAUDE.md's 13 modules, only 3 — auth, users, organization —
+  // currently export a registrable route plugin. The remaining 10 are still
+  // stub files (`export {};`, nothing to import):
+  //   students, trainers, question-bank, assessments, coding, attempts,
+  //   reports, analytics, notifications, settings
   // Importing/registering any of those today would either fail to compile
   // (nothing named to import) or register `undefined` as a plugin at
   // runtime. Each needs exactly one line added here —
   // `await app.register(xRoutes, { prefix: API_PREFIX });` — once its
   // routes.ts is actually built out. Not done speculatively.
+  //
+  // organization.routes.ts registers its own top-level paths (/colleges,
+  // /departments, /academic-years) rather than nesting under /organization —
+  // consistent with how auth/users register bare, module-scoped paths and
+  // let this same register-time `prefix` option do the /api/v1 prefixing.
   await app.register(authRoutes, { prefix: API_PREFIX });
   await app.register(usersRoutes, { prefix: API_PREFIX });
+  await app.register(organizationRoutes, { prefix: API_PREFIX });
 
   return app;
 }
