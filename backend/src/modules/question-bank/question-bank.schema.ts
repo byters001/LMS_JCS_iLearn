@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../../config/constants';
+import { JUDGE0_LANGUAGE_ID } from '../../integrations/judge0/judge0.constants';
 
 const paginationFields = {
   page: z.coerce.number().int().min(1).default(1),
@@ -107,6 +108,53 @@ const questionImageInputSchema = z.object({
   sortOrder: z.coerce.number().int().optional().default(0),
 });
 
+// --- Type-specific detail payloads (Part 2) ---
+//
+// supportedLanguages is validated against JUDGE0_LANGUAGE_ID's keys (C,
+// CPP, JAVA, JAVASCRIPT, PYTHON3) rather than accepting any string. Judge0
+// types.ts's SubmissionRequest.language_id is typed as a value FROM
+// JUDGE0_LANGUAGE_ID — the not-yet-built coding module will map a
+// supported_languages entry through that lookup to get language_id. An
+// unrecognized string here would silently fail at submission time, much
+// later and harder to trace, so it's rejected at write time instead. This
+// is importing a plain constants object, not calling Judge0's API or SDK,
+// so it doesn't cross CLAUDE.md's integrations/judge0/ boundary rule.
+const JUDGE0_LANGUAGE_KEYS = Object.keys(JUDGE0_LANGUAGE_ID) as [string, ...string[]];
+const codingLanguageSchema = z.enum(JUDGE0_LANGUAGE_KEYS);
+
+const codingQuestionDetailsInputSchema = z.object({
+  problemStatement: z.string().min(1, 'problemStatement is required'),
+  inputFormat: z.string().min(1).optional(),
+  outputFormat: z.string().min(1).optional(),
+  constraints: z.string().min(1).optional(),
+  timeLimitMs: z.coerce.number().int().positive().optional(),
+  memoryLimitKb: z.coerce.number().int().positive().optional(),
+  supportedLanguages: z.array(codingLanguageSchema).optional(),
+});
+
+const codingTestCaseInputSchema = z.object({
+  input: z.string().optional(),
+  expectedOutput: z.string().optional(),
+  isHidden: z.boolean().optional().default(true),
+  points: z.coerce.number().positive().optional(),
+  sortOrder: z.coerce.number().int().optional().default(0),
+});
+
+// scale_type is plain TEXT with a default in schema.sql — only a code
+// comment documents 'likert'/'scenario' as the intended values, no CREATE
+// TYPE enum backs it at the DB level. Enforced here anyway as defensive
+// input validation; the DB itself would accept any string.
+const psychometricDetailsInputSchema = z.object({
+  traitCategory: z.string().min(1).optional(),
+  scaleType: z.enum(['likert', 'scenario']).optional(),
+});
+
+const psychometricOptionInputSchema = z.object({
+  optionText: z.string().min(1, 'optionText is required'),
+  traitWeight: z.coerce.number().optional(),
+  sortOrder: z.coerce.number().int().optional().default(0),
+});
+
 export const listQuestionsQuerySchema = z.object({
   categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
   type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
@@ -121,6 +169,13 @@ export const listQuestionsQuerySchema = z.object({
 // questionText/marks/options/images here describe version #1's content,
 // created atomically with the question itself since question_text is
 // NOT NULL on question_versions.
+// codingDetails/testCases/psychometricDetails/psychometricOptions are
+// optional here — same as options/images above — not required just because
+// type is 'coding'/'psychometric'. See question-bank.service.ts for the
+// type-match validation (a coding-typed question can't be created with a
+// psychometricDetails payload, etc.) enforced at the service layer, since
+// nothing here can see the sibling `type` field mid-parse for a
+// cross-field check this codebase's Zod schemas don't otherwise use.
 export const createQuestionSchema = z.object({
   categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
   type: z.enum(['mcq', 'coding', 'psychometric']),
@@ -130,6 +185,10 @@ export const createQuestionSchema = z.object({
   marks: z.coerce.number().positive().optional(),
   options: z.array(questionOptionInputSchema).optional(),
   images: z.array(questionImageInputSchema).optional(),
+  codingDetails: codingQuestionDetailsInputSchema.optional(),
+  testCases: z.array(codingTestCaseInputSchema).optional(),
+  psychometricDetails: psychometricDetailsInputSchema.optional(),
+  psychometricOptions: z.array(psychometricOptionInputSchema).optional(),
   topicIds: z.array(z.string().uuid('topicIds entries must be valid UUIDs')).optional(),
   tagIds: z.array(z.string().uuid('tagIds entries must be valid UUIDs')).optional(),
 });
@@ -159,11 +218,88 @@ export const createQuestionVersionSchema = z.object({
   marks: z.coerce.number().positive().optional(),
   options: z.array(questionOptionInputSchema).optional(),
   images: z.array(questionImageInputSchema).optional(),
+  codingDetails: codingQuestionDetailsInputSchema.optional(),
+  testCases: z.array(codingTestCaseInputSchema).optional(),
+  psychometricDetails: psychometricDetailsInputSchema.optional(),
+  psychometricOptions: z.array(psychometricOptionInputSchema).optional(),
 });
 
 export const questionVersionIdParamsSchema = z.object({
   id: z.string().uuid('id must be a valid UUID'),
   versionId: z.string().uuid('versionId must be a valid UUID'),
+});
+
+// --- Coding question details (dedicated post-creation CRUD) ---
+
+export const createCodingQuestionDetailsSchema = codingQuestionDetailsInputSchema;
+
+export const updateCodingQuestionDetailsSchema = z
+  .object({
+    problemStatement: z.string().min(1).optional(),
+    inputFormat: z.string().min(1).nullable().optional(),
+    outputFormat: z.string().min(1).nullable().optional(),
+    constraints: z.string().min(1).nullable().optional(),
+    timeLimitMs: z.coerce.number().int().positive().optional(),
+    memoryLimitKb: z.coerce.number().int().positive().optional(),
+    supportedLanguages: z.array(codingLanguageSchema).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+// --- Coding test cases (dedicated post-creation CRUD) ---
+
+export const createCodingTestCaseSchema = codingTestCaseInputSchema;
+
+export const updateCodingTestCaseSchema = z
+  .object({
+    input: z.string().nullable().optional(),
+    expectedOutput: z.string().nullable().optional(),
+    isHidden: z.boolean().optional(),
+    points: z.coerce.number().positive().optional(),
+    sortOrder: z.coerce.number().int().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export const codingTestCaseIdParamsSchema = z.object({
+  id: z.string().uuid('id must be a valid UUID'),
+  versionId: z.string().uuid('versionId must be a valid UUID'),
+  testCaseId: z.string().uuid('testCaseId must be a valid UUID'),
+});
+
+// --- Psychometric details (dedicated post-creation CRUD) ---
+
+export const createPsychometricDetailsSchema = psychometricDetailsInputSchema;
+
+export const updatePsychometricDetailsSchema = z
+  .object({
+    traitCategory: z.string().min(1).nullable().optional(),
+    scaleType: z.enum(['likert', 'scenario']).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+// --- Psychometric options (dedicated post-creation CRUD) ---
+
+export const createPsychometricOptionSchema = psychometricOptionInputSchema;
+
+export const updatePsychometricOptionSchema = z
+  .object({
+    optionText: z.string().min(1).optional(),
+    traitWeight: z.coerce.number().optional(),
+    sortOrder: z.coerce.number().int().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export const psychometricOptionIdParamsSchema = z.object({
+  id: z.string().uuid('id must be a valid UUID'),
+  versionId: z.string().uuid('versionId must be a valid UUID'),
+  optionId: z.string().uuid('optionId must be a valid UUID'),
 });
 
 export type ListQuestionCategoriesQuery = z.infer<typeof listQuestionCategoriesQuerySchema>;
@@ -188,3 +324,17 @@ export type QuestionIdParams = z.infer<typeof questionIdParamsSchema>;
 
 export type CreateQuestionVersionInput = z.infer<typeof createQuestionVersionSchema>;
 export type QuestionVersionIdParams = z.infer<typeof questionVersionIdParamsSchema>;
+
+export type CreateCodingQuestionDetailsInput = z.infer<typeof createCodingQuestionDetailsSchema>;
+export type UpdateCodingQuestionDetailsInput = z.infer<typeof updateCodingQuestionDetailsSchema>;
+
+export type CreateCodingTestCaseInput = z.infer<typeof createCodingTestCaseSchema>;
+export type UpdateCodingTestCaseInput = z.infer<typeof updateCodingTestCaseSchema>;
+export type CodingTestCaseIdParams = z.infer<typeof codingTestCaseIdParamsSchema>;
+
+export type CreatePsychometricDetailsInput = z.infer<typeof createPsychometricDetailsSchema>;
+export type UpdatePsychometricDetailsInput = z.infer<typeof updatePsychometricDetailsSchema>;
+
+export type CreatePsychometricOptionInput = z.infer<typeof createPsychometricOptionSchema>;
+export type UpdatePsychometricOptionInput = z.infer<typeof updatePsychometricOptionSchema>;
+export type PsychometricOptionIdParams = z.infer<typeof psychometricOptionIdParamsSchema>;

@@ -1,6 +1,10 @@
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import {
+  codingQuestionDetails,
+  codingTestCases,
+  psychometricDetails,
+  psychometricOptions,
   questionCategories,
   questionImages,
   questionOptions,
@@ -12,6 +16,10 @@ import {
   questions,
 } from '../../db/schema/question-bank.schema';
 import type {
+  CodingQuestionDetails,
+  CodingTestCase,
+  PsychometricDetails,
+  PsychometricOption,
   Question,
   QuestionCategory,
   QuestionTag,
@@ -315,20 +323,53 @@ async function findQuestionVersionContentById(
     .limit(1);
   if (!version) return undefined;
 
-  const [options, images] = await Promise.all([
-    db
-      .select()
-      .from(questionOptions)
-      .where(eq(questionOptions.questionVersionId, versionId))
-      .orderBy(asc(questionOptions.sortOrder)),
-    db
-      .select()
-      .from(questionImages)
-      .where(eq(questionImages.questionVersionId, versionId))
-      .orderBy(asc(questionImages.sortOrder)),
-  ]);
+  // All four type-specific tables are queried regardless of the parent
+  // question's type — cheap (indexed, version-scoped, normally empty for a
+  // non-matching type) and avoids an extra round-trip to look up
+  // questions.type first just to decide which queries to skip.
+  const [options, images, codingDetailsRow, testCases, psychometricDetailsRow, psychOptions] =
+    await Promise.all([
+      db
+        .select()
+        .from(questionOptions)
+        .where(eq(questionOptions.questionVersionId, versionId))
+        .orderBy(asc(questionOptions.sortOrder)),
+      db
+        .select()
+        .from(questionImages)
+        .where(eq(questionImages.questionVersionId, versionId))
+        .orderBy(asc(questionImages.sortOrder)),
+      db
+        .select()
+        .from(codingQuestionDetails)
+        .where(eq(codingQuestionDetails.questionVersionId, versionId))
+        .limit(1),
+      db
+        .select()
+        .from(codingTestCases)
+        .where(eq(codingTestCases.questionVersionId, versionId))
+        .orderBy(asc(codingTestCases.sortOrder)),
+      db
+        .select()
+        .from(psychometricDetails)
+        .where(eq(psychometricDetails.questionVersionId, versionId))
+        .limit(1),
+      db
+        .select()
+        .from(psychometricOptions)
+        .where(eq(psychometricOptions.questionVersionId, versionId))
+        .orderBy(asc(psychometricOptions.sortOrder)),
+    ]);
 
-  return { ...version, options, images };
+  return {
+    ...version,
+    options,
+    images,
+    codingDetails: codingDetailsRow[0] ?? null,
+    testCases,
+    psychometricDetails: psychometricDetailsRow[0] ?? null,
+    psychometricOptions: psychOptions,
+  };
 }
 
 export interface CreateQuestionOptionData {
@@ -344,6 +385,35 @@ export interface CreateQuestionImageData {
   sortOrder?: number;
 }
 
+export interface CreateCodingQuestionDetailsData {
+  problemStatement: string;
+  inputFormat?: string | null;
+  outputFormat?: string | null;
+  constraints?: string | null;
+  timeLimitMs?: number;
+  memoryLimitKb?: number;
+  supportedLanguages?: string[];
+}
+
+export interface CreateCodingTestCaseData {
+  input?: string | null;
+  expectedOutput?: string | null;
+  isHidden?: boolean;
+  points?: number;
+  sortOrder?: number;
+}
+
+export interface CreatePsychometricDetailsData {
+  traitCategory?: string | null;
+  scaleType?: string;
+}
+
+export interface CreatePsychometricOptionData {
+  optionText: string;
+  traitWeight?: number;
+  sortOrder?: number;
+}
+
 export interface CreateQuestionData {
   categoryId?: string | null;
   type: 'mcq' | 'coding' | 'psychometric';
@@ -353,6 +423,13 @@ export interface CreateQuestionData {
   marks?: number;
   options?: CreateQuestionOptionData[];
   images?: CreateQuestionImageData[];
+  // Type-specific — service.ts validates these against `type` before
+  // calling in (e.g. codingDetails only allowed when type === 'coding').
+  // The repository trusts that check and doesn't re-validate.
+  codingDetails?: CreateCodingQuestionDetailsData;
+  testCases?: CreateCodingTestCaseData[];
+  psychometricDetails?: CreatePsychometricDetailsData;
+  psychometricOptions?: CreatePsychometricOptionData[];
   topicIds?: string[];
   tagIds?: string[];
   createdBy: string | null;
@@ -433,6 +510,51 @@ async function createQuestionWithVersion(
         .values(data.tagIds.map((tagId) => ({ questionId: question.id, tagId })));
     }
 
+    const [codingDetailsRow, testCases, psychometricDetailsRow, psychOptionsRows] =
+      await Promise.all([
+        data.codingDetails
+          ? tx
+              .insert(codingQuestionDetails)
+              .values({ questionVersionId: version.id, ...data.codingDetails })
+              .returning()
+          : Promise.resolve([]),
+        data.testCases && data.testCases.length > 0
+          ? tx
+              .insert(codingTestCases)
+              .values(
+                data.testCases.map((testCase) => ({
+                  questionVersionId: version.id,
+                  input: testCase.input,
+                  expectedOutput: testCase.expectedOutput,
+                  isHidden: testCase.isHidden,
+                  points: testCase.points !== undefined ? String(testCase.points) : undefined,
+                  sortOrder: testCase.sortOrder,
+                })),
+              )
+              .returning()
+          : Promise.resolve([]),
+        data.psychometricDetails
+          ? tx
+              .insert(psychometricDetails)
+              .values({ questionVersionId: version.id, ...data.psychometricDetails })
+              .returning()
+          : Promise.resolve([]),
+        data.psychometricOptions && data.psychometricOptions.length > 0
+          ? tx
+              .insert(psychometricOptions)
+              .values(
+                data.psychometricOptions.map((option) => ({
+                  questionVersionId: version.id,
+                  optionText: option.optionText,
+                  traitWeight:
+                    option.traitWeight !== undefined ? String(option.traitWeight) : undefined,
+                  sortOrder: option.sortOrder,
+                })),
+              )
+              .returning()
+          : Promise.resolve([]),
+      ]);
+
     const [updatedQuestion] = await tx
       .update(questions)
       .set({ currentVersionId: version.id })
@@ -441,7 +563,15 @@ async function createQuestionWithVersion(
 
     return {
       question: updatedQuestion,
-      version: { ...version, options, images },
+      version: {
+        ...version,
+        options,
+        images,
+        codingDetails: codingDetailsRow[0] ?? null,
+        testCases,
+        psychometricDetails: psychometricDetailsRow[0] ?? null,
+        psychometricOptions: psychOptionsRows,
+      },
     };
   });
 }
@@ -501,6 +631,12 @@ export interface CreateQuestionVersionData {
   marks?: number;
   options?: CreateQuestionOptionData[];
   images?: CreateQuestionImageData[];
+  // Same type-vs-payload validation contract as CreateQuestionData — see
+  // question-bank.service.ts.
+  codingDetails?: CreateCodingQuestionDetailsData;
+  testCases?: CreateCodingTestCaseData[];
+  psychometricDetails?: CreatePsychometricDetailsData;
+  psychometricOptions?: CreatePsychometricOptionData[];
   createdBy: string | null;
 }
 
@@ -560,7 +696,60 @@ async function createQuestionVersion(
         : Promise.resolve([]),
     ]);
 
-    return { ...version, options, images };
+    const [codingDetailsRow, testCases, psychometricDetailsRow, psychOptionsRows] =
+      await Promise.all([
+        data.codingDetails
+          ? tx
+              .insert(codingQuestionDetails)
+              .values({ questionVersionId: version.id, ...data.codingDetails })
+              .returning()
+          : Promise.resolve([]),
+        data.testCases && data.testCases.length > 0
+          ? tx
+              .insert(codingTestCases)
+              .values(
+                data.testCases.map((testCase) => ({
+                  questionVersionId: version.id,
+                  input: testCase.input,
+                  expectedOutput: testCase.expectedOutput,
+                  isHidden: testCase.isHidden,
+                  points: testCase.points !== undefined ? String(testCase.points) : undefined,
+                  sortOrder: testCase.sortOrder,
+                })),
+              )
+              .returning()
+          : Promise.resolve([]),
+        data.psychometricDetails
+          ? tx
+              .insert(psychometricDetails)
+              .values({ questionVersionId: version.id, ...data.psychometricDetails })
+              .returning()
+          : Promise.resolve([]),
+        data.psychometricOptions && data.psychometricOptions.length > 0
+          ? tx
+              .insert(psychometricOptions)
+              .values(
+                data.psychometricOptions.map((option) => ({
+                  questionVersionId: version.id,
+                  optionText: option.optionText,
+                  traitWeight:
+                    option.traitWeight !== undefined ? String(option.traitWeight) : undefined,
+                  sortOrder: option.sortOrder,
+                })),
+              )
+              .returning()
+          : Promise.resolve([]),
+      ]);
+
+    return {
+      ...version,
+      options,
+      images,
+      codingDetails: codingDetailsRow[0] ?? null,
+      testCases,
+      psychometricDetails: psychometricDetailsRow[0] ?? null,
+      psychometricOptions: psychOptionsRows,
+    };
   });
 }
 
@@ -601,6 +790,241 @@ async function activateQuestionVersion(
   });
 }
 
+// --- Coding question details (1:1 per version) ---
+// Dedicated post-creation CRUD, in addition to the bundled-at-creation
+// inserts above — a version can be created bare and have its coding
+// content filled in/refined afterwards. See question-bank.service.ts for
+// the type-match and version-immutability guards that gate these.
+
+async function findCodingQuestionDetailsByVersionId(
+  questionVersionId: string,
+): Promise<CodingQuestionDetails | undefined> {
+  const [row] = await db
+    .select()
+    .from(codingQuestionDetails)
+    .where(eq(codingQuestionDetails.questionVersionId, questionVersionId))
+    .limit(1);
+  return row;
+}
+
+async function createCodingQuestionDetails(
+  questionVersionId: string,
+  data: CreateCodingQuestionDetailsData,
+): Promise<CodingQuestionDetails> {
+  const [row] = await db
+    .insert(codingQuestionDetails)
+    .values({ questionVersionId, ...data })
+    .returning();
+  return row;
+}
+
+export interface UpdateCodingQuestionDetailsData {
+  problemStatement?: string;
+  inputFormat?: string | null;
+  outputFormat?: string | null;
+  constraints?: string | null;
+  timeLimitMs?: number;
+  memoryLimitKb?: number;
+  supportedLanguages?: string[];
+}
+
+async function updateCodingQuestionDetails(
+  questionVersionId: string,
+  data: UpdateCodingQuestionDetailsData,
+): Promise<CodingQuestionDetails | undefined> {
+  const [updated] = await db
+    .update(codingQuestionDetails)
+    .set(data)
+    .where(eq(codingQuestionDetails.questionVersionId, questionVersionId))
+    .returning();
+  return updated;
+}
+
+async function deleteCodingQuestionDetails(questionVersionId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(codingQuestionDetails)
+    .where(eq(codingQuestionDetails.questionVersionId, questionVersionId))
+    .returning({ id: codingQuestionDetails.id });
+  return deleted.length > 0;
+}
+
+// --- Coding test cases (1:many per version) ---
+
+async function listCodingTestCases(questionVersionId: string): Promise<CodingTestCase[]> {
+  return db
+    .select()
+    .from(codingTestCases)
+    .where(eq(codingTestCases.questionVersionId, questionVersionId))
+    .orderBy(asc(codingTestCases.sortOrder));
+}
+
+async function findCodingTestCaseById(id: string): Promise<CodingTestCase | undefined> {
+  const [row] = await db
+    .select()
+    .from(codingTestCases)
+    .where(eq(codingTestCases.id, id))
+    .limit(1);
+  return row;
+}
+
+async function createCodingTestCase(
+  questionVersionId: string,
+  data: CreateCodingTestCaseData,
+): Promise<CodingTestCase> {
+  const [row] = await db
+    .insert(codingTestCases)
+    .values({
+      questionVersionId,
+      input: data.input,
+      expectedOutput: data.expectedOutput,
+      isHidden: data.isHidden,
+      points: data.points !== undefined ? String(data.points) : undefined,
+      sortOrder: data.sortOrder,
+    })
+    .returning();
+  return row;
+}
+
+export interface UpdateCodingTestCaseData {
+  input?: string | null;
+  expectedOutput?: string | null;
+  isHidden?: boolean;
+  points?: number;
+  sortOrder?: number;
+}
+
+async function updateCodingTestCase(
+  id: string,
+  data: UpdateCodingTestCaseData,
+): Promise<CodingTestCase | undefined> {
+  const { points, ...rest } = data;
+  const [updated] = await db
+    .update(codingTestCases)
+    .set(points !== undefined ? { ...rest, points: String(points) } : rest)
+    .where(eq(codingTestCases.id, id))
+    .returning();
+  return updated;
+}
+
+async function deleteCodingTestCase(id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(codingTestCases)
+    .where(eq(codingTestCases.id, id))
+    .returning({ id: codingTestCases.id });
+  return deleted.length > 0;
+}
+
+// --- Psychometric details (1:1 per version) ---
+
+async function findPsychometricDetailsByVersionId(
+  questionVersionId: string,
+): Promise<PsychometricDetails | undefined> {
+  const [row] = await db
+    .select()
+    .from(psychometricDetails)
+    .where(eq(psychometricDetails.questionVersionId, questionVersionId))
+    .limit(1);
+  return row;
+}
+
+async function createPsychometricDetails(
+  questionVersionId: string,
+  data: CreatePsychometricDetailsData,
+): Promise<PsychometricDetails> {
+  const [row] = await db
+    .insert(psychometricDetails)
+    .values({ questionVersionId, ...data })
+    .returning();
+  return row;
+}
+
+export interface UpdatePsychometricDetailsData {
+  traitCategory?: string | null;
+  scaleType?: string;
+}
+
+async function updatePsychometricDetails(
+  questionVersionId: string,
+  data: UpdatePsychometricDetailsData,
+): Promise<PsychometricDetails | undefined> {
+  const [updated] = await db
+    .update(psychometricDetails)
+    .set(data)
+    .where(eq(psychometricDetails.questionVersionId, questionVersionId))
+    .returning();
+  return updated;
+}
+
+async function deletePsychometricDetails(questionVersionId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(psychometricDetails)
+    .where(eq(psychometricDetails.questionVersionId, questionVersionId))
+    .returning({ id: psychometricDetails.id });
+  return deleted.length > 0;
+}
+
+// --- Psychometric options (1:many per version) ---
+
+async function listPsychometricOptions(questionVersionId: string): Promise<PsychometricOption[]> {
+  return db
+    .select()
+    .from(psychometricOptions)
+    .where(eq(psychometricOptions.questionVersionId, questionVersionId))
+    .orderBy(asc(psychometricOptions.sortOrder));
+}
+
+async function findPsychometricOptionById(id: string): Promise<PsychometricOption | undefined> {
+  const [row] = await db
+    .select()
+    .from(psychometricOptions)
+    .where(eq(psychometricOptions.id, id))
+    .limit(1);
+  return row;
+}
+
+async function createPsychometricOption(
+  questionVersionId: string,
+  data: CreatePsychometricOptionData,
+): Promise<PsychometricOption> {
+  const [row] = await db
+    .insert(psychometricOptions)
+    .values({
+      questionVersionId,
+      optionText: data.optionText,
+      traitWeight: data.traitWeight !== undefined ? String(data.traitWeight) : undefined,
+      sortOrder: data.sortOrder,
+    })
+    .returning();
+  return row;
+}
+
+export interface UpdatePsychometricOptionData {
+  optionText?: string;
+  traitWeight?: number;
+  sortOrder?: number;
+}
+
+async function updatePsychometricOption(
+  id: string,
+  data: UpdatePsychometricOptionData,
+): Promise<PsychometricOption | undefined> {
+  const { traitWeight, ...rest } = data;
+  const [updated] = await db
+    .update(psychometricOptions)
+    .set(traitWeight !== undefined ? { ...rest, traitWeight: String(traitWeight) } : rest)
+    .where(eq(psychometricOptions.id, id))
+    .returning();
+  return updated;
+}
+
+async function deletePsychometricOption(id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(psychometricOptions)
+    .where(eq(psychometricOptions.id, id))
+    .returning({ id: psychometricOptions.id });
+  return deleted.length > 0;
+}
+
 export const questionBankRepository = {
   listQuestionCategories,
   findQuestionCategoryById,
@@ -628,4 +1052,22 @@ export const questionBankRepository = {
   findQuestionVersionByQuestionAndId,
   createQuestionVersion,
   activateQuestionVersion,
+  findCodingQuestionDetailsByVersionId,
+  createCodingQuestionDetails,
+  updateCodingQuestionDetails,
+  deleteCodingQuestionDetails,
+  listCodingTestCases,
+  findCodingTestCaseById,
+  createCodingTestCase,
+  updateCodingTestCase,
+  deleteCodingTestCase,
+  findPsychometricDetailsByVersionId,
+  createPsychometricDetails,
+  updatePsychometricDetails,
+  deletePsychometricDetails,
+  listPsychometricOptions,
+  findPsychometricOptionById,
+  createPsychometricOption,
+  updatePsychometricOption,
+  deletePsychometricOption,
 };

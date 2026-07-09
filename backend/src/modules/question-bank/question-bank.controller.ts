@@ -3,6 +3,11 @@ import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { questionBankService } from './question-bank.service';
 import type {
+  CodingTestCaseIdParams,
+  CreateCodingQuestionDetailsInput,
+  CreateCodingTestCaseInput,
+  CreatePsychometricDetailsInput,
+  CreatePsychometricOptionInput,
   CreateQuestionCategoryInput,
   CreateQuestionInput,
   CreateQuestionTagInput,
@@ -12,11 +17,16 @@ import type {
   ListQuestionTagsQuery,
   ListQuestionTopicsQuery,
   ListQuestionsQuery,
+  PsychometricOptionIdParams,
   QuestionCategoryIdParams,
   QuestionIdParams,
   QuestionTagIdParams,
   QuestionTopicIdParams,
   QuestionVersionIdParams,
+  UpdateCodingQuestionDetailsInput,
+  UpdateCodingTestCaseInput,
+  UpdatePsychometricDetailsInput,
+  UpdatePsychometricOptionInput,
   UpdateQuestionCategoryInput,
   UpdateQuestionInput,
   UpdateQuestionTagInput,
@@ -273,6 +283,208 @@ async function activateQuestionVersion(
   reply.status(200).send(response);
 }
 
+// --- Coding question details (1:1 per version) ---
+
+async function getCodingQuestionDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const details = await questionBankService.findCodingQuestionDetails(
+    request.params.id,
+    request.params.versionId,
+  );
+  const response: ApiSuccessResponse<typeof details> = { success: true, data: details };
+  reply.status(200).send(response);
+}
+
+async function createCodingQuestionDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams; Body: CreateCodingQuestionDetailsInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const details = await questionBankService.createCodingQuestionDetails(
+    request.params.id,
+    request.params.versionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof details> = { success: true, data: details };
+  reply.status(201).send(response);
+}
+
+async function updateCodingQuestionDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams; Body: UpdateCodingQuestionDetailsInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const details = await questionBankService.updateCodingQuestionDetails(
+    request.params.id,
+    request.params.versionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof details> = { success: true, data: details };
+  reply.status(200).send(response);
+}
+
+async function deleteCodingQuestionDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await questionBankService.deleteCodingQuestionDetails(request.params.id, request.params.versionId);
+  reply.status(204).send();
+}
+
+// --- Coding test cases (1:many per version) ---
+
+async function listCodingTestCases(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const testCases = await questionBankService.listCodingTestCases(
+    request.params.id,
+    request.params.versionId,
+  );
+  const response: ApiSuccessResponse<typeof testCases> = { success: true, data: testCases };
+  reply.status(200).send(response);
+}
+
+async function createCodingTestCase(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams; Body: CreateCodingTestCaseInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const testCase = await questionBankService.createCodingTestCase(
+    request.params.id,
+    request.params.versionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof testCase> = { success: true, data: testCase };
+  reply.status(201).send(response);
+}
+
+async function updateCodingTestCase(
+  request: FastifyRequest<{ Params: CodingTestCaseIdParams; Body: UpdateCodingTestCaseInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const testCase = await questionBankService.updateCodingTestCase(
+    request.params.id,
+    request.params.versionId,
+    request.params.testCaseId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof testCase> = { success: true, data: testCase };
+  reply.status(200).send(response);
+}
+
+async function deleteCodingTestCase(
+  request: FastifyRequest<{ Params: CodingTestCaseIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await questionBankService.deleteCodingTestCase(
+    request.params.id,
+    request.params.versionId,
+    request.params.testCaseId,
+  );
+  reply.status(204).send();
+}
+
+// --- Psychometric details (1:1 per version) ---
+
+async function getPsychometricDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const details = await questionBankService.findPsychometricDetails(
+    request.params.id,
+    request.params.versionId,
+  );
+  const response: ApiSuccessResponse<typeof details> = { success: true, data: details };
+  reply.status(200).send(response);
+}
+
+async function createPsychometricDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams; Body: CreatePsychometricDetailsInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const details = await questionBankService.createPsychometricDetails(
+    request.params.id,
+    request.params.versionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof details> = { success: true, data: details };
+  reply.status(201).send(response);
+}
+
+async function updatePsychometricDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams; Body: UpdatePsychometricDetailsInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const details = await questionBankService.updatePsychometricDetails(
+    request.params.id,
+    request.params.versionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof details> = { success: true, data: details };
+  reply.status(200).send(response);
+}
+
+async function deletePsychometricDetails(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await questionBankService.deletePsychometricDetails(request.params.id, request.params.versionId);
+  reply.status(204).send();
+}
+
+// --- Psychometric options (1:many per version) ---
+
+async function listPsychometricOptions(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const options = await questionBankService.listPsychometricOptions(
+    request.params.id,
+    request.params.versionId,
+  );
+  const response: ApiSuccessResponse<typeof options> = { success: true, data: options };
+  reply.status(200).send(response);
+}
+
+async function createPsychometricOption(
+  request: FastifyRequest<{ Params: QuestionVersionIdParams; Body: CreatePsychometricOptionInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const option = await questionBankService.createPsychometricOption(
+    request.params.id,
+    request.params.versionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof option> = { success: true, data: option };
+  reply.status(201).send(response);
+}
+
+async function updatePsychometricOption(
+  request: FastifyRequest<{ Params: PsychometricOptionIdParams; Body: UpdatePsychometricOptionInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const option = await questionBankService.updatePsychometricOption(
+    request.params.id,
+    request.params.versionId,
+    request.params.optionId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof option> = { success: true, data: option };
+  reply.status(200).send(response);
+}
+
+async function deletePsychometricOption(
+  request: FastifyRequest<{ Params: PsychometricOptionIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await questionBankService.deletePsychometricOption(
+    request.params.id,
+    request.params.versionId,
+    request.params.optionId,
+  );
+  reply.status(204).send();
+}
+
 export const questionBankController = {
   listQuestionCategories,
   getQuestionCategoryById,
@@ -298,4 +510,20 @@ export const questionBankController = {
   getQuestionVersionById,
   createQuestionVersion,
   activateQuestionVersion,
+  getCodingQuestionDetails,
+  createCodingQuestionDetails,
+  updateCodingQuestionDetails,
+  deleteCodingQuestionDetails,
+  listCodingTestCases,
+  createCodingTestCase,
+  updateCodingTestCase,
+  deleteCodingTestCase,
+  getPsychometricDetails,
+  createPsychometricDetails,
+  updatePsychometricDetails,
+  deletePsychometricDetails,
+  listPsychometricOptions,
+  createPsychometricOption,
+  updatePsychometricOption,
+  deletePsychometricOption,
 };

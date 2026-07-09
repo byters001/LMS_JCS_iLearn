@@ -1,4 +1,8 @@
 import type {
+  CodingQuestionDetails,
+  CodingTestCase,
+  PsychometricDetails,
+  PsychometricOption,
   Question,
   QuestionCategory,
   QuestionImage,
@@ -37,10 +41,18 @@ export interface ListQuestionsResult {
 }
 
 // A version plus its version-scoped content (question_options/
-// question_images key off question_version_id, not question_id).
+// question_images/coding_question_details/coding_test_cases/
+// psychometric_details/psychometric_options all key off
+// question_version_id, not question_id). The type-specific fields are
+// null/empty for versions whose parent question.type doesn't match — e.g.
+// an mcq version always has codingDetails: null, testCases: [].
 export interface QuestionVersionWithContent extends QuestionVersion {
   options: QuestionOption[];
   images: QuestionImage[];
+  codingDetails: CodingQuestionDetails | null;
+  testCases: CodingTestCase[];
+  psychometricDetails: PsychometricDetails | null;
+  psychometricOptions: PsychometricOption[];
 }
 
 // The "give me everything about this question" view: the questions row

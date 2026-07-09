@@ -4,6 +4,11 @@ import { requireAnyPermission } from '../../rbac/require-permission';
 import { ValidationError } from '../../shared/errors/app-error';
 import { questionBankController } from './question-bank.controller';
 import {
+  codingTestCaseIdParamsSchema,
+  createCodingQuestionDetailsSchema,
+  createCodingTestCaseSchema,
+  createPsychometricDetailsSchema,
+  createPsychometricOptionSchema,
   createQuestionCategorySchema,
   createQuestionSchema,
   createQuestionTagSchema,
@@ -13,15 +18,25 @@ import {
   listQuestionTagsQuerySchema,
   listQuestionTopicsQuerySchema,
   listQuestionsQuerySchema,
+  psychometricOptionIdParamsSchema,
   questionCategoryIdParamsSchema,
   questionIdParamsSchema,
   questionTagIdParamsSchema,
   questionTopicIdParamsSchema,
   questionVersionIdParamsSchema,
+  updateCodingQuestionDetailsSchema,
+  updateCodingTestCaseSchema,
+  updatePsychometricDetailsSchema,
+  updatePsychometricOptionSchema,
   updateQuestionCategorySchema,
   updateQuestionSchema,
   updateQuestionTagSchema,
   updateQuestionTopicSchema,
+  type CodingTestCaseIdParams,
+  type CreateCodingQuestionDetailsInput,
+  type CreateCodingTestCaseInput,
+  type CreatePsychometricDetailsInput,
+  type CreatePsychometricOptionInput,
   type CreateQuestionCategoryInput,
   type CreateQuestionInput,
   type CreateQuestionTagInput,
@@ -31,11 +46,16 @@ import {
   type ListQuestionTagsQuery,
   type ListQuestionTopicsQuery,
   type ListQuestionsQuery,
+  type PsychometricOptionIdParams,
   type QuestionCategoryIdParams,
   type QuestionIdParams,
   type QuestionTagIdParams,
   type QuestionTopicIdParams,
   type QuestionVersionIdParams,
+  type UpdateCodingQuestionDetailsInput,
+  type UpdateCodingTestCaseInput,
+  type UpdatePsychometricDetailsInput,
+  type UpdatePsychometricOptionInput,
   type UpdateQuestionCategoryInput,
   type UpdateQuestionInput,
   type UpdateQuestionTagInput,
@@ -356,6 +376,194 @@ export async function questionBankRoutes(fastify: FastifyInstance): Promise<void
       preValidation: validateParams(questionVersionIdParamsSchema),
     },
     questionBankController.activateQuestionVersion,
+  );
+
+  // --- Coding question details (1:1 per version) ---
+  // Nested under /questions/:id/versions/:versionId — these tables key off
+  // question_version_id, not question_id (coding_question_details.
+  // question_version_id/psychometric_details.question_version_id are both
+  // UNIQUE, so this route shape naturally maps to "the one coding-details
+  // resource for this version" rather than needing its own :detailId).
+  // Mutations 409 once the version is active (see
+  // question-bank.service.ts's assertVersionMutable) — not enforced here,
+  // enforced in the service, same layering as every other business rule in
+  // this codebase.
+
+  fastify.get<{ Params: QuestionVersionIdParams }>(
+    '/questions/:id/versions/:versionId/coding-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(questionVersionIdParamsSchema),
+    },
+    questionBankController.getCodingQuestionDetails,
+  );
+
+  fastify.post<{ Params: QuestionVersionIdParams; Body: CreateCodingQuestionDetailsInput }>(
+    '/questions/:id/versions/:versionId/coding-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionVersionIdParamsSchema),
+        validateBody(createCodingQuestionDetailsSchema),
+      ],
+    },
+    questionBankController.createCodingQuestionDetails,
+  );
+
+  fastify.patch<{ Params: QuestionVersionIdParams; Body: UpdateCodingQuestionDetailsInput }>(
+    '/questions/:id/versions/:versionId/coding-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionVersionIdParamsSchema),
+        validateBody(updateCodingQuestionDetailsSchema),
+      ],
+    },
+    questionBankController.updateCodingQuestionDetails,
+  );
+
+  fastify.delete<{ Params: QuestionVersionIdParams }>(
+    '/questions/:id/versions/:versionId/coding-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(questionVersionIdParamsSchema),
+    },
+    questionBankController.deleteCodingQuestionDetails,
+  );
+
+  // --- Coding test cases (1:many per version) ---
+  // No dedicated GET :testCaseId route — same economy as
+  // organization.routes.ts's training-program-trainers (list + mutate, no
+  // single-item read).
+
+  fastify.get<{ Params: QuestionVersionIdParams }>(
+    '/questions/:id/versions/:versionId/coding-test-cases',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(questionVersionIdParamsSchema),
+    },
+    questionBankController.listCodingTestCases,
+  );
+
+  fastify.post<{ Params: QuestionVersionIdParams; Body: CreateCodingTestCaseInput }>(
+    '/questions/:id/versions/:versionId/coding-test-cases',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionVersionIdParamsSchema),
+        validateBody(createCodingTestCaseSchema),
+      ],
+    },
+    questionBankController.createCodingTestCase,
+  );
+
+  fastify.patch<{ Params: CodingTestCaseIdParams; Body: UpdateCodingTestCaseInput }>(
+    '/questions/:id/versions/:versionId/coding-test-cases/:testCaseId',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(codingTestCaseIdParamsSchema),
+        validateBody(updateCodingTestCaseSchema),
+      ],
+    },
+    questionBankController.updateCodingTestCase,
+  );
+
+  fastify.delete<{ Params: CodingTestCaseIdParams }>(
+    '/questions/:id/versions/:versionId/coding-test-cases/:testCaseId',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(codingTestCaseIdParamsSchema),
+    },
+    questionBankController.deleteCodingTestCase,
+  );
+
+  // --- Psychometric details (1:1 per version) ---
+
+  fastify.get<{ Params: QuestionVersionIdParams }>(
+    '/questions/:id/versions/:versionId/psychometric-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(questionVersionIdParamsSchema),
+    },
+    questionBankController.getPsychometricDetails,
+  );
+
+  fastify.post<{ Params: QuestionVersionIdParams; Body: CreatePsychometricDetailsInput }>(
+    '/questions/:id/versions/:versionId/psychometric-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionVersionIdParamsSchema),
+        validateBody(createPsychometricDetailsSchema),
+      ],
+    },
+    questionBankController.createPsychometricDetails,
+  );
+
+  fastify.patch<{ Params: QuestionVersionIdParams; Body: UpdatePsychometricDetailsInput }>(
+    '/questions/:id/versions/:versionId/psychometric-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionVersionIdParamsSchema),
+        validateBody(updatePsychometricDetailsSchema),
+      ],
+    },
+    questionBankController.updatePsychometricDetails,
+  );
+
+  fastify.delete<{ Params: QuestionVersionIdParams }>(
+    '/questions/:id/versions/:versionId/psychometric-details',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(questionVersionIdParamsSchema),
+    },
+    questionBankController.deletePsychometricDetails,
+  );
+
+  // --- Psychometric options (1:many per version) ---
+
+  fastify.get<{ Params: QuestionVersionIdParams }>(
+    '/questions/:id/versions/:versionId/psychometric-options',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(questionVersionIdParamsSchema),
+    },
+    questionBankController.listPsychometricOptions,
+  );
+
+  fastify.post<{ Params: QuestionVersionIdParams; Body: CreatePsychometricOptionInput }>(
+    '/questions/:id/versions/:versionId/psychometric-options',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionVersionIdParamsSchema),
+        validateBody(createPsychometricOptionSchema),
+      ],
+    },
+    questionBankController.createPsychometricOption,
+  );
+
+  fastify.patch<{ Params: PsychometricOptionIdParams; Body: UpdatePsychometricOptionInput }>(
+    '/questions/:id/versions/:versionId/psychometric-options/:optionId',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(psychometricOptionIdParamsSchema),
+        validateBody(updatePsychometricOptionSchema),
+      ],
+    },
+    questionBankController.updatePsychometricOption,
+  );
+
+  fastify.delete<{ Params: PsychometricOptionIdParams }>(
+    '/questions/:id/versions/:versionId/psychometric-options/:optionId',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: validateParams(psychometricOptionIdParamsSchema),
+    },
+    questionBankController.deletePsychometricOption,
   );
 }
 

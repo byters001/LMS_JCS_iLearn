@@ -15,6 +15,10 @@ import type {
 } from './schema/trainers.schema';
 import type { studentProfiles, trainingProgramStudents } from './schema/students.schema';
 import type {
+  codingQuestionDetails,
+  codingTestCases,
+  psychometricDetails,
+  psychometricOptions,
   questionCategories,
   questionImages,
   questionOptions,
@@ -100,3 +104,15 @@ export type NewQuestionTopicMap = InferInsertModel<typeof questionTopicMap>;
 
 export type QuestionTagMap = InferSelectModel<typeof questionTagMap>;
 export type NewQuestionTagMap = InferInsertModel<typeof questionTagMap>;
+
+export type CodingQuestionDetails = InferSelectModel<typeof codingQuestionDetails>;
+export type NewCodingQuestionDetails = InferInsertModel<typeof codingQuestionDetails>;
+
+export type CodingTestCase = InferSelectModel<typeof codingTestCases>;
+export type NewCodingTestCase = InferInsertModel<typeof codingTestCases>;
+
+export type PsychometricDetails = InferSelectModel<typeof psychometricDetails>;
+export type NewPsychometricDetails = InferInsertModel<typeof psychometricDetails>;
+
+export type PsychometricOption = InferSelectModel<typeof psychometricOptions>;
+export type NewPsychometricOption = InferInsertModel<typeof psychometricOptions>;

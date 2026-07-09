@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -211,5 +212,87 @@ export const questionTagMap = pgTable(
   },
   (table) => ({
     questionTagUnique: unique().on(table.questionId, table.tagId),
+  }),
+);
+
+// --- Part 2: type-specific detail tables ---
+// All four are version-scoped (question_version_id, not question_id) and
+// have no lifecycle columns of their own (no created_at/updated_at/
+// deleted_at) — their lifecycle is tied entirely to their parent version's:
+// created alongside it, cascade-deleted if the version's parent question is
+// ever hard-deleted (never happens in this codebase's soft-delete design,
+// but schema.sql wires ON DELETE CASCADE regardless). See
+// question-bank.service.ts for how these are validated against
+// questions.type at the service layer — nothing in the DB schema itself
+// stops an MCQ question from having a stray coding_question_details row.
+
+// 1:1 with a version — question_version_id is UNIQUE, unlike
+// coding_test_cases below.
+export const codingQuestionDetails = pgTable('coding_question_details', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionVersionId: uuid('question_version_id')
+    .notNull()
+    .unique()
+    .references(() => questionVersions.id, { onDelete: 'cascade' }),
+  problemStatement: text('problem_statement').notNull(),
+  inputFormat: text('input_format'),
+  outputFormat: text('output_format'),
+  constraints: text('constraints'),
+  timeLimitMs: integer('time_limit_ms').notNull().default(2000),
+  memoryLimitKb: integer('memory_limit_kb').notNull().default(65536),
+  // Array of JUDGE0_LANGUAGE_ID keys (e.g. "PYTHON3", "JAVA") — see
+  // question-bank.schema.ts's (Zod) cross-check against
+  // integrations/judge0/judge0.constants.ts.
+  supportedLanguages: jsonb('supported_languages').notNull().default([]),
+});
+
+// 1:many with a version — question_version_id has no unique constraint,
+// unlike coding_question_details above.
+export const codingTestCases = pgTable(
+  'coding_test_cases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    questionVersionId: uuid('question_version_id')
+      .notNull()
+      .references(() => questionVersions.id, { onDelete: 'cascade' }),
+    input: text('input'),
+    expectedOutput: text('expected_output'),
+    isHidden: boolean('is_hidden').notNull().default(true),
+    points: numeric('points', { precision: 6, scale: 2 }).notNull().default('1'),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (table) => ({
+    versionIdx: index('idx_coding_test_cases_version').on(table.questionVersionId),
+  }),
+);
+
+// 1:1 with a version. scale_type is plain TEXT with a default in
+// schema.sql (only a code comment lists 'likert'/'scenario', no CREATE TYPE
+// enum backs it) — modeled as text(), not pgEnum(), to match exactly.
+export const psychometricDetails = pgTable('psychometric_details', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionVersionId: uuid('question_version_id')
+    .notNull()
+    .unique()
+    .references(() => questionVersions.id, { onDelete: 'cascade' }),
+  traitCategory: text('trait_category'),
+  scaleType: text('scale_type').notNull().default('likert'),
+});
+
+// 1:many with a version. trait_weight is nullable in schema.sql (DEFAULT 0
+// but no NOT NULL) — modeled without .notNull() to match exactly.
+export const psychometricOptions = pgTable(
+  'psychometric_options',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    questionVersionId: uuid('question_version_id')
+      .notNull()
+      .references(() => questionVersions.id, { onDelete: 'cascade' }),
+    optionText: text('option_text').notNull(),
+    traitWeight: numeric('trait_weight', { precision: 6, scale: 2 }).default('0'),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (table) => ({
+    versionIdx: index('idx_psychometric_options_version').on(table.questionVersionId),
   }),
 );

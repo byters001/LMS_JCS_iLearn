@@ -1,8 +1,22 @@
-import type { Question, QuestionCategory, QuestionTag, QuestionTopic, QuestionVersion } from '../../db/types';
+import type {
+  CodingQuestionDetails,
+  CodingTestCase,
+  PsychometricDetails,
+  PsychometricOption,
+  Question,
+  QuestionCategory,
+  QuestionTag,
+  QuestionTopic,
+  QuestionVersion,
+} from '../../db/types';
 import { organizationService } from '../organization/organization.service';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { questionBankRepository } from './question-bank.repository';
 import type {
+  CreateCodingQuestionDetailsInput,
+  CreateCodingTestCaseInput,
+  CreatePsychometricDetailsInput,
+  CreatePsychometricOptionInput,
   CreateQuestionCategoryInput,
   CreateQuestionInput,
   CreateQuestionTagInput,
@@ -12,6 +26,10 @@ import type {
   ListQuestionTagsQuery,
   ListQuestionTopicsQuery,
   ListQuestionsQuery,
+  UpdateCodingQuestionDetailsInput,
+  UpdateCodingTestCaseInput,
+  UpdatePsychometricDetailsInput,
+  UpdatePsychometricOptionInput,
   UpdateQuestionCategoryInput,
   UpdateQuestionInput,
   UpdateQuestionTagInput,
@@ -227,6 +245,36 @@ async function findQuestionWithCurrentVersion(id: string): Promise<QuestionWithC
   return { ...question, currentVersion };
 }
 
+// Enforces the invariant nothing in the DB schema itself guards: a
+// codingDetails/testCases payload only makes sense for type === 'coding',
+// and psychometricDetails/psychometricOptions only for type ===
+// 'psychometric'. Shared by createQuestion (type comes from the input
+// itself) and createQuestionVersion (type comes from the already-created
+// parent question, since type isn't settable per-version).
+function assertTypeSpecificPayloadsMatch(
+  type: 'mcq' | 'coding' | 'psychometric',
+  payload: {
+    codingDetails?: unknown;
+    testCases?: unknown[];
+    psychometricDetails?: unknown;
+    psychometricOptions?: unknown[];
+  },
+): void {
+  const hasCodingPayload =
+    payload.codingDetails !== undefined || (payload.testCases?.length ?? 0) > 0;
+  const hasPsychometricPayload =
+    payload.psychometricDetails !== undefined || (payload.psychometricOptions?.length ?? 0) > 0;
+
+  if (hasCodingPayload && type !== 'coding') {
+    throw new ValidationError('codingDetails/testCases can only be provided for type "coding"');
+  }
+  if (hasPsychometricPayload && type !== 'psychometric') {
+    throw new ValidationError(
+      'psychometricDetails/psychometricOptions can only be provided for type "psychometric"',
+    );
+  }
+}
+
 async function createQuestion(
   input: CreateQuestionInput,
   createdBy: string,
@@ -247,6 +295,7 @@ async function createQuestion(
   if (input.tagIds && input.tagIds.length > 0) {
     await Promise.all(input.tagIds.map((tagId) => findQuestionTagById(tagId)));
   }
+  assertTypeSpecificPayloadsMatch(input.type, input);
 
   const { question, version } = await questionBankRepository.createQuestionWithVersion({
     categoryId: input.categoryId,
@@ -257,6 +306,10 @@ async function createQuestion(
     marks: input.marks,
     options: input.options,
     images: input.images,
+    codingDetails: input.codingDetails,
+    testCases: input.testCases,
+    psychometricDetails: input.psychometricDetails,
+    psychometricOptions: input.psychometricOptions,
     topicIds: input.topicIds,
     tagIds: input.tagIds,
     createdBy,
@@ -316,7 +369,8 @@ async function createQuestionVersion(
   input: CreateQuestionVersionInput,
   createdBy: string,
 ): Promise<QuestionVersionWithContent> {
-  await findQuestionById(questionId);
+  const question = await findQuestionById(questionId);
+  assertTypeSpecificPayloadsMatch(question.type, input);
   return questionBankRepository.createQuestionVersion(questionId, { ...input, createdBy });
 }
 
@@ -345,6 +399,289 @@ async function activateQuestionVersion(questionId: string, versionId: string): P
   return updated;
 }
 
+// --- Type-specific detail tables (Part 2) ---
+//
+// coding_question_details/coding_test_cases/psychometric_details/
+// psychometric_options are all version-scoped, so every operation below
+// first resolves {question, version} together (getQuestionAndVersion) —
+// this also 404s a version that doesn't belong to the given question,
+// same discipline as findQuestionVersionById above.
+//
+// Mutations (create/update/delete) additionally reject once the target
+// version is active (assertVersionMutable): question_versions rows were
+// already established in Part 1 as immutable once created, specifically
+// because a future assessments module will freeze a specific
+// question_version_id per attempt. The same hazard applies to a version's
+// type-specific children — silently changing an active version's test
+// cases or coding constraints in place could retroactively alter content
+// already in use. Reads are unrestricted; edits after activation require
+// creating a new version instead (createQuestionVersion).
+
+async function getQuestionAndVersion(
+  questionId: string,
+  versionId: string,
+): Promise<{ question: Question; version: QuestionVersionWithContent }> {
+  const question = await findQuestionById(questionId);
+  const version = await questionBankRepository.findQuestionVersionByQuestionAndId(
+    questionId,
+    versionId,
+  );
+  if (!version) {
+    throw new NotFoundError('Question version not found');
+  }
+  return { question, version };
+}
+
+function assertVersionMutable(version: QuestionVersionWithContent): void {
+  if (version.isActiveVersion) {
+    throw new ConflictError(
+      'Cannot modify detail content on an active version — create a new version instead',
+    );
+  }
+}
+
+// --- Coding question details (1:1 per version) ---
+
+async function findCodingQuestionDetails(
+  questionId: string,
+  versionId: string,
+): Promise<CodingQuestionDetails> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  const details = await questionBankRepository.findCodingQuestionDetailsByVersionId(version.id);
+  if (!details) {
+    throw new NotFoundError('Coding question details not found for this version');
+  }
+  return details;
+}
+
+async function createCodingQuestionDetails(
+  questionId: string,
+  versionId: string,
+  input: CreateCodingQuestionDetailsInput,
+): Promise<CodingQuestionDetails> {
+  const { question, version } = await getQuestionAndVersion(questionId, versionId);
+  if (question.type !== 'coding') {
+    throw new ValidationError('Coding details can only be added to a "coding" type question');
+  }
+  assertVersionMutable(version);
+
+  const existing = await questionBankRepository.findCodingQuestionDetailsByVersionId(version.id);
+  if (existing) {
+    throw new ConflictError('Coding details already exist for this version');
+  }
+
+  return questionBankRepository.createCodingQuestionDetails(version.id, input);
+}
+
+async function updateCodingQuestionDetails(
+  questionId: string,
+  versionId: string,
+  input: UpdateCodingQuestionDetailsInput,
+): Promise<CodingQuestionDetails> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const updated = await questionBankRepository.updateCodingQuestionDetails(version.id, input);
+  if (!updated) {
+    throw new NotFoundError('Coding question details not found for this version');
+  }
+  return updated;
+}
+
+async function deleteCodingQuestionDetails(questionId: string, versionId: string): Promise<void> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const deleted = await questionBankRepository.deleteCodingQuestionDetails(version.id);
+  if (!deleted) {
+    throw new NotFoundError('Coding question details not found for this version');
+  }
+}
+
+// --- Coding test cases (1:many per version) ---
+
+async function listCodingTestCases(
+  questionId: string,
+  versionId: string,
+): Promise<CodingTestCase[]> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  return questionBankRepository.listCodingTestCases(version.id);
+}
+
+async function createCodingTestCase(
+  questionId: string,
+  versionId: string,
+  input: CreateCodingTestCaseInput,
+): Promise<CodingTestCase> {
+  const { question, version } = await getQuestionAndVersion(questionId, versionId);
+  if (question.type !== 'coding') {
+    throw new ValidationError('Test cases can only be added to a "coding" type question');
+  }
+  assertVersionMutable(version);
+
+  return questionBankRepository.createCodingTestCase(version.id, input);
+}
+
+async function updateCodingTestCase(
+  questionId: string,
+  versionId: string,
+  testCaseId: string,
+  input: UpdateCodingTestCaseInput,
+): Promise<CodingTestCase> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const existing = await questionBankRepository.findCodingTestCaseById(testCaseId);
+  if (!existing || existing.questionVersionId !== version.id) {
+    throw new NotFoundError('Coding test case not found');
+  }
+
+  const updated = await questionBankRepository.updateCodingTestCase(testCaseId, input);
+  if (!updated) {
+    throw new NotFoundError('Coding test case not found');
+  }
+  return updated;
+}
+
+async function deleteCodingTestCase(
+  questionId: string,
+  versionId: string,
+  testCaseId: string,
+): Promise<void> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const existing = await questionBankRepository.findCodingTestCaseById(testCaseId);
+  if (!existing || existing.questionVersionId !== version.id) {
+    throw new NotFoundError('Coding test case not found');
+  }
+
+  await questionBankRepository.deleteCodingTestCase(testCaseId);
+}
+
+// --- Psychometric details (1:1 per version) ---
+
+async function findPsychometricDetails(
+  questionId: string,
+  versionId: string,
+): Promise<PsychometricDetails> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  const details = await questionBankRepository.findPsychometricDetailsByVersionId(version.id);
+  if (!details) {
+    throw new NotFoundError('Psychometric details not found for this version');
+  }
+  return details;
+}
+
+async function createPsychometricDetails(
+  questionId: string,
+  versionId: string,
+  input: CreatePsychometricDetailsInput,
+): Promise<PsychometricDetails> {
+  const { question, version } = await getQuestionAndVersion(questionId, versionId);
+  if (question.type !== 'psychometric') {
+    throw new ValidationError(
+      'Psychometric details can only be added to a "psychometric" type question',
+    );
+  }
+  assertVersionMutable(version);
+
+  const existing = await questionBankRepository.findPsychometricDetailsByVersionId(version.id);
+  if (existing) {
+    throw new ConflictError('Psychometric details already exist for this version');
+  }
+
+  return questionBankRepository.createPsychometricDetails(version.id, input);
+}
+
+async function updatePsychometricDetails(
+  questionId: string,
+  versionId: string,
+  input: UpdatePsychometricDetailsInput,
+): Promise<PsychometricDetails> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const updated = await questionBankRepository.updatePsychometricDetails(version.id, input);
+  if (!updated) {
+    throw new NotFoundError('Psychometric details not found for this version');
+  }
+  return updated;
+}
+
+async function deletePsychometricDetails(questionId: string, versionId: string): Promise<void> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const deleted = await questionBankRepository.deletePsychometricDetails(version.id);
+  if (!deleted) {
+    throw new NotFoundError('Psychometric details not found for this version');
+  }
+}
+
+// --- Psychometric options (1:many per version) ---
+
+async function listPsychometricOptions(
+  questionId: string,
+  versionId: string,
+): Promise<PsychometricOption[]> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  return questionBankRepository.listPsychometricOptions(version.id);
+}
+
+async function createPsychometricOption(
+  questionId: string,
+  versionId: string,
+  input: CreatePsychometricOptionInput,
+): Promise<PsychometricOption> {
+  const { question, version } = await getQuestionAndVersion(questionId, versionId);
+  if (question.type !== 'psychometric') {
+    throw new ValidationError(
+      'Psychometric options can only be added to a "psychometric" type question',
+    );
+  }
+  assertVersionMutable(version);
+
+  return questionBankRepository.createPsychometricOption(version.id, input);
+}
+
+async function updatePsychometricOption(
+  questionId: string,
+  versionId: string,
+  optionId: string,
+  input: UpdatePsychometricOptionInput,
+): Promise<PsychometricOption> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const existing = await questionBankRepository.findPsychometricOptionById(optionId);
+  if (!existing || existing.questionVersionId !== version.id) {
+    throw new NotFoundError('Psychometric option not found');
+  }
+
+  const updated = await questionBankRepository.updatePsychometricOption(optionId, input);
+  if (!updated) {
+    throw new NotFoundError('Psychometric option not found');
+  }
+  return updated;
+}
+
+async function deletePsychometricOption(
+  questionId: string,
+  versionId: string,
+  optionId: string,
+): Promise<void> {
+  const { version } = await getQuestionAndVersion(questionId, versionId);
+  assertVersionMutable(version);
+
+  const existing = await questionBankRepository.findPsychometricOptionById(optionId);
+  if (!existing || existing.questionVersionId !== version.id) {
+    throw new NotFoundError('Psychometric option not found');
+  }
+
+  await questionBankRepository.deletePsychometricOption(optionId);
+}
+
 export const questionBankService = {
   listQuestionCategories,
   findQuestionCategoryById,
@@ -371,4 +708,20 @@ export const questionBankService = {
   findQuestionVersionById,
   createQuestionVersion,
   activateQuestionVersion,
+  findCodingQuestionDetails,
+  createCodingQuestionDetails,
+  updateCodingQuestionDetails,
+  deleteCodingQuestionDetails,
+  listCodingTestCases,
+  createCodingTestCase,
+  updateCodingTestCase,
+  deleteCodingTestCase,
+  findPsychometricDetails,
+  createPsychometricDetails,
+  updatePsychometricDetails,
+  deletePsychometricDetails,
+  listPsychometricOptions,
+  createPsychometricOption,
+  updatePsychometricOption,
+  deletePsychometricOption,
 };

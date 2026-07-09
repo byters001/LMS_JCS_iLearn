@@ -50,6 +50,13 @@
       "when": 1783605094332,
       "tag": "0006_powerful_sersi",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783606660763,
+      "tag": "0007_tricky_skrulls",
+      "breakpoints": true
     }
   ]
 }
