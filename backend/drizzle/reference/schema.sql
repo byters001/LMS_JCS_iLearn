@@ -757,6 +757,7 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 -- ============================================================================
 -- SECTION 12: SEED DATA — system roles & core permissions
 -- ============================================================================
+-- NOTE: drizzle/patches/2026-07-09_add-colleges-view-and-users-manage-roles-permissions.sql has been folded into this snapshot — treat that patch as historical/already-applied.
 
 INSERT INTO roles (name, slug, is_system_role, description) VALUES
   ('Super Admin', 'super_admin', true, 'Full platform access, not tied to any single college'),
@@ -768,7 +769,9 @@ INSERT INTO permissions (key, module, description) VALUES
   ('users.create', 'users', 'Create users'),
   ('users.edit', 'users', 'Edit users'),
   ('users.delete', 'users', 'Delete/archive users'),
+  ('users.manage_roles', 'users', 'Assign or revoke user role assignments'),
   ('colleges.manage', 'colleges', 'Manage college records'),
+  ('colleges.view', 'colleges', 'View college records'),
   ('batches.manage', 'batches', 'Manage batches'),
   ('training_programs.manage', 'training_programs', 'Manage training programs'),
   ('training_sessions.manage', 'training_sessions', 'Manage training sessions'),
