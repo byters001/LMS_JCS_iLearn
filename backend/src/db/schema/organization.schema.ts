@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { date, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  date,
+  index,
+  integer,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { users } from './identity.schema';
 
 // Name matches schema.sql's `CREATE TYPE college_status_enum` exactly — this
@@ -75,5 +85,98 @@ export const academicYears = pgTable(
   },
   (table) => ({
     collegeIdx: index('idx_academic_years_college').on(table.collegeId),
+  }),
+);
+
+// --- Part 2: training_programs, training_program_trainers, batches ---
+
+export const trainingProgramStatusEnum = pgEnum('training_program_status_enum', [
+  'planned',
+  'ongoing',
+  'completed',
+  'archived',
+]);
+
+export const trainerRoleEnum = pgEnum('trainer_role_enum', ['lead', 'co_trainer']);
+
+export const batchStatusEnum = pgEnum('batch_status_enum', ['active', 'completed', 'archived']);
+
+export const trainingPrograms = pgTable(
+  'training_programs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    collegeId: uuid('college_id')
+      .notNull()
+      .references(() => colleges.id, { onDelete: 'restrict' }),
+    departmentId: uuid('department_id')
+      .notNull()
+      .references(() => departments.id, { onDelete: 'restrict' }),
+    academicYearId: uuid('academic_year_id').references(() => academicYears.id, {
+      onDelete: 'set null',
+    }),
+    name: text('name').notNull(),
+    description: text('description'),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    status: trainingProgramStatusEnum('status').notNull().default('planned'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    collegeStatusIdx: index('idx_training_programs_college_status')
+      .on(table.collegeId, table.status)
+      .where(sql`${table.deletedAt} IS NULL`),
+    departmentIdx: index('idx_training_programs_department').on(table.departmentId),
+  }),
+);
+
+// No deleted_at column — like academic_years, schema.sql doesn't give this
+// join table a soft-delete column. trainer_id references users(id) directly
+// (there is no separate `trainers` table in schema.sql at all — "trainer" is
+// just a role concept realized via user_roles/users, same as everywhere else
+// in this schema).
+export const trainingProgramTrainers = pgTable(
+  'training_program_trainers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    trainingProgramId: uuid('training_program_id')
+      .notNull()
+      .references(() => trainingPrograms.id, { onDelete: 'cascade' }),
+    trainerId: uuid('trainer_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roleInProgram: trainerRoleEnum('role_in_program').notNull().default('co_trainer'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    programIdx: index('idx_tpt_program').on(table.trainingProgramId),
+    trainerIdx: index('idx_tpt_trainer').on(table.trainerId),
+    programTrainerUnique: unique().on(table.trainingProgramId, table.trainerId),
+  }),
+);
+
+export const batches = pgTable(
+  'batches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    trainingProgramId: uuid('training_program_id')
+      .notNull()
+      .references(() => trainingPrograms.id, { onDelete: 'restrict' }),
+    name: text('name').notNull(),
+    maxStudents: integer('max_students'),
+    status: batchStatusEnum('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    programStatusIdx: index('idx_batches_program_status')
+      .on(table.trainingProgramId, table.status)
+      .where(sql`${table.deletedAt} IS NULL`),
   }),
 );

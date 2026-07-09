@@ -5,29 +5,51 @@ import { ValidationError } from '../../shared/errors/app-error';
 import { organizationController } from './organization.controller';
 import {
   academicYearIdParamsSchema,
+  assignTrainingProgramTrainerSchema,
+  batchIdParamsSchema,
   collegeIdParamsSchema,
   createAcademicYearSchema,
+  createBatchSchema,
   createCollegeSchema,
   createDepartmentSchema,
+  createTrainingProgramSchema,
   departmentIdParamsSchema,
   listAcademicYearsQuerySchema,
+  listBatchesQuerySchema,
   listCollegesQuerySchema,
   listDepartmentsQuerySchema,
+  listTrainingProgramTrainersQuerySchema,
+  listTrainingProgramsQuerySchema,
+  trainingProgramIdParamsSchema,
+  trainingProgramTrainerParamsSchema,
   updateAcademicYearSchema,
+  updateBatchSchema,
   updateCollegeSchema,
   updateDepartmentSchema,
+  updateTrainingProgramSchema,
   type AcademicYearIdParams,
+  type AssignTrainingProgramTrainerInput,
+  type BatchIdParams,
   type CollegeIdParams,
   type CreateAcademicYearInput,
+  type CreateBatchInput,
   type CreateCollegeInput,
   type CreateDepartmentInput,
+  type CreateTrainingProgramInput,
   type DepartmentIdParams,
   type ListAcademicYearsQuery,
+  type ListBatchesQuery,
   type ListCollegesQuery,
   type ListDepartmentsQuery,
+  type ListTrainingProgramTrainersQuery,
+  type ListTrainingProgramsQuery,
+  type TrainingProgramIdParams,
+  type TrainingProgramTrainerParams,
   type UpdateAcademicYearInput,
+  type UpdateBatchInput,
   type UpdateCollegeInput,
   type UpdateDepartmentInput,
+  type UpdateTrainingProgramInput,
 } from './organization.schema';
 
 function validateQuery(schema: ZodTypeAny) {
@@ -218,6 +240,159 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
       ],
     },
     organizationController.updateAcademicYear,
+  );
+
+  // --- Training programs ---
+  //
+  // 'training_programs.manage' is already seeded in schema.sql — reused for
+  // both read and write routes here, NOT split into a separate
+  // 'training_programs.view'. Different call than colleges.view: schema.sql's
+  // own original seed data never split view/manage for training_programs (or
+  // batches) in the first place — there's no training_programs.view or
+  // batches.view precedent to extend, unlike users.view existing for the
+  // users domain. Respecting that existing, intentional design rather than
+  // inventing a split the schema's authors chose not to make.
+  fastify.get<{ Querystring: ListTrainingProgramsQuery }>(
+    '/training-programs',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: validateQuery(listTrainingProgramsQuerySchema),
+    },
+    organizationController.listTrainingPrograms,
+  );
+
+  fastify.get<{ Params: TrainingProgramIdParams }>(
+    '/training-programs/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: validateParams(trainingProgramIdParamsSchema),
+    },
+    organizationController.getTrainingProgramById,
+  );
+
+  fastify.post<{ Body: CreateTrainingProgramInput }>(
+    '/training-programs',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: validateBody(createTrainingProgramSchema),
+    },
+    organizationController.createTrainingProgram,
+  );
+
+  fastify.patch<{ Params: TrainingProgramIdParams; Body: UpdateTrainingProgramInput }>(
+    '/training-programs/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: [
+        validateParams(trainingProgramIdParamsSchema),
+        validateBody(updateTrainingProgramSchema),
+      ],
+    },
+    organizationController.updateTrainingProgram,
+  );
+
+  fastify.delete<{ Params: TrainingProgramIdParams }>(
+    '/training-programs/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: validateParams(trainingProgramIdParamsSchema),
+    },
+    organizationController.deleteTrainingProgram,
+  );
+
+  // --- Training program trainers ---
+  //
+  // No new permission key for trainer assignment — reuses
+  // 'training_programs.manage' rather than a hypothetical
+  // 'training_programs.manage_trainers'. Different conclusion than
+  // users.manage_roles: role assignment there was split out because roles
+  // carry PERMISSIONS (a security-sensitive escalation concern). Assigning a
+  // trainer to a training program is an operational/staffing concern — who's
+  // teaching what — with no comparable security dimension, so it doesn't
+  // warrant the same treatment. No update route: role_in_program changes go
+  // through remove-then-reassign, matching how the users module's
+  // user_roles (also a pure join table, also no deleted_at column) only
+  // exposes assign/revoke, never an in-place update.
+  fastify.get<{ Params: TrainingProgramIdParams; Querystring: ListTrainingProgramTrainersQuery }>(
+    '/training-programs/:id/trainers',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: [
+        validateParams(trainingProgramIdParamsSchema),
+        validateQuery(listTrainingProgramTrainersQuerySchema),
+      ],
+    },
+    organizationController.listTrainingProgramTrainers,
+  );
+
+  fastify.post<{ Params: TrainingProgramIdParams; Body: AssignTrainingProgramTrainerInput }>(
+    '/training-programs/:id/trainers',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: [
+        validateParams(trainingProgramIdParamsSchema),
+        validateBody(assignTrainingProgramTrainerSchema),
+      ],
+    },
+    organizationController.assignTrainingProgramTrainer,
+  );
+
+  fastify.delete<{ Params: TrainingProgramTrainerParams }>(
+    '/training-programs/:id/trainers/:trainerId',
+    {
+      preHandler: [fastify.authenticate, requirePermission('training_programs.manage')],
+      preValidation: validateParams(trainingProgramTrainerParamsSchema),
+    },
+    organizationController.removeTrainingProgramTrainer,
+  );
+
+  // --- Batches ---
+  // 'batches.manage' is already seeded in schema.sql — same reasoning as
+  // training_programs.manage above: reused for read and write alike, no new
+  // batches.view key, since schema.sql's own seed never split this domain.
+  fastify.get<{ Querystring: ListBatchesQuery }>(
+    '/batches',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: validateQuery(listBatchesQuerySchema),
+    },
+    organizationController.listBatches,
+  );
+
+  fastify.get<{ Params: BatchIdParams }>(
+    '/batches/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: validateParams(batchIdParamsSchema),
+    },
+    organizationController.getBatchById,
+  );
+
+  fastify.post<{ Body: CreateBatchInput }>(
+    '/batches',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: validateBody(createBatchSchema),
+    },
+    organizationController.createBatch,
+  );
+
+  fastify.patch<{ Params: BatchIdParams; Body: UpdateBatchInput }>(
+    '/batches/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: [validateParams(batchIdParamsSchema), validateBody(updateBatchSchema)],
+    },
+    organizationController.updateBatch,
+  );
+
+  fastify.delete<{ Params: BatchIdParams }>(
+    '/batches/:id',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: validateParams(batchIdParamsSchema),
+    },
+    organizationController.deleteBatch,
   );
 }
 

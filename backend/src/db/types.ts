@@ -1,6 +1,13 @@
 import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import type { permissions, rolePermissions, roles, userRoles, users } from './schema/identity.schema';
-import type { academicYears, colleges, departments } from './schema/organization.schema';
+import type {
+  academicYears,
+  batches,
+  colleges,
+  departments,
+  trainingProgramTrainers,
+  trainingPrograms,
+} from './schema/organization.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -25,3 +32,12 @@ export type NewDepartment = InferInsertModel<typeof departments>;
 
 export type AcademicYear = InferSelectModel<typeof academicYears>;
 export type NewAcademicYear = InferInsertModel<typeof academicYears>;
+
+export type TrainingProgram = InferSelectModel<typeof trainingPrograms>;
+export type NewTrainingProgram = InferInsertModel<typeof trainingPrograms>;
+
+export type TrainingProgramTrainer = InferSelectModel<typeof trainingProgramTrainers>;
+export type NewTrainingProgramTrainer = InferInsertModel<typeof trainingProgramTrainers>;
+
+export type Batch = InferSelectModel<typeof batches>;
+export type NewBatch = InferInsertModel<typeof batches>;
