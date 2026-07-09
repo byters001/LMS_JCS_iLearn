@@ -60,26 +60,31 @@ function validateBody(schema: ZodTypeAny) {
   };
 }
 
-// Permission keys 'organization.view' / 'organization.manage' do NOT exist
-// in schema.sql's seed `permissions` data yet (same situation as
-// 'users.update'/'users.manage_roles' were before them) — every route below
-// will deny everyone, including Super Admin, until a migration/seed inserts
-// these two rows into `permissions` and grants them via `role_permissions`.
+// 'colleges.manage' is seeded in schema.sql's Section 12 (originally for
+// this exact domain — colleges/departments/academic_years — even though it
+// predates this route file). One key covering all three entities, not split
+// finer (e.g. not separate 'departments.manage'): matches the granularity
+// schema.sql already uses elsewhere ('batches.manage',
+// 'training_programs.manage', 'training_sessions.manage' are each one
+// permission per whole sub-domain, not one per CRUD verb or sub-entity).
 //
-// One pair covering colleges + departments + academic_years, not split
-// finer (e.g. not separate 'colleges.manage' vs 'departments.manage'):
-// matches the granularity already used elsewhere in schema.sql's seed data
-// ('batches.manage', 'training_programs.manage', 'training_sessions.manage'
-// are each one permission per whole sub-domain, not one per CRUD verb or
-// per sub-entity). Splitting further wasn't clearly warranted by anything
-// in this phase's requirements.
+// 'colleges.view' was NOT seeded — an audit of every requirePermission()
+// call against schema.sql found this gap (along with users.manage_roles)
+// and it was added via drizzle/patches/2026-07-09_add-colleges-view-and-
+// users-manage-roles-permissions.sql, granted to super_admin. Deliberately
+// separate from 'colleges.manage' rather than reused for read routes too:
+// mirrors the view/manage split schema.sql already establishes for `users`
+// (users.view exists separately from users.edit/create/delete, and Faculty
+// is granted users.view without the mutating keys) — Faculty and similar
+// roles will plausibly need to browse org structure without holding the
+// more sensitive create/edit/delete-college capability.
 export async function organizationRoutes(fastify: FastifyInstance): Promise<void> {
   // --- Colleges ---
 
   fastify.get<{ Querystring: ListCollegesQuery }>(
     '/colleges',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.view')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.view')],
       preValidation: validateQuery(listCollegesQuerySchema),
     },
     organizationController.listColleges,
@@ -88,7 +93,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.get<{ Params: CollegeIdParams }>(
     '/colleges/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.view')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.view')],
       preValidation: validateParams(collegeIdParamsSchema),
     },
     organizationController.getCollegeById,
@@ -97,7 +102,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.post<{ Body: CreateCollegeInput }>(
     '/colleges',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: validateBody(createCollegeSchema),
     },
     organizationController.createCollege,
@@ -106,7 +111,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.patch<{ Params: CollegeIdParams; Body: UpdateCollegeInput }>(
     '/colleges/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: [validateParams(collegeIdParamsSchema), validateBody(updateCollegeSchema)],
     },
     organizationController.updateCollege,
@@ -115,7 +120,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.delete<{ Params: CollegeIdParams }>(
     '/colleges/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: validateParams(collegeIdParamsSchema),
     },
     organizationController.deleteCollege,
@@ -126,7 +131,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.get<{ Querystring: ListDepartmentsQuery }>(
     '/departments',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.view')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.view')],
       preValidation: validateQuery(listDepartmentsQuerySchema),
     },
     organizationController.listDepartments,
@@ -135,7 +140,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.get<{ Params: DepartmentIdParams }>(
     '/departments/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.view')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.view')],
       preValidation: validateParams(departmentIdParamsSchema),
     },
     organizationController.getDepartmentById,
@@ -144,7 +149,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.post<{ Body: CreateDepartmentInput }>(
     '/departments',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: validateBody(createDepartmentSchema),
     },
     organizationController.createDepartment,
@@ -153,7 +158,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.patch<{ Params: DepartmentIdParams; Body: UpdateDepartmentInput }>(
     '/departments/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: [
         validateParams(departmentIdParamsSchema),
         validateBody(updateDepartmentSchema),
@@ -165,7 +170,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.delete<{ Params: DepartmentIdParams }>(
     '/departments/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: validateParams(departmentIdParamsSchema),
     },
     organizationController.deleteDepartment,
@@ -179,7 +184,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.get<{ Querystring: ListAcademicYearsQuery }>(
     '/academic-years',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.view')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.view')],
       preValidation: validateQuery(listAcademicYearsQuerySchema),
     },
     organizationController.listAcademicYears,
@@ -188,7 +193,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.get<{ Params: AcademicYearIdParams }>(
     '/academic-years/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.view')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.view')],
       preValidation: validateParams(academicYearIdParamsSchema),
     },
     organizationController.getAcademicYearById,
@@ -197,7 +202,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.post<{ Body: CreateAcademicYearInput }>(
     '/academic-years',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: validateBody(createAcademicYearSchema),
     },
     organizationController.createAcademicYear,
@@ -206,7 +211,7 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
   fastify.patch<{ Params: AcademicYearIdParams; Body: UpdateAcademicYearInput }>(
     '/academic-years/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('organization.manage')],
+      preHandler: [fastify.authenticate, requirePermission('colleges.manage')],
       preValidation: [
         validateParams(academicYearIdParamsSchema),
         validateBody(updateAcademicYearSchema),

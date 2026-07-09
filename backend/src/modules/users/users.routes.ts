@@ -70,13 +70,13 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.patch<{ Params: UserIdParams; Body: UpdateUserInput }>(
     '/users/:id',
     {
-      preHandler: [fastify.authenticate, requirePermission('users.update')],
+      preHandler: [fastify.authenticate, requirePermission('users.edit')],
       preValidation: [validateParams(userIdParamsSchema), validateBody(updateUserSchema)],
     },
     usersController.update,
   );
 
-  // requirePermission('users.update') here is only the baseline gate (same
+  // requirePermission('users.edit') here is only the baseline gate (same
   // permission as PATCH /users/:id above). usersController.uploadAvatar /
   // removeAvatar additionally check, per-request, whether the target :id is
   // the caller's own (always allowed) or requires 'users.manage_roles' as
@@ -87,7 +87,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Params: UserIdParams }>(
     '/users/:id/avatar',
     {
-      preHandler: [fastify.authenticate, requirePermission('users.update')],
+      preHandler: [fastify.authenticate, requirePermission('users.edit')],
       preValidation: validateParams(userIdParamsSchema),
     },
     usersController.uploadAvatar,
@@ -96,7 +96,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.delete<{ Params: UserIdParams }>(
     '/users/:id/avatar',
     {
-      preHandler: [fastify.authenticate, requirePermission('users.update')],
+      preHandler: [fastify.authenticate, requirePermission('users.edit')],
       preValidation: validateParams(userIdParamsSchema),
     },
     usersController.removeAvatar,
