@@ -14,6 +14,7 @@ import type {
   CreateAssessmentSectionPoolInput,
   ListAssessmentApprovalHistoryQuery,
   ListAssessmentsQuery,
+  ScheduleAssessmentInput,
   UpdateAssessmentInput,
   UpdateAssessmentQuestionInput,
   UpdateAssessmentSectionInput,
@@ -322,7 +323,7 @@ async function rejectAssessment(
 }
 
 async function scheduleAssessment(
-  request: FastifyRequest<{ Params: AssessmentIdParams; Body: AssessmentApprovalActionInput }>,
+  request: FastifyRequest<{ Params: AssessmentIdParams; Body: ScheduleAssessmentInput }>,
   reply: FastifyReply,
 ): Promise<void> {
   const performedBy = requireUserId(request);

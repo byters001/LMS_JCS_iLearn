@@ -51,6 +51,7 @@ import type {
   ListQuestionTagsResult,
   ListQuestionTopicsResult,
   ListQuestionsResult,
+  ResolvedPoolCriterion,
   ResolvedQuestionPool,
   QuestionVersionWithContent,
   QuestionWithCurrentVersion,
@@ -962,25 +963,70 @@ async function findQuestionVersionContentById(versionId: string): Promise<Questi
 //
 // Runs every criteria row's filters against real, currently-approved
 // questions and reports what it would draw right now — the operation
-// assessments will actually depend on once assessment_section_pools exists.
-// Each criterion is resolved independently (its own eligible-total count and
-// its own random draw capped at count_required); a pool is "fully
-// satisfied" only when every criterion drew as many as it required, which
-// is the signal a curator needs before letting an assessment section point
-// at this pool.
+// assessments will actually depend on once assessment_section_pools exists,
+// and the exact function attempts.startAttempt calls to freeze a pool
+// section's questions (assessments.service.ts's resolveSectionQuestions).
+// A pool is "fully satisfied" only when every criterion drew as many as it
+// required, which is the signal a curator needs before letting an
+// assessment section point at this pool.
+//
+// Cross-criterion dedup fix: criteria used to be resolved fully in
+// parallel (Promise.all), each with its own independent random draw and no
+// awareness of what a SIBLING criterion in the same pool might also be
+// drawing. When two criteria have overlapping eligible questions (e.g.
+// both target difficulty='easy'), the same question_version_id could be
+// selected by both — harmless for this read-only display, but fatal once
+// attempts.startAttempt flattens the result and inserts it into
+// attempt_question_selections, which has UNIQUE(attempt_id,
+// question_version_id) — a live 500/constraint violation. Fixed here, in
+// the shared function, not patched around in attempts: criteria are now
+// resolved SEQUENTIALLY (a for..of loop, not Promise.all), threading a
+// running Set of every questionId already drawn by an earlier criterion
+// into resolveCriterionQuestions' new excludeQuestionIds parameter, so a
+// later criterion's random draw can never re-select a question an earlier
+// criterion in this same call already took. This does trade away
+// criteria-level query parallelism, but dedup is fundamentally
+// incompatible with resolving criteria independently/concurrently — the
+// only way a later criterion can know what to exclude is to run after the
+// earlier ones. Pools have a handful of criteria at most, so the
+// sequential latency cost is minor.
+//
+// eligibleTotal stays PRE-dedup (unaffected by this fix — see
+// question-bank.repository.ts's resolveCriterionQuestions, which counts
+// against `where` alone, never `selectionWhere`). Its documented purpose
+// (question-bank.types.ts's ResolvedPoolCriterion) is "how many approved
+// questions satisfy THIS criterion's OWN filters, regardless of
+// count_required" — a stable measure of how well-supplied a criterion is
+// in isolation. Making it post-dedup would mean its value depends on
+// resolution order and on what a sibling criterion's random draw happened
+// to take in this one particular call — the same pool, unchanged, could
+// report a different eligibleTotal from one resolve call to the next with
+// nothing about the underlying content having changed. That would defeat
+// its purpose as a curator-facing "is this criterion well-supplied" signal.
+// `selected`/`totalSelected`/`isFullySatisfied`, by contrast, DO need to
+// reflect the post-dedup reality, because they describe the actual draw —
+// if overlap with an earlier criterion leaves fewer eligible options than
+// count_required, selected.length legitimately comes up short and
+// isFullySatisfied correctly reports false, which is exactly the accurate
+// shortage signal a curator/attempt-starter needs.
 async function resolveQuestionPool(questionPoolId: string): Promise<ResolvedQuestionPool> {
   const pool = await findQuestionPoolById(questionPoolId);
   const criteria = await questionBankRepository.listQuestionPoolCriteria(questionPoolId);
 
-  const resolved = await Promise.all(
-    criteria.map(async (criterion) => {
-      const { eligibleTotal, selected } = await questionBankRepository.resolveCriterionQuestions(
-        pool,
-        criterion,
-      );
-      return { ...criterion, eligibleTotal, selected };
-    }),
-  );
+  const resolved: ResolvedPoolCriterion[] = [];
+  const selectedQuestionIds = new Set<string>();
+
+  for (const criterion of criteria) {
+    const { eligibleTotal, selected } = await questionBankRepository.resolveCriterionQuestions(
+      pool,
+      criterion,
+      Array.from(selectedQuestionIds),
+    );
+    for (const question of selected) {
+      selectedQuestionIds.add(question.questionId);
+    }
+    resolved.push({ ...criterion, eligibleTotal, selected });
+  }
 
   const totalRequired = criteria.reduce((sum, criterion) => sum + criterion.countRequired, 0);
   const totalSelected = resolved.reduce((sum, criterion) => sum + criterion.selected.length, 0);

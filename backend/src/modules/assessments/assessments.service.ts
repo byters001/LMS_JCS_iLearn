@@ -17,6 +17,7 @@ import type {
   CreateAssessmentSectionPoolInput,
   ListAssessmentApprovalHistoryQuery,
   ListAssessmentsQuery,
+  ScheduleAssessmentInput,
   UpdateAssessmentInput,
   UpdateAssessmentQuestionInput,
   UpdateAssessmentSectionInput,
@@ -120,6 +121,28 @@ function assertAssessmentEditable(assessment: Assessment): void {
   if (assessment.status !== 'draft') {
     throw new ConflictError(
       `Cannot modify assessment content while status is "${assessment.status}" — only "draft" assessments can be edited`,
+    );
+  }
+}
+
+// Same class of bug as scheduleAssessment's startAt/endAt fix, same class
+// of resolution: batchIds is an authorization list ("who may attempt
+// this"), not assessment CONTENT (sections/questions) — it has no reason
+// to share assertAssessmentEditable's draft-only gate, which exists
+// specifically because section/question content needs to freeze once
+// review starts (it affects what students would see). Who's authorized to
+// attempt isn't frozen by review/approval/scheduling — it only stops
+// mattering to change once students may already be mid-attempt, which is
+// status='live' (and everything after: 'completed'/'archived'). So
+// batchIds stays editable through draft, review, approved, AND scheduled,
+// and only locks at live/completed/archived — a materially wider window
+// than assertAssessmentEditable's, by design, not an oversight.
+const BATCH_LOCKED_STATUSES: Assessment['status'][] = ['live', 'completed', 'archived'];
+
+function assertBatchesEditable(assessment: Assessment): void {
+  if (BATCH_LOCKED_STATUSES.includes(assessment.status)) {
+    throw new ConflictError(
+      `Cannot modify assessment batches while status is "${assessment.status}" — batches can only be changed before an assessment goes live`,
     );
   }
 }
@@ -233,17 +256,31 @@ async function updateAssessment(
   updatedBy: string,
 ): Promise<AssessmentWithBatches> {
   const existing = await findAssessmentById(id);
-  assertAssessmentEditable(existing);
 
-  if (input.batchIds) {
-    await Promise.all(input.batchIds.map((batchId) => organizationService.findBatchById(batchId)));
+  // batchIds gets its OWN gate (assertBatchesEditable), separate from
+  // every other field's assertAssessmentEditable — a single PATCH can
+  // legitimately mix the two (e.g. batchIds alongside title), so each
+  // half of the body is checked against the field(s) it actually touches,
+  // not gated as one all-or-nothing operation. A batchIds-only PATCH while
+  // status='review'/'approved'/'scheduled' now succeeds where it used to
+  // 409; a title-only (or mixed) PATCH in those same statuses still 409s
+  // exactly as before — assertAssessmentEditable itself is unchanged.
+  const { batchIds, ...rest } = input;
+  if (Object.keys(rest).length > 0) {
+    assertAssessmentEditable(existing);
+  }
+  if (batchIds !== undefined) {
+    assertBatchesEditable(existing);
+  }
+
+  if (batchIds) {
+    await Promise.all(batchIds.map((batchId) => organizationService.findBatchById(batchId)));
   }
 
   const nextStartAt = input.startAt !== undefined ? input.startAt : existing.startAt;
   const nextEndAt = input.endAt !== undefined ? input.endAt : existing.endAt;
   assertValidDateRange(nextStartAt, nextEndAt);
 
-  const { batchIds, ...rest } = input;
   const updated = await assessmentsRepository.updateAssessment(id, { ...rest, updatedBy });
   if (!updated) {
     throw new NotFoundError('Assessment not found');
@@ -591,10 +628,25 @@ async function rejectAssessment(
   return updated;
 }
 
+// Fix for the previously-unreachable schedule state: startAt/endAt used to
+// be checked as "must already be set" (via PATCH /assessments/:id), but
+// PATCH is blocked by assertAssessmentEditable outside status='draft', and
+// this action is only callable once status='approved' — reached via
+// submit (draft->review) then approve (review->approved), which can never
+// leave the assessment back in 'draft'. There was no reachable sequence of
+// calls that could ever set startAt/endAt before scheduling.
+//
+// Fix: scheduleAssessmentSchema now REQUIRES startAt/endAt in the request
+// body, and this function writes them as part of the SAME
+// recordApprovalAction transaction that flips status to 'scheduled' —
+// committing to a window IS what scheduling means, so this is scheduling's
+// own write, not a detour through updateAssessment/assertAssessmentEditable
+// (which stays untouched — this fix routes around it rather than
+// weakening it).
 async function scheduleAssessment(
   id: string,
   performedBy: string,
-  input: AssessmentApprovalActionInput,
+  input: ScheduleAssessmentInput,
 ): Promise<Assessment> {
   const assessment = await findAssessmentById(id);
   if (assessment.status !== 'approved') {
@@ -602,19 +654,15 @@ async function scheduleAssessment(
       `Cannot schedule an assessment with status "${assessment.status}" — must be "approved"`,
     );
   }
-  // Business rule the DB doesn't enforce: you can't schedule a test with no
-  // window to sit it in. start_at/end_at are both nullable columns in
-  // schema.sql (open-ended by default), but scheduling specifically means
-  // committing to a window.
-  if (!assessment.startAt || !assessment.endAt) {
-    throw new ValidationError('startAt and endAt must both be set before scheduling');
-  }
+  assertValidDateRange(input.startAt, input.endAt);
 
   const { assessment: updated } = await assessmentsRepository.recordApprovalAction(id, {
     status: 'scheduled',
     action: 'scheduled',
     performedBy,
     notes: input.notes,
+    startAt: input.startAt,
+    endAt: input.endAt,
   });
   return updated;
 }

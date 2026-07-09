@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, notInArray, or, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import {
   codingQuestionDetails,
@@ -1282,9 +1282,17 @@ export interface ResolveCriterionResult {
   selected: ResolvedPoolQuestion[];
 }
 
+// excludeQuestionIds carries every questionId already drawn by an EARLIER
+// criterion in the same resolveQuestionPool call (see
+// question-bank.service.ts) — the cross-criterion dedup fix. Excluding by
+// questions.id rather than questionVersionId is equivalent here (each
+// question has exactly one current_version_id at a time, which is what
+// this query already joins/selects through) and simpler, since every WHERE
+// condition above is already built against the `questions` table.
 async function resolveCriterionQuestions(
   pool: QuestionPool,
   criterion: QuestionPoolCriteria,
+  excludeQuestionIds: string[] = [],
 ): Promise<ResolveCriterionResult> {
   const conditions = [
     isNull(questions.deletedAt),
@@ -1354,6 +1362,13 @@ async function resolveCriterionQuestions(
 
   const where = and(...conditions);
 
+  // eligibleTotal is deliberately counted against `where` alone (this
+  // criterion's OWN filters), NOT `selectionWhere` below — see
+  // question-bank.service.ts's resolveQuestionPool comment for why this
+  // stays a pre-dedup count.
+  const selectionWhere =
+    excludeQuestionIds.length > 0 ? and(where, notInArray(questions.id, excludeQuestionIds)) : where;
+
   const [totalRows, selectedRows] = await Promise.all([
     db.select({ count: sql<number>`count(*)` }).from(questions).where(where),
     db
@@ -1366,7 +1381,7 @@ async function resolveCriterionQuestions(
       })
       .from(questions)
       .innerJoin(questionVersions, eq(questionVersions.id, questions.currentVersionId))
-      .where(where)
+      .where(selectionWhere)
       // Random draw, capped at what this criterion asks for — mirrors how a
       // real attempt's frozen selection would be drawn (schema.sql's
       // top-of-file comment: "pool-based randomized assessments").

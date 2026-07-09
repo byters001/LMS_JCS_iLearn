@@ -184,6 +184,26 @@ export const assessmentApprovalActionSchema = z
   })
   .strict();
 
+// Dedicated shape for schedule specifically, NOT an extension of
+// assessmentApprovalActionSchema — submit/approve/reject/publish have no
+// business ever accepting startAt/endAt (schedule is the only action whose
+// job description IS committing to a window), so giving it its own schema
+// keeps that asymmetry explicit rather than bolting optional fields onto a
+// shape three other actions also use. startAt/endAt are REQUIRED here
+// (not optional): this is the only reachable place in the whole workflow
+// that can ever set them — PATCH /assessments/:id is blocked outside
+// status='draft' (assertAssessmentEditable), and by the time schedule is
+// callable (status='approved', reached via submit -> approve) the
+// assessment can never be 'draft' again. See assessments.service.ts's
+// scheduleAssessment for the full fix.
+export const scheduleAssessmentSchema = z
+  .object({
+    startAt: z.coerce.date(),
+    endAt: z.coerce.date(),
+    notes: z.string().min(1).optional(),
+  })
+  .strict();
+
 export const listAssessmentApprovalHistoryQuerySchema = z
   .object({
     ...paginationFields,
@@ -207,6 +227,7 @@ export type CreateAssessmentSectionPoolInput = z.infer<typeof createAssessmentSe
 export type AssessmentSectionPoolIdParams = z.infer<typeof assessmentSectionPoolIdParamsSchema>;
 
 export type AssessmentApprovalActionInput = z.infer<typeof assessmentApprovalActionSchema>;
+export type ScheduleAssessmentInput = z.infer<typeof scheduleAssessmentSchema>;
 export type ListAssessmentApprovalHistoryQuery = z.infer<
   typeof listAssessmentApprovalHistoryQuerySchema
 >;

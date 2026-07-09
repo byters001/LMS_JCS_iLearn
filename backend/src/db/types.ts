@@ -40,6 +40,11 @@ import type {
   assessmentSections,
   assessments,
 } from './schema/assessments.schema';
+import type {
+  assessmentAttempts,
+  attemptQuestionSelections,
+  attemptResponses,
+} from './schema/attempts.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -154,3 +159,12 @@ export type NewAssessmentBatch = InferInsertModel<typeof assessmentBatches>;
 
 export type AssessmentApprovalHistory = InferSelectModel<typeof assessmentApprovalHistory>;
 export type NewAssessmentApprovalHistory = InferInsertModel<typeof assessmentApprovalHistory>;
+
+export type AssessmentAttempt = InferSelectModel<typeof assessmentAttempts>;
+export type NewAssessmentAttempt = InferInsertModel<typeof assessmentAttempts>;
+
+export type AttemptQuestionSelection = InferSelectModel<typeof attemptQuestionSelections>;
+export type NewAttemptQuestionSelection = InferInsertModel<typeof attemptQuestionSelections>;
+
+export type AttemptResponse = InferSelectModel<typeof attemptResponses>;
+export type NewAttemptResponse = InferInsertModel<typeof attemptResponses>;

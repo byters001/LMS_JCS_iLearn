@@ -15,6 +15,7 @@ import {
   createAssessmentSectionSchema,
   listAssessmentApprovalHistoryQuerySchema,
   listAssessmentsQuerySchema,
+  scheduleAssessmentSchema,
   updateAssessmentQuestionSchema,
   updateAssessmentSchema,
   updateAssessmentSectionSchema,
@@ -29,6 +30,7 @@ import {
   type CreateAssessmentSectionPoolInput,
   type ListAssessmentApprovalHistoryQuery,
   type ListAssessmentsQuery,
+  type ScheduleAssessmentInput,
   type UpdateAssessmentInput,
   type UpdateAssessmentQuestionInput,
   type UpdateAssessmentSectionInput,
@@ -363,13 +365,21 @@ export async function assessmentsRoutes(fastify: FastifyInstance): Promise<void>
     assessmentsController.rejectAssessment,
   );
 
-  fastify.post<{ Params: AssessmentIdParams; Body: AssessmentApprovalActionInput }>(
+  // Body is scheduleAssessmentSchema, NOT assessmentApprovalActionSchema —
+  // schedule is the only action that also takes startAt/endAt, required in
+  // this same call. See assessments.schema.ts's scheduleAssessmentSchema
+  // and assessments.service.ts's scheduleAssessment for why: PATCH
+  // /assessments/:id can't ever reach this assessment while it's callable
+  // (assertAssessmentEditable only allows status='draft'; schedule only
+  // allows status='approved'), so scheduling is the only place these two
+  // fields can ever be set.
+  fastify.post<{ Params: AssessmentIdParams; Body: ScheduleAssessmentInput }>(
     '/assessments/:id/schedule',
     {
       preHandler: [fastify.authenticate, ASSESSMENTS_PUBLISH],
       preValidation: [
         validateParams(assessmentIdParamsSchema),
-        validateBody(assessmentApprovalActionSchema),
+        validateBody(scheduleAssessmentSchema),
       ],
     },
     assessmentsController.scheduleAssessment,

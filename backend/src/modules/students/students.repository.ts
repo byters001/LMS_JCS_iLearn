@@ -122,6 +122,31 @@ async function findStudentProfileByUserId(userId: string): Promise<StudentProfil
   return studentProfile;
 }
 
+// Added for the attempts module (Part 1 fix) — student_profiles has no
+// batch_id column of its own (confirmed directly against schema.sql); a
+// student's batch membership only exists via training_program_students
+// (student_id -> student_profiles.id, batch_id -> batches.id), the same
+// join listStudentProfiles' own batchId filter above already uses.
+// Filtered to status = 'active' — tps_status_enum also has 'transferred',
+// 'repeated', 'completed', 'dropped', none of which should still count as
+// "currently in this batch" for authorization purposes (a dropped or
+// transferred enrollment shouldn't keep authorizing access to that batch's
+// assessments). A student can legitimately have more than one active row
+// (rare, but nothing in schema.sql prevents it), so this returns all
+// matching batch ids, not just one.
+async function listActiveBatchIdsForStudent(studentId: string): Promise<string[]> {
+  const rows = await db
+    .select({ batchId: trainingProgramStudents.batchId })
+    .from(trainingProgramStudents)
+    .where(
+      and(
+        eq(trainingProgramStudents.studentId, studentId),
+        eq(trainingProgramStudents.status, 'active'),
+      ),
+    );
+  return rows.map((row) => row.batchId);
+}
+
 export interface CreateStudentProfileData {
   userId: string;
   collegeId: string;
@@ -176,6 +201,7 @@ export const studentsRepository = {
   listStudentProfiles,
   findStudentProfileById,
   findStudentProfileByUserId,
+  listActiveBatchIdsForStudent,
   createStudentProfile,
   updateStudentProfile,
   archiveStudentProfile,

@@ -2,6 +2,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
 import assessmentsRoutes from './modules/assessments/assessments.routes';
+import attemptsRoutes from './modules/attempts/attempts.routes';
 import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import questionBankRoutes from './modules/question-bank/question-bank.routes';
@@ -89,11 +90,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   // their decorators/hooks (fastify.authenticate, the onRequest hook, the
   // error handler) down into this prefixed child context regardless.
   //
-  // Of CLAUDE.md's 13 modules, 7 — auth, users, organization, trainers,
-  // students, question-bank, assessments — currently export a registrable
-  // route plugin. The remaining 6 are still stub files (`export {};`,
-  // nothing to import): coding, attempts, reports, analytics,
-  // notifications, settings
+  // Of CLAUDE.md's 13 modules, 8 — auth, users, organization, trainers,
+  // students, question-bank, assessments, attempts (Part 1: lifecycle +
+  // frozen selections; proctoring_events/assessment_retake_requests are
+  // Part 2) — currently export a registrable route plugin. The remaining 5
+  // are still stub files (`export {};`, nothing to import): coding,
+  // reports, analytics, notifications, settings
   // Importing/registering any of those today would either fail to compile
   // (nothing named to import) or register `undefined` as a plugin at
   // runtime. Each needs exactly one line added here —
@@ -115,6 +117,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(studentsRoutes, { prefix: API_PREFIX });
   await app.register(questionBankRoutes, { prefix: API_PREFIX });
   await app.register(assessmentsRoutes, { prefix: API_PREFIX });
+  await app.register(attemptsRoutes, { prefix: API_PREFIX });
 
   return app;
 }

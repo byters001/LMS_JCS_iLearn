@@ -32,6 +32,32 @@ async function findStudentProfileById(id: string): Promise<StudentProfile> {
   return studentProfile;
 }
 
+// Added for the attempts module (Part 1) — the first cross-module caller
+// that needs "which student_profiles row belongs to this JWT user id,"
+// since request.user only carries the users.id, but assessment_attempts.
+// student_id references student_profiles(id). Same small, additive
+// precedent as trainersService.findTrainingSessionById in
+// assessments.service.ts: the repository lookup (findStudentProfileByUserId)
+// already existed for an internal uniqueness check; this just exposes it
+// through the service so another module can call it without reaching into
+// students.repository.ts directly (CLAUDE.md's boundary rule). Returns
+// undefined rather than throwing — a caller with no student_profiles row
+// (e.g. staff) is a normal, expected case for this lookup, not an error.
+async function findStudentProfileByUserId(userId: string): Promise<StudentProfile | undefined> {
+  return studentsRepository.findStudentProfileByUserId(userId);
+}
+
+// Added for the attempts module (Part 1 fix) — startAttempt needs "which
+// batches is this student currently, actively enrolled in" to check
+// against assessment_batches before authorizing an attempt. Pure
+// passthrough to the repository (no business logic to add — see
+// students.repository.ts's listActiveBatchIdsForStudent for the FK path
+// and the 'active'-only filtering reasoning), same trivial-wrapper shape
+// as assessments.service.ts's own listAssessmentBatches.
+async function listActiveBatchIdsForStudent(studentProfileId: string): Promise<string[]> {
+  return studentsRepository.listActiveBatchIdsForStudent(studentProfileId);
+}
+
 async function createStudentProfile(
   input: CreateStudentProfileInput,
   createdBy: string,
@@ -105,6 +131,8 @@ async function archiveStudentProfile(id: string, updatedBy: string): Promise<voi
 export const studentsService = {
   listStudentProfiles,
   findStudentProfileById,
+  findStudentProfileByUserId,
+  listActiveBatchIdsForStudent,
   createStudentProfile,
   updateStudentProfile,
   archiveStudentProfile,

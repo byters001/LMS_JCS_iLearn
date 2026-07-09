@@ -452,6 +452,15 @@ export interface RecordApprovalActionData {
   action: 'submitted' | 'approved' | 'rejected' | 'scheduled' | 'published';
   performedBy: string | null;
   notes?: string;
+  // Only ever populated by scheduleAssessment — this is the one action
+  // whose own job is committing to a start/end window, so it writes these
+  // two columns as part of its own status-transition update rather than
+  // going through updateAssessment's normal PATCH path (which
+  // assertAssessmentEditable blocks outside status='draft', and by the
+  // time schedule is callable the assessment can never be 'draft' again).
+  // See assessments.service.ts's scheduleAssessment.
+  startAt?: Date;
+  endAt?: Date;
 }
 
 export interface RecordApprovalActionResult {
@@ -466,7 +475,12 @@ async function recordApprovalAction(
   return db.transaction(async (tx) => {
     const [assessment] = await tx
       .update(assessments)
-      .set({ status: data.status, updatedBy: data.performedBy })
+      .set({
+        status: data.status,
+        updatedBy: data.performedBy,
+        startAt: data.startAt,
+        endAt: data.endAt,
+      })
       .where(and(eq(assessments.id, assessmentId), isNull(assessments.deletedAt)))
       .returning();
 
