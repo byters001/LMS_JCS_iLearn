@@ -1,4 +1,4 @@
-import type { TrainerProfile } from '../../db/types';
+import type { TrainerProfile, TrainingSession } from '../../db/types';
 import { usersService } from '../users/users.service';
 import { ConflictError, NotFoundError } from '../../shared/errors/app-error';
 import { trainersRepository } from './trainers.repository';
@@ -74,10 +74,27 @@ async function deleteTrainerProfile(id: string): Promise<void> {
   await trainersRepository.deleteTrainerProfile(id);
 }
 
+// --- Training sessions ---
+// Cross-module read for assessments.service.ts (Part 4) — see
+// trainers.repository.ts's findTrainingSessionById comment for why this
+// lives here rather than in assessments' own repository. Same
+// service-boundary discipline as every other cross-module call in this
+// codebase (CLAUDE.md: a module may call another module's SERVICE, never
+// its repository) — this is the first time trainers.service.ts is called
+// from outside its own module.
+async function findTrainingSessionById(id: string): Promise<TrainingSession> {
+  const session = await trainersRepository.findTrainingSessionById(id);
+  if (!session) {
+    throw new NotFoundError('Training session not found');
+  }
+  return session;
+}
+
 export const trainersService = {
   listTrainerProfiles,
   findTrainerProfileById,
   createTrainerProfile,
   updateTrainerProfile,
   deleteTrainerProfile,
+  findTrainingSessionById,
 };

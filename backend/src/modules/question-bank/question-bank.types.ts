@@ -84,13 +84,19 @@ export interface ListQuestionPoolsResult {
 
 // One resolved question a pool criterion selected — enough to point an
 // assessment at a specific frozen version (question_version_id), plus
-// enough surfaced metadata (question text) for a reviewer to sanity-check
-// the preview without a follow-up lookup per question.
+// enough surfaced metadata (question text, marks) for a reviewer to
+// sanity-check the preview, or for a consumer like assessments.service.ts
+// to build a ResolvedAssessmentQuestion, without a follow-up lookup per
+// question. marks is question_versions.marks (numeric -> string, same
+// convention as every other numeric column in this codebase) — pool-drawn
+// picks have no per-assessment override concept the way assessment_
+// questions.marks_override does, so this is always the version's own marks.
 export interface ResolvedPoolQuestion {
   questionId: string;
   questionVersionId: string;
   questionText: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  marks: string;
 }
 
 // The "what would this criterion currently draw" result: eligibleTotal is

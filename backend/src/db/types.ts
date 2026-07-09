@@ -32,6 +32,14 @@ import type {
   questionVersions,
   questions,
 } from './schema/question-bank.schema';
+import type {
+  assessmentApprovalHistory,
+  assessmentBatches,
+  assessmentQuestions,
+  assessmentSectionPools,
+  assessmentSections,
+  assessments,
+} from './schema/assessments.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -128,3 +136,21 @@ export type NewQuestionPool = InferInsertModel<typeof questionPools>;
 
 export type QuestionPoolCriteria = InferSelectModel<typeof questionPoolCriteria>;
 export type NewQuestionPoolCriteria = InferInsertModel<typeof questionPoolCriteria>;
+
+export type Assessment = InferSelectModel<typeof assessments>;
+export type NewAssessment = InferInsertModel<typeof assessments>;
+
+export type AssessmentSection = InferSelectModel<typeof assessmentSections>;
+export type NewAssessmentSection = InferInsertModel<typeof assessmentSections>;
+
+export type AssessmentQuestion = InferSelectModel<typeof assessmentQuestions>;
+export type NewAssessmentQuestion = InferInsertModel<typeof assessmentQuestions>;
+
+export type AssessmentSectionPool = InferSelectModel<typeof assessmentSectionPools>;
+export type NewAssessmentSectionPool = InferInsertModel<typeof assessmentSectionPools>;
+
+export type AssessmentBatch = InferSelectModel<typeof assessmentBatches>;
+export type NewAssessmentBatch = InferInsertModel<typeof assessmentBatches>;
+
+export type AssessmentApprovalHistory = InferSelectModel<typeof assessmentApprovalHistory>;
+export type NewAssessmentApprovalHistory = InferInsertModel<typeof assessmentApprovalHistory>;

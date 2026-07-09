@@ -1,6 +1,7 @@
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
 import Fastify, { type FastifyInstance } from 'fastify';
+import assessmentsRoutes from './modules/assessments/assessments.routes';
 import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import questionBankRoutes from './modules/question-bank/question-bank.routes';
@@ -88,11 +89,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // their decorators/hooks (fastify.authenticate, the onRequest hook, the
   // error handler) down into this prefixed child context regardless.
   //
-  // Of CLAUDE.md's 13 modules, 6 — auth, users, organization, trainers,
-  // students, question-bank — currently export a registrable route plugin.
-  // The remaining 7 are still stub files (`export {};`, nothing to import):
-  //   assessments, coding, attempts, reports, analytics, notifications,
-  //   settings
+  // Of CLAUDE.md's 13 modules, 7 — auth, users, organization, trainers,
+  // students, question-bank, assessments — currently export a registrable
+  // route plugin. The remaining 6 are still stub files (`export {};`,
+  // nothing to import): coding, attempts, reports, analytics,
+  // notifications, settings
   // Importing/registering any of those today would either fail to compile
   // (nothing named to import) or register `undefined` as a plugin at
   // runtime. Each needs exactly one line added here —
@@ -104,15 +105,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   // consistent with how auth/users register bare, module-scoped paths and
   // let this same register-time `prefix` option do the /api/v1 prefixing.
   // trainers.routes.ts (/trainer-profiles), students.routes.ts
-  // (/student-profiles), and question-bank.routes.ts (/question-categories,
-  // /question-topics, /question-tags, /questions) all follow the same
-  // convention.
+  // (/student-profiles), question-bank.routes.ts (/question-categories,
+  // /question-topics, /question-tags, /questions, /question-pools), and
+  // assessments.routes.ts (/assessments) all follow the same convention.
   await app.register(authRoutes, { prefix: API_PREFIX });
   await app.register(usersRoutes, { prefix: API_PREFIX });
   await app.register(organizationRoutes, { prefix: API_PREFIX });
   await app.register(trainersRoutes, { prefix: API_PREFIX });
   await app.register(studentsRoutes, { prefix: API_PREFIX });
   await app.register(questionBankRoutes, { prefix: API_PREFIX });
+  await app.register(assessmentsRoutes, { prefix: API_PREFIX });
 
   return app;
 }

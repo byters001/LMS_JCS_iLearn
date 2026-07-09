@@ -1362,6 +1362,7 @@ async function resolveCriterionQuestions(
         questionVersionId: questionVersions.id,
         questionText: questionVersions.questionText,
         difficulty: questions.difficulty,
+        marks: questionVersions.marks,
       })
       .from(questions)
       .innerJoin(questionVersions, eq(questionVersions.id, questions.currentVersionId))

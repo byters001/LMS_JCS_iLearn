@@ -1,8 +1,8 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { trainingProgramTrainers, trainingPrograms } from '../../db/schema/organization.schema';
-import { trainerProfiles } from '../../db/schema/trainers.schema';
-import type { TrainerProfile } from '../../db/types';
+import { trainerProfiles, trainingSessions } from '../../db/schema/trainers.schema';
+import type { TrainerProfile, TrainingSession } from '../../db/types';
 
 // Hard delete: schema.sql gives trainer_profiles no deleted_at column
 // (checked directly, not assumed). Distinct from the join-table hard-delete
@@ -148,6 +148,24 @@ async function deleteTrainerProfile(id: string): Promise<boolean> {
   return deleted.length > 0;
 }
 
+// --- Training sessions ---
+// Added for the assessments module (Part 4): assessments.training_session_id
+// references training_sessions(id) ON DELETE RESTRICT in schema.sql, and
+// nothing in this codebase exposed a lookup for that table until now —
+// trainers.schema.ts already owns the training_sessions/
+// training_session_trainers tables (see that file's own module comment), so
+// this is the natural home for the read, not a new one-off in assessments'
+// own repository. No deleted_at column on training_sessions (checked
+// directly) — existence is the whole check, nothing to soft-delete-filter.
+async function findTrainingSessionById(id: string): Promise<TrainingSession | undefined> {
+  const [session] = await db
+    .select()
+    .from(trainingSessions)
+    .where(eq(trainingSessions.id, id))
+    .limit(1);
+  return session;
+}
+
 export const trainersRepository = {
   listTrainerProfiles,
   findTrainerProfileById,
@@ -155,4 +173,5 @@ export const trainersRepository = {
   createTrainerProfile,
   updateTrainerProfile,
   deleteTrainerProfile,
+  findTrainingSessionById,
 };

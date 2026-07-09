@@ -939,6 +939,25 @@ async function deleteQuestionPoolCriteria(
   await questionBankRepository.deleteQuestionPoolCriteria(criteriaId);
 }
 
+// Cross-module read for assessments.service.ts (Part 4) — assessment_questions.
+// question_version_id references question_versions(id) directly (no separate
+// question_id column on that junction table in schema.sql), so the manual-
+// selection path needs a version looked up by its own id alone, unlike
+// findQuestionVersionById(questionId, versionId) above which requires
+// already knowing the parent question. Repository-level
+// findQuestionVersionContentById already does exactly this; this is just
+// the missing service-level wrapper (NotFoundError instead of undefined),
+// same discipline as every other lookup in this file — added here rather
+// than in assessments' own repository per CLAUDE.md's boundary rule (a
+// module may call another module's SERVICE, never its repository).
+async function findQuestionVersionContentById(versionId: string): Promise<QuestionVersionWithContent> {
+  const version = await questionBankRepository.findQuestionVersionContentById(versionId);
+  if (!version) {
+    throw new NotFoundError('Question version not found');
+  }
+  return version;
+}
+
 // --- Pool resolution (Part 3) ---
 //
 // Runs every criteria row's filters against real, currently-approved
@@ -1001,6 +1020,7 @@ export const questionBankService = {
   deleteQuestion,
   listQuestionVersions,
   findQuestionVersionById,
+  findQuestionVersionContentById,
   createQuestionVersion,
   activateQuestionVersion,
   findCodingQuestionDetails,
