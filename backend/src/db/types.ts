@@ -19,9 +19,12 @@ import type {
   codingTestCases,
   psychometricDetails,
   psychometricOptions,
+  questionApprovalHistory,
   questionCategories,
   questionImages,
   questionOptions,
+  questionPoolCriteria,
+  questionPools,
   questionTagMap,
   questionTags,
   questionTopicMap,
@@ -116,3 +119,12 @@ export type NewPsychometricDetails = InferInsertModel<typeof psychometricDetails
 
 export type PsychometricOption = InferSelectModel<typeof psychometricOptions>;
 export type NewPsychometricOption = InferInsertModel<typeof psychometricOptions>;
+
+export type QuestionApprovalHistory = InferSelectModel<typeof questionApprovalHistory>;
+export type NewQuestionApprovalHistory = InferInsertModel<typeof questionApprovalHistory>;
+
+export type QuestionPool = InferSelectModel<typeof questionPools>;
+export type NewQuestionPool = InferInsertModel<typeof questionPools>;
+
+export type QuestionPoolCriteria = InferSelectModel<typeof questionPoolCriteria>;
+export type NewQuestionPoolCriteria = InferInsertModel<typeof questionPoolCriteria>;

@@ -296,3 +296,97 @@ export const psychometricOptions = pgTable(
     versionIdx: index('idx_psychometric_options_version').on(table.questionVersionId),
   }),
 );
+
+// --- Part 3: approval workflow + question pools ---
+
+// Append-only audit log — every row is a fact about an action that
+// happened, never updated or deleted (no updated_at/deleted_at columns in
+// schema.sql). question_id is NOT NULL (the row is fundamentally "this
+// happened to this question"); question_version_id is nullable/ON DELETE
+// SET NULL — it records which version was current at the time as context,
+// but isn't the authoritative subject of the row. Nothing in schema.sql
+// enforces the draft -> pending_review -> approved/rejected transitions
+// (no CHECK constraint, no trigger) — that state machine is enforced at
+// the service layer only, same layering this codebase already uses for
+// version-mutability and type-match rules (see question-bank.service.ts).
+export const questionApprovalActionEnum = pgEnum('question_approval_action_enum', [
+  'submitted',
+  'approved',
+  'rejected',
+]);
+
+export const questionApprovalHistory = pgTable(
+  'question_approval_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'cascade' }),
+    questionVersionId: uuid('question_version_id').references(
+      (): AnyPgColumn => questionVersions.id,
+      { onDelete: 'set null' },
+    ),
+    action: questionApprovalActionEnum('action').notNull(),
+    performedBy: uuid('performed_by').references(() => users.id, { onDelete: 'set null' }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    questionIdx: index('idx_question_approval_history_question').on(table.questionId),
+  }),
+);
+
+// A reusable, criteria-filtered bucket an assessment section can draw
+// randomized questions from (assessment_sections.selection_mode = 'pool',
+// via assessment_section_pools — out of scope here, assessments module).
+// college_id nullable = global reusable pool, same "NULL = global" design
+// as questions.college_id; category_id nullable = not scoped to one
+// category; type is NOT NULL — a pool is always exactly one question type.
+export const questionPools = pgTable(
+  'question_pools',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    description: text('description'),
+    collegeId: uuid('college_id').references(() => colleges.id, { onDelete: 'set null' }),
+    categoryId: uuid('category_id').references(() => questionCategories.id, {
+      onDelete: 'set null',
+    }),
+    type: questionTypeEnum('type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    collegeIdx: index('idx_question_pools_college')
+      .on(table.collegeId)
+      .where(sql`${table.deletedAt} IS NULL`),
+  }),
+);
+
+// One row = one "slice" of a pool's requirement: count_required questions
+// matching pool.type/pool.category_id (from the parent) plus this row's own
+// difficulty (required) and, optionally, topic_id and tag_filter. tag_filter
+// is JSONB with no shape documented in schema.sql; modeled here as a
+// string[] of question_tags.id values — see question-bank.service.ts's
+// resolvePoolCriterion for the ANY-match (at least one listed tag, not all)
+// semantics assigned to it.
+export const questionPoolCriteria = pgTable(
+  'question_pool_criteria',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    questionPoolId: uuid('question_pool_id')
+      .notNull()
+      .references(() => questionPools.id, { onDelete: 'cascade' }),
+    difficulty: difficultyEnum('difficulty').notNull(),
+    topicId: uuid('topic_id').references(() => questionTopics.id, { onDelete: 'set null' }),
+    tagFilter: jsonb('tag_filter').$type<string[]>(),
+    countRequired: integer('count_required').notNull().default(1),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    poolIdx: index('idx_question_pool_criteria_pool').on(table.questionPoolId),
+  }),
+);

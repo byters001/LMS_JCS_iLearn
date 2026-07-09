@@ -1,26 +1,33 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeAny } from 'zod';
-import { requireAnyPermission } from '../../rbac/require-permission';
+import { requireAnyPermission, requirePermission } from '../../rbac/require-permission';
 import { ValidationError } from '../../shared/errors/app-error';
 import { questionBankController } from './question-bank.controller';
 import {
+  approvalActionSchema,
   codingTestCaseIdParamsSchema,
   createCodingQuestionDetailsSchema,
   createCodingTestCaseSchema,
   createPsychometricDetailsSchema,
   createPsychometricOptionSchema,
   createQuestionCategorySchema,
+  createQuestionPoolCriteriaSchema,
+  createQuestionPoolSchema,
   createQuestionSchema,
   createQuestionTagSchema,
   createQuestionTopicSchema,
   createQuestionVersionSchema,
+  listQuestionApprovalHistoryQuerySchema,
   listQuestionCategoriesQuerySchema,
+  listQuestionPoolsQuerySchema,
   listQuestionTagsQuerySchema,
   listQuestionTopicsQuerySchema,
   listQuestionsQuerySchema,
   psychometricOptionIdParamsSchema,
   questionCategoryIdParamsSchema,
   questionIdParamsSchema,
+  questionPoolCriteriaIdParamsSchema,
+  questionPoolIdParamsSchema,
   questionTagIdParamsSchema,
   questionTopicIdParamsSchema,
   questionVersionIdParamsSchema,
@@ -29,9 +36,12 @@ import {
   updatePsychometricDetailsSchema,
   updatePsychometricOptionSchema,
   updateQuestionCategorySchema,
+  updateQuestionPoolCriteriaSchema,
+  updateQuestionPoolSchema,
   updateQuestionSchema,
   updateQuestionTagSchema,
   updateQuestionTopicSchema,
+  type ApprovalActionInput,
   type CodingTestCaseIdParams,
   type CreateCodingQuestionDetailsInput,
   type CreateCodingTestCaseInput,
@@ -39,16 +49,22 @@ import {
   type CreatePsychometricOptionInput,
   type CreateQuestionCategoryInput,
   type CreateQuestionInput,
+  type CreateQuestionPoolCriteriaInput,
+  type CreateQuestionPoolInput,
   type CreateQuestionTagInput,
   type CreateQuestionTopicInput,
   type CreateQuestionVersionInput,
+  type ListQuestionApprovalHistoryQuery,
   type ListQuestionCategoriesQuery,
+  type ListQuestionPoolsQuery,
   type ListQuestionTagsQuery,
   type ListQuestionTopicsQuery,
   type ListQuestionsQuery,
   type PsychometricOptionIdParams,
   type QuestionCategoryIdParams,
   type QuestionIdParams,
+  type QuestionPoolCriteriaIdParams,
+  type QuestionPoolIdParams,
   type QuestionTagIdParams,
   type QuestionTopicIdParams,
   type QuestionVersionIdParams,
@@ -58,6 +74,8 @@ import {
   type UpdatePsychometricOptionInput,
   type UpdateQuestionCategoryInput,
   type UpdateQuestionInput,
+  type UpdateQuestionPoolCriteriaInput,
+  type UpdateQuestionPoolInput,
   type UpdateQuestionTagInput,
   type UpdateQuestionTopicInput,
 } from './question-bank.schema';
@@ -113,13 +131,34 @@ function validateBody(schema: ZodTypeAny) {
 // existing infra for free, no extra per-request collegeId cross-checking
 // was added here.
 //
-// questions.approve is NOT used anywhere in this file: no status-transition
-// or approval action exists in this phase (see question-bank.schema.ts —
-// status is excluded from updateQuestionSchema, and
-// activateQuestionVersion is a mechanical "make this version current" op,
-// not an approval decision). It's reserved for the not-yet-built
-// question_approval_history workflow (Part 2/3).
+// questions.approve is now used (Part 3): gates POST /questions/:id/approve
+// and /reject specifically, distinct from QUESTION_BANK_MANAGE below which
+// gates every other question-bank route including the new /submit action —
+// submitting your own work for review is an author-level action (same tier
+// as creating/editing a question), approving or rejecting someone else's
+// submission is a reviewer-level action and deliberately requires the
+// separate key. See question-bank.service.ts's approval-workflow section
+// for the full state machine this gates.
 const QUESTION_BANK_MANAGE = requireAnyPermission(['questions.manage', 'questions.manage_global']);
+const QUESTION_APPROVE = requirePermission('questions.approve');
+
+// question_pools.manage / question_pools.manage_global: mirrors
+// questions.manage / questions.manage_global exactly rather than following
+// the view/manage split used for colleges/users, or the single
+// training_programs.manage-style key used elsewhere in organization.schema.
+// Reasoning: question_pools.college_id has the identical nullable "NULL =
+// global" shape and comment as questions.college_id in db/schema/
+// question-bank.schema.ts — it's the same own-college-vs-global scoping
+// concern as questions, in the very same module, so it gets the same
+// two-key treatment rather than either of this codebase's other two
+// precedents. Neither key was seeded in schema.sql (confirmed by grep
+// against its INSERT INTO permissions block) — added via a --custom
+// drizzle-kit migration, same mechanism as 0003/0005's trainers.*/
+// students.* permissions.
+const QUESTION_POOLS_MANAGE = requireAnyPermission([
+  'question_pools.manage',
+  'question_pools.manage_global',
+]);
 
 export async function questionBankRoutes(fastify: FastifyInstance): Promise<void> {
   // --- Question categories ---
@@ -564,6 +603,164 @@ export async function questionBankRoutes(fastify: FastifyInstance): Promise<void
       preValidation: validateParams(psychometricOptionIdParamsSchema),
     },
     questionBankController.deletePsychometricOption,
+  );
+
+  // --- Approval workflow (Part 3) ---
+  // draft/rejected --submit--> pending_review --approve--> approved
+  //                                            \--reject--> rejected
+  // See question-bank.service.ts for the full state machine and why this is
+  // three dedicated action endpoints rather than a generic status PATCH.
+
+  fastify.post<{ Params: QuestionIdParams; Body: ApprovalActionInput }>(
+    '/questions/:id/submit',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [validateParams(questionIdParamsSchema), validateBody(approvalActionSchema)],
+    },
+    questionBankController.submitQuestionForApproval,
+  );
+
+  fastify.post<{ Params: QuestionIdParams; Body: ApprovalActionInput }>(
+    '/questions/:id/approve',
+    {
+      preHandler: [fastify.authenticate, QUESTION_APPROVE],
+      preValidation: [validateParams(questionIdParamsSchema), validateBody(approvalActionSchema)],
+    },
+    questionBankController.approveQuestion,
+  );
+
+  fastify.post<{ Params: QuestionIdParams; Body: ApprovalActionInput }>(
+    '/questions/:id/reject',
+    {
+      preHandler: [fastify.authenticate, QUESTION_APPROVE],
+      preValidation: [validateParams(questionIdParamsSchema), validateBody(approvalActionSchema)],
+    },
+    questionBankController.rejectQuestion,
+  );
+
+  // Gated the same as other question-bank reads (QUESTION_BANK_MANAGE), not
+  // QUESTION_APPROVE — viewing the audit trail on your own/college's
+  // question is a read concern, not an approval action.
+  fastify.get<{ Params: QuestionIdParams; Querystring: ListQuestionApprovalHistoryQuery }>(
+    '/questions/:id/approval-history',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+      preValidation: [
+        validateParams(questionIdParamsSchema),
+        validateQuery(listQuestionApprovalHistoryQuerySchema),
+      ],
+    },
+    questionBankController.listQuestionApprovalHistory,
+  );
+
+  // --- Question pools (Part 3) ---
+
+  fastify.get<{ Querystring: ListQuestionPoolsQuery }>(
+    '/question-pools',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateQuery(listQuestionPoolsQuerySchema),
+    },
+    questionBankController.listQuestionPools,
+  );
+
+  fastify.get<{ Params: QuestionPoolIdParams }>(
+    '/question-pools/:id',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateParams(questionPoolIdParamsSchema),
+    },
+    questionBankController.getQuestionPoolById,
+  );
+
+  fastify.post<{ Body: CreateQuestionPoolInput }>(
+    '/question-pools',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateBody(createQuestionPoolSchema),
+    },
+    questionBankController.createQuestionPool,
+  );
+
+  fastify.patch<{ Params: QuestionPoolIdParams; Body: UpdateQuestionPoolInput }>(
+    '/question-pools/:id',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: [
+        validateParams(questionPoolIdParamsSchema),
+        validateBody(updateQuestionPoolSchema),
+      ],
+    },
+    questionBankController.updateQuestionPool,
+  );
+
+  // Soft delete (question_pools.deleted_at).
+  fastify.delete<{ Params: QuestionPoolIdParams }>(
+    '/question-pools/:id',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateParams(questionPoolIdParamsSchema),
+    },
+    questionBankController.deleteQuestionPool,
+  );
+
+  // --- Question pool criteria (Part 3) ---
+  // No dedicated GET :criteriaId route — same economy as coding-test-cases
+  // above (list + mutate, no single-item read).
+
+  fastify.get<{ Params: QuestionPoolIdParams }>(
+    '/question-pools/:id/criteria',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateParams(questionPoolIdParamsSchema),
+    },
+    questionBankController.listQuestionPoolCriteria,
+  );
+
+  fastify.post<{ Params: QuestionPoolIdParams; Body: CreateQuestionPoolCriteriaInput }>(
+    '/question-pools/:id/criteria',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: [
+        validateParams(questionPoolIdParamsSchema),
+        validateBody(createQuestionPoolCriteriaSchema),
+      ],
+    },
+    questionBankController.createQuestionPoolCriteria,
+  );
+
+  fastify.patch<{ Params: QuestionPoolCriteriaIdParams; Body: UpdateQuestionPoolCriteriaInput }>(
+    '/question-pools/:id/criteria/:criteriaId',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: [
+        validateParams(questionPoolCriteriaIdParamsSchema),
+        validateBody(updateQuestionPoolCriteriaSchema),
+      ],
+    },
+    questionBankController.updateQuestionPoolCriteria,
+  );
+
+  fastify.delete<{ Params: QuestionPoolCriteriaIdParams }>(
+    '/question-pools/:id/criteria/:criteriaId',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateParams(questionPoolCriteriaIdParamsSchema),
+    },
+    questionBankController.deleteQuestionPoolCriteria,
+  );
+
+  // --- Pool resolution (Part 3) ---
+  // Read-only dry run — runs every criteria row's filters against real,
+  // currently-approved questions and reports what it would draw right now.
+  // See question-bank.service.ts's resolveQuestionPool.
+  fastify.get<{ Params: QuestionPoolIdParams }>(
+    '/question-pools/:id/resolve',
+    {
+      preHandler: [fastify.authenticate, QUESTION_POOLS_MANAGE],
+      preValidation: validateParams(questionPoolIdParamsSchema),
+    },
+    questionBankController.resolveQuestionPool,
   );
 }
 

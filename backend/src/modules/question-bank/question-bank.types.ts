@@ -4,9 +4,12 @@ import type {
   PsychometricDetails,
   PsychometricOption,
   Question,
+  QuestionApprovalHistory,
   QuestionCategory,
   QuestionImage,
   QuestionOption,
+  QuestionPool,
+  QuestionPoolCriteria,
   QuestionTag,
   QuestionTopic,
   QuestionVersion,
@@ -61,4 +64,50 @@ export interface QuestionVersionWithContent extends QuestionVersion {
 // sets it atomically, but the FK is nullable so the type reflects that.
 export interface QuestionWithCurrentVersion extends Question {
   currentVersion: QuestionVersionWithContent | null;
+}
+
+// --- Part 3: approval workflow + question pools ---
+
+export interface ListQuestionApprovalHistoryResult {
+  items: QuestionApprovalHistory[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListQuestionPoolsResult {
+  items: QuestionPool[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// One resolved question a pool criterion selected — enough to point an
+// assessment at a specific frozen version (question_version_id), plus
+// enough surfaced metadata (question text) for a reviewer to sanity-check
+// the preview without a follow-up lookup per question.
+export interface ResolvedPoolQuestion {
+  questionId: string;
+  questionVersionId: string;
+  questionText: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+}
+
+// The "what would this criterion currently draw" result: eligibleTotal is
+// how many approved questions satisfy the criterion's filters regardless of
+// count_required; selected is the (randomly-ordered) subset actually drawn,
+// capped at count_required. selected.length < countRequired iff the pool is
+// under-supplied for this criterion — the signal a pool curator needs
+// before an assessment section is allowed to depend on it.
+export interface ResolvedPoolCriterion extends QuestionPoolCriteria {
+  eligibleTotal: number;
+  selected: ResolvedPoolQuestion[];
+}
+
+export interface ResolvedQuestionPool {
+  pool: QuestionPool;
+  criteria: ResolvedPoolCriterion[];
+  totalRequired: number;
+  totalSelected: number;
+  isFullySatisfied: boolean;
 }

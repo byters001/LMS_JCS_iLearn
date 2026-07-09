@@ -3,6 +3,7 @@ import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { questionBankService } from './question-bank.service';
 import type {
+  ApprovalActionInput,
   CodingTestCaseIdParams,
   CreateCodingQuestionDetailsInput,
   CreateCodingTestCaseInput,
@@ -10,16 +11,22 @@ import type {
   CreatePsychometricOptionInput,
   CreateQuestionCategoryInput,
   CreateQuestionInput,
+  CreateQuestionPoolCriteriaInput,
+  CreateQuestionPoolInput,
   CreateQuestionTagInput,
   CreateQuestionTopicInput,
   CreateQuestionVersionInput,
+  ListQuestionApprovalHistoryQuery,
   ListQuestionCategoriesQuery,
+  ListQuestionPoolsQuery,
   ListQuestionTagsQuery,
   ListQuestionTopicsQuery,
   ListQuestionsQuery,
   PsychometricOptionIdParams,
   QuestionCategoryIdParams,
   QuestionIdParams,
+  QuestionPoolCriteriaIdParams,
+  QuestionPoolIdParams,
   QuestionTagIdParams,
   QuestionTopicIdParams,
   QuestionVersionIdParams,
@@ -29,6 +36,8 @@ import type {
   UpdatePsychometricOptionInput,
   UpdateQuestionCategoryInput,
   UpdateQuestionInput,
+  UpdateQuestionPoolCriteriaInput,
+  UpdateQuestionPoolInput,
   UpdateQuestionTagInput,
   UpdateQuestionTopicInput,
 } from './question-bank.schema';
@@ -485,6 +494,175 @@ async function deletePsychometricOption(
   reply.status(204).send();
 }
 
+// --- Approval workflow (Part 3) ---
+
+async function submitQuestionForApproval(
+  request: FastifyRequest<{ Params: QuestionIdParams; Body: ApprovalActionInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const performedBy = requireUserId(request);
+  const question = await questionBankService.submitQuestionForApproval(
+    request.params.id,
+    performedBy,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof question> = { success: true, data: question };
+  reply.status(200).send(response);
+}
+
+async function approveQuestion(
+  request: FastifyRequest<{ Params: QuestionIdParams; Body: ApprovalActionInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const performedBy = requireUserId(request);
+  const question = await questionBankService.approveQuestion(
+    request.params.id,
+    performedBy,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof question> = { success: true, data: question };
+  reply.status(200).send(response);
+}
+
+async function rejectQuestion(
+  request: FastifyRequest<{ Params: QuestionIdParams; Body: ApprovalActionInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const performedBy = requireUserId(request);
+  const question = await questionBankService.rejectQuestion(
+    request.params.id,
+    performedBy,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof question> = { success: true, data: question };
+  reply.status(200).send(response);
+}
+
+async function listQuestionApprovalHistory(
+  request: FastifyRequest<{ Params: QuestionIdParams; Querystring: ListQuestionApprovalHistoryQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await questionBankService.listQuestionApprovalHistory(
+    request.params.id,
+    request.query,
+  );
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+// --- Question pools (Part 3) ---
+
+async function listQuestionPools(
+  request: FastifyRequest<{ Querystring: ListQuestionPoolsQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await questionBankService.listQuestionPools(request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function getQuestionPoolById(
+  request: FastifyRequest<{ Params: QuestionPoolIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const pool = await questionBankService.findQuestionPoolById(request.params.id);
+  const response: ApiSuccessResponse<typeof pool> = { success: true, data: pool };
+  reply.status(200).send(response);
+}
+
+async function createQuestionPool(
+  request: FastifyRequest<{ Body: CreateQuestionPoolInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const createdBy = requireUserId(request);
+  const pool = await questionBankService.createQuestionPool(request.body, createdBy);
+  const response: ApiSuccessResponse<typeof pool> = { success: true, data: pool };
+  reply.status(201).send(response);
+}
+
+async function updateQuestionPool(
+  request: FastifyRequest<{ Params: QuestionPoolIdParams; Body: UpdateQuestionPoolInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const updatedBy = requireUserId(request);
+  const pool = await questionBankService.updateQuestionPool(
+    request.params.id,
+    request.body,
+    updatedBy,
+  );
+  const response: ApiSuccessResponse<typeof pool> = { success: true, data: pool };
+  reply.status(200).send(response);
+}
+
+async function deleteQuestionPool(
+  request: FastifyRequest<{ Params: QuestionPoolIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await questionBankService.deleteQuestionPool(request.params.id);
+  reply.status(204).send();
+}
+
+// --- Question pool criteria (Part 3) ---
+
+async function listQuestionPoolCriteria(
+  request: FastifyRequest<{ Params: QuestionPoolIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const criteria = await questionBankService.listQuestionPoolCriteria(request.params.id);
+  const response: ApiSuccessResponse<typeof criteria> = { success: true, data: criteria };
+  reply.status(200).send(response);
+}
+
+async function createQuestionPoolCriteria(
+  request: FastifyRequest<{ Params: QuestionPoolIdParams; Body: CreateQuestionPoolCriteriaInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const criteria = await questionBankService.createQuestionPoolCriteria(
+    request.params.id,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof criteria> = { success: true, data: criteria };
+  reply.status(201).send(response);
+}
+
+async function updateQuestionPoolCriteria(
+  request: FastifyRequest<{
+    Params: QuestionPoolCriteriaIdParams;
+    Body: UpdateQuestionPoolCriteriaInput;
+  }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const criteria = await questionBankService.updateQuestionPoolCriteria(
+    request.params.id,
+    request.params.criteriaId,
+    request.body,
+  );
+  const response: ApiSuccessResponse<typeof criteria> = { success: true, data: criteria };
+  reply.status(200).send(response);
+}
+
+async function deleteQuestionPoolCriteria(
+  request: FastifyRequest<{ Params: QuestionPoolCriteriaIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  await questionBankService.deleteQuestionPoolCriteria(
+    request.params.id,
+    request.params.criteriaId,
+  );
+  reply.status(204).send();
+}
+
+// --- Pool resolution (Part 3) ---
+
+async function resolveQuestionPool(
+  request: FastifyRequest<{ Params: QuestionPoolIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const resolved = await questionBankService.resolveQuestionPool(request.params.id);
+  const response: ApiSuccessResponse<typeof resolved> = { success: true, data: resolved };
+  reply.status(200).send(response);
+}
+
 export const questionBankController = {
   listQuestionCategories,
   getQuestionCategoryById,
@@ -526,4 +704,18 @@ export const questionBankController = {
   createPsychometricOption,
   updatePsychometricOption,
   deletePsychometricOption,
+  submitQuestionForApproval,
+  approveQuestion,
+  rejectQuestion,
+  listQuestionApprovalHistory,
+  listQuestionPools,
+  getQuestionPoolById,
+  createQuestionPool,
+  updateQuestionPool,
+  deleteQuestionPool,
+  listQuestionPoolCriteria,
+  createQuestionPoolCriteria,
+  updateQuestionPoolCriteria,
+  deleteQuestionPoolCriteria,
+  resolveQuestionPool,
 };

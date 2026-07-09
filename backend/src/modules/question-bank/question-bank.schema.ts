@@ -338,3 +338,100 @@ export type UpdatePsychometricDetailsInput = z.infer<typeof updatePsychometricDe
 export type CreatePsychometricOptionInput = z.infer<typeof createPsychometricOptionSchema>;
 export type UpdatePsychometricOptionInput = z.infer<typeof updatePsychometricOptionSchema>;
 export type PsychometricOptionIdParams = z.infer<typeof psychometricOptionIdParamsSchema>;
+
+// --- Approval workflow (Part 3) ---
+// All three actions (submit/approve/reject) take the same optional-notes
+// shape — notes is a free-text justification recorded on the
+// question_approval_history row, never required since a self-explanatory
+// approval shouldn't be blocked on writing a comment.
+
+export const approvalActionSchema = z.object({
+  notes: z.string().min(1).optional(),
+});
+
+export const listQuestionApprovalHistoryQuerySchema = z.object({
+  ...paginationFields,
+});
+
+export type ApprovalActionInput = z.infer<typeof approvalActionSchema>;
+export type ListQuestionApprovalHistoryQuery = z.infer<
+  typeof listQuestionApprovalHistoryQuerySchema
+>;
+
+// --- Question pools (Part 3) ---
+
+export const listQuestionPoolsQuerySchema = z.object({
+  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+  type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
+  ...paginationFields,
+});
+
+export const createQuestionPoolSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  description: z.string().min(1).optional(),
+  // Omitted => global reusable pool, matching questions.collegeId's own
+  // "NULL = global bank" convention (see db/schema/question-bank.schema.ts).
+  collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+  categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+  type: z.enum(['mcq', 'coding', 'psychometric']),
+});
+
+export const updateQuestionPoolSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().min(1).nullable().optional(),
+    collegeId: z.string().uuid('collegeId must be a valid UUID').nullable().optional(),
+    categoryId: z.string().uuid('categoryId must be a valid UUID').nullable().optional(),
+    // type deliberately excluded — changing a pool's question type after
+    // criteria rows already exist against it would silently invalidate
+    // those rows' intent; not part of the update surface, same call as
+    // updateQuestionSchema excluding `type` for the same reason.
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export const questionPoolIdParamsSchema = z.object({
+  id: z.string().uuid('id must be a valid UUID'),
+});
+
+// --- Question pool criteria (Part 3) ---
+// tagFilter is modeled as an array of question_tags.id UUIDs — ANY-match
+// semantics (a question qualifies if it has at least one listed tag), see
+// question-bank.service.ts's resolvePoolCriterion.
+
+export const createQuestionPoolCriteriaSchema = z.object({
+  difficulty: z.enum(['easy', 'medium', 'hard']),
+  topicId: z.string().uuid('topicId must be a valid UUID').optional(),
+  tagFilter: z.array(z.string().uuid('tagFilter entries must be valid UUIDs')).optional(),
+  countRequired: z.coerce.number().int().positive().optional().default(1),
+});
+
+export const updateQuestionPoolCriteriaSchema = z
+  .object({
+    difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+    topicId: z.string().uuid('topicId must be a valid UUID').nullable().optional(),
+    tagFilter: z
+      .array(z.string().uuid('tagFilter entries must be valid UUIDs'))
+      .nullable()
+      .optional(),
+    countRequired: z.coerce.number().int().positive().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export const questionPoolCriteriaIdParamsSchema = z.object({
+  id: z.string().uuid('id must be a valid UUID'),
+  criteriaId: z.string().uuid('criteriaId must be a valid UUID'),
+});
+
+export type ListQuestionPoolsQuery = z.infer<typeof listQuestionPoolsQuerySchema>;
+export type CreateQuestionPoolInput = z.infer<typeof createQuestionPoolSchema>;
+export type UpdateQuestionPoolInput = z.infer<typeof updateQuestionPoolSchema>;
+export type QuestionPoolIdParams = z.infer<typeof questionPoolIdParamsSchema>;
+
+export type CreateQuestionPoolCriteriaInput = z.infer<typeof createQuestionPoolCriteriaSchema>;
+export type UpdateQuestionPoolCriteriaInput = z.infer<typeof updateQuestionPoolCriteriaSchema>;
+export type QuestionPoolCriteriaIdParams = z.infer<typeof questionPoolCriteriaIdParamsSchema>;

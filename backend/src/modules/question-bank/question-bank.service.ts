@@ -5,6 +5,8 @@ import type {
   PsychometricOption,
   Question,
   QuestionCategory,
+  QuestionPool,
+  QuestionPoolCriteria,
   QuestionTag,
   QuestionTopic,
   QuestionVersion,
@@ -13,16 +15,21 @@ import { organizationService } from '../organization/organization.service';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { questionBankRepository } from './question-bank.repository';
 import type {
+  ApprovalActionInput,
   CreateCodingQuestionDetailsInput,
   CreateCodingTestCaseInput,
   CreatePsychometricDetailsInput,
   CreatePsychometricOptionInput,
   CreateQuestionCategoryInput,
   CreateQuestionInput,
+  CreateQuestionPoolCriteriaInput,
+  CreateQuestionPoolInput,
   CreateQuestionTagInput,
   CreateQuestionTopicInput,
   CreateQuestionVersionInput,
+  ListQuestionApprovalHistoryQuery,
   ListQuestionCategoriesQuery,
+  ListQuestionPoolsQuery,
   ListQuestionTagsQuery,
   ListQuestionTopicsQuery,
   ListQuestionsQuery,
@@ -32,14 +39,19 @@ import type {
   UpdatePsychometricOptionInput,
   UpdateQuestionCategoryInput,
   UpdateQuestionInput,
+  UpdateQuestionPoolCriteriaInput,
+  UpdateQuestionPoolInput,
   UpdateQuestionTagInput,
   UpdateQuestionTopicInput,
 } from './question-bank.schema';
 import type {
+  ListQuestionApprovalHistoryResult,
   ListQuestionCategoriesResult,
+  ListQuestionPoolsResult,
   ListQuestionTagsResult,
   ListQuestionTopicsResult,
   ListQuestionsResult,
+  ResolvedQuestionPool,
   QuestionVersionWithContent,
   QuestionWithCurrentVersion,
 } from './question-bank.types';
@@ -682,6 +694,289 @@ async function deletePsychometricOption(
   await questionBankRepository.deletePsychometricOption(optionId);
 }
 
+// --- Approval workflow (Part 3) ---
+//
+// question_approval_action_enum has three values (submitted/approved/
+// rejected) and nothing in schema.sql enforces which questions.status a
+// question must be in for a given action to apply — no CHECK constraint, no
+// trigger (confirmed by reading schema.sql directly). The state machine
+// below is therefore entirely a service-layer invariant, the same layering
+// this file already uses for version-mutability and type-match rules.
+//
+// draft --submit--> pending_review --approve--> approved
+//                                  \-reject---> rejected --submit--> pending_review
+//
+// 'archived' is a separate lifecycle state (schema.sql's question_status_enum
+// has it, but no archive/unarchive action exists anywhere in this codebase
+// yet) — deliberately left untouched by this workflow rather than invented
+// here.
+const SUBMITTABLE_STATUSES: Question['status'][] = ['draft', 'rejected'];
+
+// Recording an approval/rejection is its own dedicated endpoint (POST
+// /questions/:id/approve, /reject, and /submit), not folded into the
+// existing PATCH /questions/:id update flow. Same call this codebase
+// already made for activateQuestionVersion vs a generic version PATCH:
+// a status transition is a workflow ACTION with a side effect (an
+// append-only history row via recordApprovalAction) and its own permission
+// requirement (questions.approve, distinct from questions.manage) — a
+// single generic "PATCH status" field couldn't cleanly carry either of
+// those per-action requirements. updateQuestionSchema already explicitly
+// excludes `status` for this exact reason (see question-bank.schema.ts).
+
+async function submitQuestionForApproval(
+  id: string,
+  performedBy: string,
+  input: ApprovalActionInput,
+): Promise<Question> {
+  const question = await findQuestionById(id);
+  if (!SUBMITTABLE_STATUSES.includes(question.status)) {
+    throw new ConflictError(
+      `Cannot submit a question with status "${question.status}" for approval`,
+    );
+  }
+
+  const { question: updated } = await questionBankRepository.recordApprovalAction(id, {
+    status: 'pending_review',
+    action: 'submitted',
+    questionVersionId: question.currentVersionId,
+    performedBy,
+    notes: input.notes,
+  });
+  return updated;
+}
+
+async function approveQuestion(
+  id: string,
+  performedBy: string,
+  input: ApprovalActionInput,
+): Promise<Question> {
+  const question = await findQuestionById(id);
+  if (question.status !== 'pending_review') {
+    throw new ConflictError(
+      `Cannot approve a question with status "${question.status}" — must be "pending_review"`,
+    );
+  }
+
+  const { question: updated } = await questionBankRepository.recordApprovalAction(id, {
+    status: 'approved',
+    action: 'approved',
+    questionVersionId: question.currentVersionId,
+    performedBy,
+    notes: input.notes,
+  });
+  return updated;
+}
+
+async function rejectQuestion(
+  id: string,
+  performedBy: string,
+  input: ApprovalActionInput,
+): Promise<Question> {
+  const question = await findQuestionById(id);
+  if (question.status !== 'pending_review') {
+    throw new ConflictError(
+      `Cannot reject a question with status "${question.status}" — must be "pending_review"`,
+    );
+  }
+
+  const { question: updated } = await questionBankRepository.recordApprovalAction(id, {
+    status: 'rejected',
+    action: 'rejected',
+    questionVersionId: question.currentVersionId,
+    performedBy,
+    notes: input.notes,
+  });
+  return updated;
+}
+
+async function listQuestionApprovalHistory(
+  questionId: string,
+  query: ListQuestionApprovalHistoryQuery,
+): Promise<ListQuestionApprovalHistoryResult> {
+  await findQuestionById(questionId);
+  const { items, total } = await questionBankRepository.listApprovalHistory(
+    questionId,
+    query.page,
+    query.pageSize,
+  );
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+// --- Question pools (Part 3) ---
+//
+// My read on the domain (per the task's request to state it before writing
+// query logic): a question_pool is a reusable, criteria-filtered bucket of
+// approved questions, scoped to exactly one question type and optionally
+// one category and/or one college (NULL college_id = global reusable pool,
+// same convention as questions.college_id). An assessment section using
+// pool-based selection (assessment_sections.selection_mode = 'pool', via
+// assessment_section_pools — out of scope, assessments module) draws its
+// randomized question set from a pool at that point. Each
+// question_pool_criteria row is one independently-resolved "slice" of the
+// pool's requirement: count_required questions matching the pool's
+// type/category plus this row's own difficulty (required) and, optionally,
+// a single topic and/or a tag filter. A pool typically holds several
+// criteria rows to build a mix (e.g. 5 easy + 10 medium + 5 hard). See
+// resolveQuestionPool below for exactly how each slice is resolved.
+
+async function listQuestionPools(query: ListQuestionPoolsQuery): Promise<ListQuestionPoolsResult> {
+  const { items, total } = await questionBankRepository.listQuestionPools({
+    collegeId: query.collegeId,
+    categoryId: query.categoryId,
+    type: query.type,
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+async function findQuestionPoolById(id: string): Promise<QuestionPool> {
+  const pool = await questionBankRepository.findQuestionPoolById(id);
+  if (!pool) {
+    throw new NotFoundError('Question pool not found');
+  }
+  return pool;
+}
+
+async function createQuestionPool(
+  input: CreateQuestionPoolInput,
+  createdBy: string,
+): Promise<QuestionPool> {
+  if (input.collegeId) {
+    await organizationService.findCollegeById(input.collegeId);
+  }
+  if (input.categoryId) {
+    await findQuestionCategoryById(input.categoryId);
+  }
+  return questionBankRepository.createQuestionPool({ ...input, createdBy });
+}
+
+async function updateQuestionPool(
+  id: string,
+  input: UpdateQuestionPoolInput,
+  updatedBy: string,
+): Promise<QuestionPool> {
+  await findQuestionPoolById(id);
+
+  if (input.collegeId) {
+    await organizationService.findCollegeById(input.collegeId);
+  }
+  if (input.categoryId) {
+    await findQuestionCategoryById(input.categoryId);
+  }
+
+  const updated = await questionBankRepository.updateQuestionPool(id, { ...input, updatedBy });
+  if (!updated) {
+    throw new NotFoundError('Question pool not found');
+  }
+  return updated;
+}
+
+async function deleteQuestionPool(id: string): Promise<void> {
+  await findQuestionPoolById(id);
+  await questionBankRepository.deleteQuestionPool(id);
+}
+
+// --- Question pool criteria (Part 3) ---
+
+async function listQuestionPoolCriteria(questionPoolId: string): Promise<QuestionPoolCriteria[]> {
+  await findQuestionPoolById(questionPoolId);
+  return questionBankRepository.listQuestionPoolCriteria(questionPoolId);
+}
+
+async function getQuestionPoolCriteria(
+  questionPoolId: string,
+  criteriaId: string,
+): Promise<QuestionPoolCriteria> {
+  await findQuestionPoolById(questionPoolId);
+  const criteria = await questionBankRepository.findQuestionPoolCriteriaById(criteriaId);
+  if (!criteria || criteria.questionPoolId !== questionPoolId) {
+    throw new NotFoundError('Question pool criteria not found');
+  }
+  return criteria;
+}
+
+async function createQuestionPoolCriteria(
+  questionPoolId: string,
+  input: CreateQuestionPoolCriteriaInput,
+): Promise<QuestionPoolCriteria> {
+  await findQuestionPoolById(questionPoolId);
+  if (input.topicId) {
+    await findQuestionTopicById(input.topicId);
+  }
+  if (input.tagFilter && input.tagFilter.length > 0) {
+    await Promise.all(input.tagFilter.map((tagId) => findQuestionTagById(tagId)));
+  }
+  return questionBankRepository.createQuestionPoolCriteria(questionPoolId, input);
+}
+
+async function updateQuestionPoolCriteria(
+  questionPoolId: string,
+  criteriaId: string,
+  input: UpdateQuestionPoolCriteriaInput,
+): Promise<QuestionPoolCriteria> {
+  await getQuestionPoolCriteria(questionPoolId, criteriaId);
+
+  if (input.topicId) {
+    await findQuestionTopicById(input.topicId);
+  }
+  if (input.tagFilter && input.tagFilter.length > 0) {
+    await Promise.all(input.tagFilter.map((tagId) => findQuestionTagById(tagId)));
+  }
+
+  const updated = await questionBankRepository.updateQuestionPoolCriteria(criteriaId, input);
+  if (!updated) {
+    throw new NotFoundError('Question pool criteria not found');
+  }
+  return updated;
+}
+
+async function deleteQuestionPoolCriteria(
+  questionPoolId: string,
+  criteriaId: string,
+): Promise<void> {
+  await getQuestionPoolCriteria(questionPoolId, criteriaId);
+  await questionBankRepository.deleteQuestionPoolCriteria(criteriaId);
+}
+
+// --- Pool resolution (Part 3) ---
+//
+// Runs every criteria row's filters against real, currently-approved
+// questions and reports what it would draw right now — the operation
+// assessments will actually depend on once assessment_section_pools exists.
+// Each criterion is resolved independently (its own eligible-total count and
+// its own random draw capped at count_required); a pool is "fully
+// satisfied" only when every criterion drew as many as it required, which
+// is the signal a curator needs before letting an assessment section point
+// at this pool.
+async function resolveQuestionPool(questionPoolId: string): Promise<ResolvedQuestionPool> {
+  const pool = await findQuestionPoolById(questionPoolId);
+  const criteria = await questionBankRepository.listQuestionPoolCriteria(questionPoolId);
+
+  const resolved = await Promise.all(
+    criteria.map(async (criterion) => {
+      const { eligibleTotal, selected } = await questionBankRepository.resolveCriterionQuestions(
+        pool,
+        criterion,
+      );
+      return { ...criterion, eligibleTotal, selected };
+    }),
+  );
+
+  const totalRequired = criteria.reduce((sum, criterion) => sum + criterion.countRequired, 0);
+  const totalSelected = resolved.reduce((sum, criterion) => sum + criterion.selected.length, 0);
+
+  return {
+    pool,
+    criteria: resolved,
+    totalRequired,
+    totalSelected,
+    isFullySatisfied: resolved.every(
+      (criterion) => criterion.selected.length >= criterion.countRequired,
+    ),
+  };
+}
+
 export const questionBankService = {
   listQuestionCategories,
   findQuestionCategoryById,
@@ -724,4 +1019,19 @@ export const questionBankService = {
   createPsychometricOption,
   updatePsychometricOption,
   deletePsychometricOption,
+  submitQuestionForApproval,
+  approveQuestion,
+  rejectQuestion,
+  listQuestionApprovalHistory,
+  listQuestionPools,
+  findQuestionPoolById,
+  createQuestionPool,
+  updateQuestionPool,
+  deleteQuestionPool,
+  listQuestionPoolCriteria,
+  getQuestionPoolCriteria,
+  createQuestionPoolCriteria,
+  updateQuestionPoolCriteria,
+  deleteQuestionPoolCriteria,
+  resolveQuestionPool,
 };

@@ -1,13 +1,16 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import {
   codingQuestionDetails,
   codingTestCases,
   psychometricDetails,
   psychometricOptions,
+  questionApprovalHistory,
   questionCategories,
   questionImages,
   questionOptions,
+  questionPoolCriteria,
+  questionPools,
   questionTagMap,
   questionTags,
   questionTopicMap,
@@ -21,12 +24,15 @@ import type {
   PsychometricDetails,
   PsychometricOption,
   Question,
+  QuestionApprovalHistory,
   QuestionCategory,
+  QuestionPool,
+  QuestionPoolCriteria,
   QuestionTag,
   QuestionTopic,
   QuestionVersion,
 } from '../../db/types';
-import type { QuestionVersionWithContent } from './question-bank.types';
+import type { ResolvedPoolQuestion, QuestionVersionWithContent } from './question-bank.types';
 
 // --- Question categories ---
 // Hard delete: no deleted_at column in schema.sql. Safe to hard-delete —
@@ -1025,6 +1031,354 @@ async function deletePsychometricOption(id: string): Promise<boolean> {
   return deleted.length > 0;
 }
 
+// --- Question approval history (Part 3) ---
+// The history table itself is append-only (no update/delete functions here,
+// matching question_versions' own immutable-once-created treatment), but
+// every write to it happens alongside a questions.status change — the two
+// are done in one transaction (recordApprovalAction) so a crash between
+// them can never leave status and history disagreeing about what happened.
+
+export interface RecordApprovalActionData {
+  status: 'pending_review' | 'approved' | 'rejected';
+  action: 'submitted' | 'approved' | 'rejected';
+  questionVersionId: string | null;
+  performedBy: string | null;
+  notes?: string;
+}
+
+export interface RecordApprovalActionResult {
+  question: Question;
+  historyEntry: QuestionApprovalHistory;
+}
+
+async function recordApprovalAction(
+  questionId: string,
+  data: RecordApprovalActionData,
+): Promise<RecordApprovalActionResult> {
+  return db.transaction(async (tx) => {
+    const [question] = await tx
+      .update(questions)
+      .set({ status: data.status, updatedBy: data.performedBy })
+      .where(and(eq(questions.id, questionId), isNull(questions.deletedAt)))
+      .returning();
+
+    const [historyEntry] = await tx
+      .insert(questionApprovalHistory)
+      .values({
+        questionId,
+        questionVersionId: data.questionVersionId,
+        action: data.action,
+        performedBy: data.performedBy,
+        notes: data.notes,
+      })
+      .returning();
+
+    return { question, historyEntry };
+  });
+}
+
+export interface ListQuestionApprovalHistoryResult {
+  items: QuestionApprovalHistory[];
+  total: number;
+}
+
+async function listApprovalHistory(
+  questionId: string,
+  page: number,
+  pageSize: number,
+): Promise<ListQuestionApprovalHistoryResult> {
+  const offset = (page - 1) * pageSize;
+  const where = eq(questionApprovalHistory.questionId, questionId);
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(questionApprovalHistory)
+      .where(where)
+      .orderBy(desc(questionApprovalHistory.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(questionApprovalHistory).where(where),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+// --- Question pools (Part 3) ---
+// Soft delete: deleted_at exists in schema.sql, same treatment as questions.
+
+export interface ListQuestionPoolsParams {
+  collegeId?: string;
+  categoryId?: string;
+  type?: 'mcq' | 'coding' | 'psychometric';
+  page: number;
+  pageSize: number;
+}
+
+export interface ListQuestionPoolsResult {
+  items: QuestionPool[];
+  total: number;
+}
+
+function buildQuestionPoolsWhere(params: Omit<ListQuestionPoolsParams, 'page' | 'pageSize'>) {
+  const conditions = [isNull(questionPools.deletedAt)];
+  if (params.collegeId) conditions.push(eq(questionPools.collegeId, params.collegeId));
+  if (params.categoryId) conditions.push(eq(questionPools.categoryId, params.categoryId));
+  if (params.type) conditions.push(eq(questionPools.type, params.type));
+  return and(...conditions);
+}
+
+async function listQuestionPools(params: ListQuestionPoolsParams): Promise<ListQuestionPoolsResult> {
+  const { page, pageSize, ...filters } = params;
+  const offset = (page - 1) * pageSize;
+  const where = buildQuestionPoolsWhere(filters);
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(questionPools)
+      .where(where)
+      .orderBy(desc(questionPools.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(questionPools).where(where),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+async function findQuestionPoolById(id: string): Promise<QuestionPool | undefined> {
+  const [pool] = await db
+    .select()
+    .from(questionPools)
+    .where(and(eq(questionPools.id, id), isNull(questionPools.deletedAt)))
+    .limit(1);
+  return pool;
+}
+
+export interface CreateQuestionPoolData {
+  name: string;
+  description?: string;
+  collegeId?: string;
+  categoryId?: string;
+  type: 'mcq' | 'coding' | 'psychometric';
+  createdBy: string | null;
+}
+
+async function createQuestionPool(data: CreateQuestionPoolData): Promise<QuestionPool> {
+  const [pool] = await db
+    .insert(questionPools)
+    .values({ ...data, updatedBy: data.createdBy })
+    .returning();
+  return pool;
+}
+
+export interface UpdateQuestionPoolData {
+  name?: string;
+  description?: string | null;
+  collegeId?: string | null;
+  categoryId?: string | null;
+  updatedBy?: string | null;
+}
+
+async function updateQuestionPool(
+  id: string,
+  data: UpdateQuestionPoolData,
+): Promise<QuestionPool | undefined> {
+  const [updated] = await db
+    .update(questionPools)
+    .set(data)
+    .where(and(eq(questionPools.id, id), isNull(questionPools.deletedAt)))
+    .returning();
+  return updated;
+}
+
+async function deleteQuestionPool(id: string): Promise<boolean> {
+  const [deleted] = await db
+    .update(questionPools)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(questionPools.id, id), isNull(questionPools.deletedAt)))
+    .returning({ id: questionPools.id });
+  return Boolean(deleted);
+}
+
+// --- Question pool criteria (Part 3) ---
+// Hard delete: no deleted_at column in schema.sql, and
+// question_pool_criteria.question_pool_id is ON DELETE CASCADE (nothing
+// RESTRICTs it) — same reasoning as question_categories/topics/tags.
+
+async function listQuestionPoolCriteria(questionPoolId: string): Promise<QuestionPoolCriteria[]> {
+  return db
+    .select()
+    .from(questionPoolCriteria)
+    .where(eq(questionPoolCriteria.questionPoolId, questionPoolId))
+    .orderBy(asc(questionPoolCriteria.createdAt));
+}
+
+async function findQuestionPoolCriteriaById(
+  id: string,
+): Promise<QuestionPoolCriteria | undefined> {
+  const [row] = await db
+    .select()
+    .from(questionPoolCriteria)
+    .where(eq(questionPoolCriteria.id, id))
+    .limit(1);
+  return row;
+}
+
+export interface CreateQuestionPoolCriteriaData {
+  difficulty: 'easy' | 'medium' | 'hard';
+  topicId?: string;
+  tagFilter?: string[];
+  countRequired?: number;
+}
+
+async function createQuestionPoolCriteria(
+  questionPoolId: string,
+  data: CreateQuestionPoolCriteriaData,
+): Promise<QuestionPoolCriteria> {
+  const [row] = await db
+    .insert(questionPoolCriteria)
+    .values({ questionPoolId, ...data })
+    .returning();
+  return row;
+}
+
+export interface UpdateQuestionPoolCriteriaData {
+  difficulty?: 'easy' | 'medium' | 'hard';
+  topicId?: string | null;
+  tagFilter?: string[] | null;
+  countRequired?: number;
+}
+
+async function updateQuestionPoolCriteria(
+  id: string,
+  data: UpdateQuestionPoolCriteriaData,
+): Promise<QuestionPoolCriteria | undefined> {
+  const [updated] = await db
+    .update(questionPoolCriteria)
+    .set(data)
+    .where(eq(questionPoolCriteria.id, id))
+    .returning();
+  return updated;
+}
+
+async function deleteQuestionPoolCriteria(id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(questionPoolCriteria)
+    .where(eq(questionPoolCriteria.id, id))
+    .returning({ id: questionPoolCriteria.id });
+  return deleted.length > 0;
+}
+
+// --- Pool resolution (Part 3) ---
+// The query real assessments will eventually depend on (pool-based random
+// selection, per schema.sql's own top-of-file design comment) — see
+// question-bank.service.ts's resolveQuestionPool for the per-criterion loop
+// and shortage reporting built on top of this.
+
+export interface ResolveCriterionResult {
+  eligibleTotal: number;
+  selected: ResolvedPoolQuestion[];
+}
+
+async function resolveCriterionQuestions(
+  pool: QuestionPool,
+  criterion: QuestionPoolCriteria,
+): Promise<ResolveCriterionResult> {
+  const conditions = [
+    isNull(questions.deletedAt),
+    isNotNull(questions.currentVersionId),
+    eq(questions.status, 'approved'),
+    eq(questions.type, pool.type),
+    eq(questions.difficulty, criterion.difficulty),
+  ];
+
+  if (pool.categoryId) {
+    conditions.push(eq(questions.categoryId, pool.categoryId));
+  }
+
+  // College scoping: a college-specific pool may also draw from the global
+  // bank; a global pool draws ONLY from the global bank (never leaks one
+  // college's private questions into a cross-college-reusable pool). See
+  // db/schema/question-bank.schema.ts's questionPools comment.
+  //
+  // or() with these two concrete arguments is always defined today (both
+  // eq()/isNull() unconditionally return a defined SQL, confirmed against
+  // drizzle-orm's own implementation) — its return type is only
+  // `SQL | undefined` to cover a zero-surviving-argument case that doesn't
+  // apply to this literal two-argument call. The `?? sql\`false\`` below is
+  // defense-in-depth, not a fix for a live bug: if this is ever refactored
+  // into a variable-length/filtered condition array, an accidental
+  // zero-condition or() must fail SAFE (match nothing) rather than crash
+  // (`!`) or silently resolve to `undefined` and get dropped from `and()`
+  // (which would silently widen the query to "any college" instead of
+  // narrowing it — the actually dangerous failure mode here).
+  conditions.push(
+    pool.collegeId
+      ? (or(eq(questions.collegeId, pool.collegeId), isNull(questions.collegeId)) ?? sql`false`)
+      : isNull(questions.collegeId),
+  );
+
+  if (criterion.topicId) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(questionTopicMap)
+          .where(
+            and(
+              eq(questionTopicMap.questionId, questions.id),
+              eq(questionTopicMap.topicId, criterion.topicId),
+            ),
+          ),
+      ),
+    );
+  }
+
+  if (criterion.tagFilter && criterion.tagFilter.length > 0) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(questionTagMap)
+          .where(
+            and(
+              eq(questionTagMap.questionId, questions.id),
+              inArray(questionTagMap.tagId, criterion.tagFilter),
+            ),
+          ),
+      ),
+    );
+  }
+
+  const where = and(...conditions);
+
+  const [totalRows, selectedRows] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(questions).where(where),
+    db
+      .select({
+        questionId: questions.id,
+        questionVersionId: questionVersions.id,
+        questionText: questionVersions.questionText,
+        difficulty: questions.difficulty,
+      })
+      .from(questions)
+      .innerJoin(questionVersions, eq(questionVersions.id, questions.currentVersionId))
+      .where(where)
+      // Random draw, capped at what this criterion asks for — mirrors how a
+      // real attempt's frozen selection would be drawn (schema.sql's
+      // top-of-file comment: "pool-based randomized assessments").
+      .orderBy(sql`random()`)
+      .limit(criterion.countRequired),
+  ]);
+
+  return {
+    eligibleTotal: Number(totalRows[0]?.count ?? 0),
+    selected: selectedRows,
+  };
+}
+
 export const questionBankRepository = {
   listQuestionCategories,
   findQuestionCategoryById,
@@ -1070,4 +1424,17 @@ export const questionBankRepository = {
   createPsychometricOption,
   updatePsychometricOption,
   deletePsychometricOption,
+  recordApprovalAction,
+  listApprovalHistory,
+  listQuestionPools,
+  findQuestionPoolById,
+  createQuestionPool,
+  updateQuestionPool,
+  deleteQuestionPool,
+  listQuestionPoolCriteria,
+  findQuestionPoolCriteriaById,
+  createQuestionPoolCriteria,
+  updateQuestionPoolCriteria,
+  deleteQuestionPoolCriteria,
+  resolveCriterionQuestions,
 };
