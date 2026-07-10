@@ -10,3 +10,17 @@ export function permissionsKey(userId: string, collegeId: string | null): string
 export function revokedRefreshTokenKey(jti: string): string {
   return `auth:revoked-refresh-token:${jti}`;
 }
+
+// Scoped by userId (a key from one user must never collide with the same
+// literal key value from another) AND by method+route (a client reusing
+// the same key value across two unrelated endpoints by mistake shouldn't
+// have one operation's cached outcome bleed into the other) — see
+// plugins/idempotency.plugin.ts for the full design.
+export function idempotencyKey(
+  userId: string,
+  method: string,
+  route: string,
+  clientKey: string,
+): string {
+  return `idempotency:${userId}:${method}:${route}:${clientKey}`;
+}

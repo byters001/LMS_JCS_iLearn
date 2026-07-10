@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeAny } from 'zod';
+import { idempotency } from '../../plugins/idempotency.plugin';
 import { ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG } from '../../plugins/rate-limit.plugin';
 import { ValidationError } from '../../shared/errors/app-error';
 import { attemptsController } from './attempts.controller';
@@ -55,12 +56,32 @@ function validateBody(schema: ZodTypeAny) {
 // permission keys — requirePermission(<anything>) would reject every
 // student unconditionally, and there's no precedent in this codebase for
 // granting students a permission key to work around that.
+
+// --- Idempotency-Key (CLAUDE.md non-negotiable #4) ---
+// One shared instance, reused across all three mutating routes below —
+// idempotency()'s returned hooks hold no per-route state of their own
+// (everything they need lives on `request` per-call), so a single
+// `{ required: true }` pair is safe to attach to multiple routes. REQUIRED
+// (not optional-but-honored) on all three: CLAUDE.md's own wording already
+// says this is "required" on the attempts submit route, and these three
+// specifically are the ones where a silently-missing key would let the
+// exact failure this mechanism exists to prevent slip through unguarded —
+// starting an attempt burns a scarce attempt_number, submitting a response
+// can double-score, and finalizing an attempt is a one-way transition.
+// Making the header mandatory is stricter (any client that forgets to send
+// it gets a clear 400 instead of a silent gap), which is the right
+// trade-off for this class of "payment-like" mutation — optional-but-
+// honored would only protect callers who remembered to opt in, leaving
+// every other caller exactly as unprotected as before this phase.
+const attemptIdempotency = idempotency({ required: true });
+
 export async function attemptsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: StartAttemptInput }>(
     '/attempts',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, attemptIdempotency.preHandler],
       preValidation: validateBody(startAttemptSchema),
+      preSerialization: [attemptIdempotency.preSerialization],
     },
     attemptsController.startAttempt,
   );
@@ -106,29 +127,30 @@ export async function attemptsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.put<{ Params: AttemptResponseParams; Body: SubmitResponseInput }>(
     '/attempts/:attemptId/responses/:questionVersionId',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, attemptIdempotency.preHandler],
       preValidation: [
         validateParams(attemptResponseParamsSchema),
         validateBody(submitResponseSchema),
       ],
+      preSerialization: [attemptIdempotency.preSerialization],
       config: { rateLimit: ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG },
     },
     attemptsController.submitResponse,
   );
 
-  // Same per-attempt rate limit as the responses route above. NOTE:
-  // CLAUDE.md's non-negotiable #4 (Idempotency-Key, Redis-backed) is NOT
-  // implemented on this route — no Idempotency-Key middleware exists
-  // anywhere in this codebase yet. finalizeAttempt's WHERE status =
-  // 'in_progress' guard (attempts.repository.ts) structurally prevents a
-  // double-submit from double-scoring, but that's not the same guarantee
-  // as replaying the exact cached response for a literal retry. Flagged
-  // here rather than silently left off.
+  // Same per-attempt rate limit as the responses route above, plus
+  // Idempotency-Key (see the module comment above attemptsRoutes) — this
+  // is literally "the attempts submit route" CLAUDE.md's non-negotiable #4
+  // names by description. finalizeAttempt's WHERE status = 'in_progress'
+  // guard (attempts.repository.ts) still independently prevents a
+  // double-submit from double-scoring at the DB level; this adds the
+  // actual replay-the-cached-response guarantee on top of that.
   fastify.post<{ Params: AttemptIdParams }>(
     '/attempts/:attemptId/submit',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, attemptIdempotency.preHandler],
       preValidation: validateParams(attemptIdParamsSchema),
+      preSerialization: [attemptIdempotency.preSerialization],
       config: { rateLimit: ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG },
     },
     attemptsController.submitAttempt,
