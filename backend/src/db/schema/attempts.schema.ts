@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -12,6 +13,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { assessmentSections, assessments } from './assessments.schema';
+import { users } from './identity.schema';
 import { questionOptions, questionVersions } from './question-bank.schema';
 import { studentProfiles } from './students.schema';
 
@@ -151,5 +153,78 @@ export const attemptResponses = pgTable(
       table.questionVersionId,
     ),
     attemptQuestionVersionUnique: unique().on(table.attemptId, table.questionVersionId),
+  }),
+);
+
+// --- Part 2: proctoring, retakes ---
+
+// Name and 6 values match schema.sql's CREATE TYPE statement exactly —
+// this type already exists in the real Postgres database. Two of the six
+// (camera_flag, fullscreen_exit) are specific to a proctoring FEATURE
+// (camera / fullscreen enforcement respectively); the other four
+// (tab_switch, copy_paste, network_disconnect, window_blur) are generic
+// integrity signals unrelated to either feature flag — see
+// attempts.service.ts's recordProctoringEvent for exactly how this splits
+// the type-specific gating decision (item 2).
+export const proctoringEventTypeEnum = pgEnum('proctoring_event_type_enum', [
+  'tab_switch',
+  'fullscreen_exit',
+  'camera_flag',
+  'copy_paste',
+  'network_disconnect',
+  'window_blur',
+]);
+
+// Append-only — no updated_at/update path, no deleted_at/delete path.
+// event_meta is untyped JSONB in schema.sql (no CREATE TYPE / CHECK
+// backing its shape) — kept as `unknown` at the Drizzle level rather than
+// inventing a shape schema.sql doesn't define.
+export const proctoringEvents = pgTable(
+  'proctoring_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    attemptId: uuid('attempt_id')
+      .notNull()
+      .references(() => assessmentAttempts.id, { onDelete: 'restrict' }),
+    eventType: proctoringEventTypeEnum('event_type').notNull(),
+    eventMeta: jsonb('event_meta'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    attemptIdx: index('idx_proctoring_events_attempt').on(table.attemptId),
+    typeIdx: index('idx_proctoring_events_type').on(table.eventType),
+  }),
+);
+
+// Name and 3 values match schema.sql's CREATE TYPE statement exactly —
+// confirmed directly rather than assumed (schema.sql line ~43):
+// 'pending' | 'approved' | 'rejected'. No 'granted'/'consumed' value
+// exists — see attempts.service.ts's module comment on retake requests
+// for why that matters to how approval actually takes effect.
+export const retakeStatusEnum = pgEnum('retake_status_enum', ['pending', 'approved', 'rejected']);
+
+// requested_by/reviewed_by are ON DELETE SET NULL to users(id) — same
+// "preserve the audit row, drop the actor reference" treatment as
+// assessment_approval_history.performed_by. No updated_at: reviewed_at
+// (nullable, set only once reviewed) already captures "when," so there's
+// no separate mutable-audit-timestamp need the way attempt_responses'
+// updated_at has.
+export const assessmentRetakeRequests = pgTable(
+  'assessment_retake_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    attemptId: uuid('attempt_id')
+      .notNull()
+      .references(() => assessmentAttempts.id, { onDelete: 'restrict' }),
+    requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+    reason: text('reason'),
+    status: retakeStatusEnum('status').notNull().default('pending'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    attemptIdx: index('idx_retake_requests_attempt').on(table.attemptId),
+    statusIdx: index('idx_retake_requests_status').on(table.status),
   }),
 );

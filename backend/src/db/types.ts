@@ -42,8 +42,10 @@ import type {
 } from './schema/assessments.schema';
 import type {
   assessmentAttempts,
+  assessmentRetakeRequests,
   attemptQuestionSelections,
   attemptResponses,
+  proctoringEvents,
 } from './schema/attempts.schema';
 
 export type User = InferSelectModel<typeof users>;
@@ -168,3 +170,9 @@ export type NewAttemptQuestionSelection = InferInsertModel<typeof attemptQuestio
 
 export type AttemptResponse = InferSelectModel<typeof attemptResponses>;
 export type NewAttemptResponse = InferInsertModel<typeof attemptResponses>;
+
+export type ProctoringEvent = InferSelectModel<typeof proctoringEvents>;
+export type NewProctoringEvent = InferInsertModel<typeof proctoringEvents>;
+
+export type AssessmentRetakeRequest = InferSelectModel<typeof assessmentRetakeRequests>;
+export type NewAssessmentRetakeRequest = InferInsertModel<typeof assessmentRetakeRequests>;

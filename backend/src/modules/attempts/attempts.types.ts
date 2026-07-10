@@ -1,6 +1,11 @@
-import type { AssessmentAttempt, AttemptResponse } from '../../db/types';
+import type {
+  AssessmentAttempt,
+  AssessmentRetakeRequest,
+  AttemptResponse,
+  ProctoringEvent,
+} from '../../db/types';
 
-export type { AssessmentAttempt, AttemptResponse };
+export type { AssessmentAttempt, AssessmentRetakeRequest, AttemptResponse, ProctoringEvent };
 
 // One row of attempts.repository.ts's listFrozenQuestions — a plain join
 // of attempt_question_selections -> question_versions (for display text)
@@ -98,4 +103,16 @@ export interface AttemptQuestionContent extends FrozenAttemptQuestion {
 export interface AttemptScoreSummary {
   totalScore: string;
   hasUngradedCoding: boolean;
+}
+
+// --- Part 2 ---
+
+// attempts.service.ts's listRetakeRequests result — same
+// items/total/page/pageSize shape every other paginated list result in
+// this codebase uses (e.g. assessments.types.ts's ListAssessmentsResult).
+export interface ListRetakeRequestsResult {
+  items: AssessmentRetakeRequest[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

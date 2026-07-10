@@ -4,12 +4,20 @@ import { questionBankService } from '../question-bank/question-bank.service';
 import { studentsService } from '../students/students.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { attemptsRepository, type SelectionInput } from './attempts.repository';
-import type { SubmitResponseInput } from './attempts.schema';
+import type {
+  CreateRetakeRequestInput,
+  ListRetakeRequestsQuery,
+  RecordProctoringEventInput,
+  SubmitResponseInput,
+} from './attempts.schema';
 import type {
   AssessmentAttempt,
+  AssessmentRetakeRequest,
   AttemptQuestionContent,
   AttemptResponse,
   FrozenAttemptQuestion,
+  ListRetakeRequestsResult,
+  ProctoringEvent,
 } from './attempts.types';
 
 // --- Permission model (item 6) ---
@@ -212,13 +220,19 @@ async function startAttempt(
     return existingOpenAttempt;
   }
 
-  const attemptsSoFar = await attemptsRepository.countAttemptsForStudent(
-    assessmentId,
-    studentProfile.id,
-  );
-  if (attemptsSoFar >= assessment.maxAttempts) {
+  // Part 2: an approved assessment_retake_requests row raises this ceiling
+  // by exactly 1 per approval — see this file's module comment on
+  // reviewRetakeRequest for the full reasoning on why approval takes
+  // effect HERE rather than through some other manual mechanism, and why
+  // no "consumed" flag is needed for this to self-correct.
+  const [attemptsSoFar, approvedRetakeCount] = await Promise.all([
+    attemptsRepository.countAttemptsForStudent(assessmentId, studentProfile.id),
+    attemptsRepository.countApprovedRetakeRequestsForStudent(assessmentId, studentProfile.id),
+  ]);
+  const effectiveMaxAttempts = assessment.maxAttempts + approvedRetakeCount;
+  if (attemptsSoFar >= effectiveMaxAttempts) {
     throw new ConflictError(
-      `Maximum attempts (${assessment.maxAttempts}) already used for this assessment`,
+      `Maximum attempts (${effectiveMaxAttempts}) already used for this assessment`,
     );
   }
 
@@ -241,7 +255,13 @@ async function startAttempt(
       assessmentId,
       studentId: studentProfile.id,
       attemptNumber,
-      isRetake: attemptNumber > 1,
+      // Part 2 refinement: true only when this attempt required an
+      // approved retake request to exist at all (i.e. attemptNumber
+      // exceeds the assessment's OWN configured maxAttempts) — not simply
+      // "attemptNumber > 1", which would also mislabel an assessment's
+      // ordinary 2nd/3rd attempt (under a normally-configured
+      // maxAttempts > 1, no retake workflow involved) as a "retake."
+      isRetake: attemptNumber > assessment.maxAttempts,
       ipAddress: meta.ipAddress,
       browserInfo: meta.browserInfo,
     },
@@ -494,13 +514,11 @@ async function submitResponse(
 // (see attempts.repository.ts) — a concurrent double-submit finds zero rows
 // updated on its second call and this throws ConflictError rather than
 // recomputing/overwriting total_score twice. This is a structural,
-// DB-level guard against double-scoring, but it is NOT the same as
-// CLAUDE.md's Idempotency-Key (Redis-backed) requirement for this route —
-// that mechanism (returning the exact same cached response to a literal
-// retry with the same Idempotency-Key header) doesn't exist anywhere in
-// this codebase yet and hasn't been built here either; flagging this
-// explicitly as an open gap against CLAUDE.md's non-negotiable #4 rather
-// than silently skipping it.
+// DB-level guard against double-scoring, on top of which
+// attempts.routes.ts now also wires CLAUDE.md's Idempotency-Key
+// requirement (plugins/idempotency.plugin.ts) directly onto this route —
+// a literal retry with the same Idempotency-Key header replays the exact
+// cached response instead of re-entering this function at all.
 async function submitAttempt(userId: string, attemptId: string): Promise<AssessmentAttempt> {
   const attempt = await findAttemptOr404(attemptId);
   const studentProfile = await requireStudentProfile(userId);
@@ -525,6 +543,220 @@ async function submitAttempt(userId: string, attemptId: string): Promise<Assessm
   return updated;
 }
 
+// --- Proctoring events (Part 2, item 2) ---
+//
+// Gating decision: TYPE-SPECIFIC, not a blanket accept-everything or
+// reject-everything tied to whether the assessment requires proctoring at
+// all. proctoring_event_type_enum has 6 values; only two map to a
+// specific proctoring FEATURE flag on the assessment —  'camera_flag'
+// (assessment.proctoringCameraRequired) and 'fullscreen_exit'
+// (assessment.proctoringFullscreenRequired). The other four (tab_switch,
+// copy_paste, network_disconnect, window_blur) are generic integrity
+// signals with no assessment-level flag tying them to a specific
+// proctoring feature — they make sense to log regardless of whether
+// camera/fullscreen enforcement is on for this assessment. A blanket
+// "reject unless proctoring is required" policy would incorrectly reject
+// those four even when logging them is harmless; a blanket
+// "accept everything" policy would let a client log a camera_flag against
+// an assessment that never asked for camera access at all, which is
+// nonsensical data. Type-specific gating is the only option that actually
+// matches what each event type means.
+function assertProctoringEventAllowed(
+  assessment: { proctoringCameraRequired: boolean; proctoringFullscreenRequired: boolean },
+  eventType: RecordProctoringEventInput['eventType'],
+): void {
+  if (eventType === 'camera_flag' && !assessment.proctoringCameraRequired) {
+    throw new ValidationError(
+      'camera_flag events are not accepted for an assessment that does not require camera proctoring',
+    );
+  }
+  if (eventType === 'fullscreen_exit' && !assessment.proctoringFullscreenRequired) {
+    throw new ValidationError(
+      'fullscreen_exit events are not accepted for an assessment that does not require fullscreen proctoring',
+    );
+  }
+}
+
+// Student, during an in_progress attempt only (item 2's explicit
+// instruction) — reuses assertOwnsAttempt exactly as Part 1's other
+// student-facing mutations do. Append-only: no update/delete function
+// exists anywhere in this module, matching proctoring_events' schema (no
+// updated_at, no deleted_at).
+async function recordProctoringEvent(
+  userId: string,
+  attemptId: string,
+  input: RecordProctoringEventInput,
+): Promise<ProctoringEvent> {
+  const attempt = await findAttemptOr404(attemptId);
+  const studentProfile = await requireStudentProfile(userId);
+  assertOwnsAttempt(attempt, studentProfile.id);
+
+  if (attempt.status !== 'in_progress') {
+    throw new ConflictError(
+      `Cannot record a proctoring event — this attempt's status is "${attempt.status}", must be "in_progress"`,
+    );
+  }
+
+  const assessment = await assessmentsService.findAssessmentById(attempt.assessmentId);
+  assertProctoringEventAllowed(assessment, input.eventType);
+
+  return attemptsRepository.createProctoringEvent({
+    attemptId,
+    eventType: input.eventType,
+    eventMeta: input.eventMeta,
+  });
+}
+
+// Staff-facing (item 2) — gated at the ROUTE level by attempts.reassign
+// (see attempts.routes.ts's module comment on why this reuses that key
+// rather than inventing a new one). No self-ownership check: this is
+// explicitly NOT a student-facing read.
+async function listProctoringEvents(attemptId: string): Promise<ProctoringEvent[]> {
+  await findAttemptOr404(attemptId);
+  return attemptsRepository.listProctoringEventsForAttempt(attemptId);
+}
+
+// --- Retake requests (Part 2, item 3) ---
+//
+// Attempt eligibility: attempt_status_enum, confirmed directly against
+// schema.sql rather than assumed, is exactly ('not_started', 'in_progress',
+// 'submitted', 'pending_evaluation', 'invalidated') — there is NO
+// 'completed' value. The task's own framing ("their own invalidated/
+// completed attempt") doesn't match the real enum; the correct reading is
+// "any TERMINAL attempt" — everything except 'not_started'/'in_progress',
+// i.e. 'submitted' | 'pending_evaluation' | 'invalidated'. A retake
+// request for an attempt that hasn't finished yet doesn't make sense (the
+// student should just continue/submit it normally).
+const RETAKE_ELIGIBLE_STATUSES: AssessmentAttempt['status'][] = [
+  'submitted',
+  'pending_evaluation',
+  'invalidated',
+];
+
+function assertRetakeEligible(attempt: AssessmentAttempt): void {
+  if (!RETAKE_ELIGIBLE_STATUSES.includes(attempt.status)) {
+    throw new ConflictError(
+      `Cannot request a retake — this attempt's status is "${attempt.status}", must be one of ${RETAKE_ELIGIBLE_STATUSES.join(', ')}`,
+    );
+  }
+}
+
+// Student, self-ownership + terminal-attempt-status gate. requestedBy is
+// the caller's users.id directly (assessment_retake_requests.requested_by
+// references users(id), unlike assessment_attempts.student_id which
+// references student_profiles(id) — no extra resolution needed here).
+async function createRetakeRequest(
+  userId: string,
+  attemptId: string,
+  input: CreateRetakeRequestInput,
+): Promise<AssessmentRetakeRequest> {
+  const attempt = await findAttemptOr404(attemptId);
+  const studentProfile = await requireStudentProfile(userId);
+  assertOwnsAttempt(attempt, studentProfile.id);
+  assertRetakeEligible(attempt);
+
+  // Guard against duplicate spam — nothing in schema.sql prevents multiple
+  // requests for the same attempt (no UNIQUE constraint), so this is a
+  // service-layer check, same discipline as every other DB-doesn't-
+  // enforce-it invariant already established in this codebase (e.g.
+  // assertSelectionMode in assessments.service.ts).
+  const existingPending = await attemptsRepository.findPendingRetakeRequestForAttempt(attemptId);
+  if (existingPending) {
+    throw new ConflictError('A retake request for this attempt is already pending');
+  }
+
+  return attemptsRepository.createRetakeRequest({
+    attemptId,
+    requestedBy: userId,
+    reason: input.reason,
+  });
+}
+
+// --- Retake request review (staff) — item 3's approval-mechanism question ---
+//
+// Does approving a retake request automatically grant an extra attempt, or
+// is it just a record a human then acts on manually via some other
+// mechanism? ANSWER: approval ACTUALLY GRANTS the extra attempt — it is
+// not advisory. Reasoning:
+//   1. retake_status_enum has exactly 3 values — 'pending' | 'approved' |
+//      'rejected' (confirmed against schema.sql, not assumed). There is no
+//      'granted'/'consumed' state, and assessment_retake_requests has no
+//      column linking it forward to a specific new assessment_attempts
+//      row. If approval were purely advisory, there would be no
+//      schema-level way to even represent "this approval has been acted
+//      on" — the feature would be structurally incomplete without a
+//      second, undocumented mechanism outside this API.
+//   2. attempts.reassign's own seeded description ("Reassign/retake an
+//      attempt") already signals this action taking real effect, not
+//      recording an opinion for someone else to action manually later.
+//   3. Every other approval workflow already built in this codebase
+//      (question-bank's question_approval_history, assessments'
+//      assessment_approval_history) makes its approval action DO the
+//      thing (flip a status, unlock a capability) — a no-op "approval"
+//      here would be the first inconsistent exception.
+//
+// Mechanism: this DID require a real code change to startAttempt (see
+// above) — its max-attempts check now reads
+// `assessment.maxAttempts + countApprovedRetakeRequestsForStudent(...)` as
+// the effective ceiling, instead of maxAttempts alone. No "consumed" flag
+// is needed on assessment_retake_requests: the ceiling is naturally
+// self-correcting, since attemptsSoFar (a straight count of
+// assessment_attempts rows) rises by exactly 1 every time the student
+// actually uses the extra attempt, closing the gap back to equality with
+// the raised ceiling — a second retake beyond that requires a second
+// approved request, not a stale reuse of the first.
+async function reviewRetakeRequest(
+  retakeRequestId: string,
+  reviewedBy: string,
+  status: 'approved' | 'rejected',
+): Promise<AssessmentRetakeRequest> {
+  const updated = await attemptsRepository.reviewRetakeRequest(retakeRequestId, {
+    status,
+    reviewedBy,
+  });
+  if (updated) {
+    return updated;
+  }
+
+  const existing = await attemptsRepository.findRetakeRequestById(retakeRequestId);
+  if (!existing) {
+    throw new NotFoundError('Retake request not found');
+  }
+  throw new ConflictError(
+    `Cannot review this retake request — its status is already "${existing.status}"`,
+  );
+}
+
+async function approveRetakeRequest(
+  retakeRequestId: string,
+  reviewedBy: string,
+): Promise<AssessmentRetakeRequest> {
+  return reviewRetakeRequest(retakeRequestId, reviewedBy, 'approved');
+}
+
+async function rejectRetakeRequest(
+  retakeRequestId: string,
+  reviewedBy: string,
+): Promise<AssessmentRetakeRequest> {
+  return reviewRetakeRequest(retakeRequestId, reviewedBy, 'rejected');
+}
+
+// Staff-facing worklist — gated at the route level by attempts.reassign.
+// Deliberately NOT self-scoped: this is the oversight surface for staff to
+// see every student's pending/approved/rejected requests, filterable by
+// status/attemptId.
+async function listRetakeRequests(
+  query: ListRetakeRequestsQuery,
+): Promise<ListRetakeRequestsResult> {
+  const { items, total } = await attemptsRepository.listRetakeRequests({
+    status: query.status,
+    attemptId: query.attemptId,
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
 export const attemptsService = {
   startAttempt,
   getAttemptById,
@@ -532,4 +764,10 @@ export const attemptsService = {
   getAttemptQuestions,
   submitResponse,
   submitAttempt,
+  recordProctoringEvent,
+  listProctoringEvents,
+  createRetakeRequest,
+  approveRetakeRequest,
+  rejectRetakeRequest,
+  listRetakeRequests,
 };

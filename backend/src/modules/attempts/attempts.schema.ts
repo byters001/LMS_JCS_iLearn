@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../../config/constants';
+
+const paginationFields = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+};
 
 // --- Attempts ---
 
@@ -55,8 +61,55 @@ export const submitResponseSchema = z
     message: 'At least one field must be provided',
   });
 
+// --- Proctoring events (Part 2) ---
+// eventMeta is untyped JSONB in schema.sql (no CHECK backing its shape) —
+// z.unknown() rather than z.record(...) so this doesn't narrow to a shape
+// the DB itself doesn't enforce.
+
+export const recordProctoringEventSchema = z
+  .object({
+    eventType: z.enum([
+      'tab_switch',
+      'fullscreen_exit',
+      'camera_flag',
+      'copy_paste',
+      'network_disconnect',
+      'window_blur',
+    ]),
+    eventMeta: z.unknown().optional(),
+  })
+  .strict();
+
+// --- Retake requests (Part 2) ---
+
+export const createRetakeRequestSchema = z
+  .object({
+    reason: z.string().min(1).optional(),
+  })
+  .strict();
+
+// Staff worklist — self-scoped student filtering doesn't apply here (see
+// attempts.service.ts's listRetakeRequests module comment).
+export const listRetakeRequestsQuerySchema = z
+  .object({
+    status: z.enum(['pending', 'approved', 'rejected']).optional(),
+    attemptId: z.string().uuid('attemptId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
+
+export const retakeRequestIdParamsSchema = z
+  .object({
+    retakeRequestId: z.string().uuid('retakeRequestId must be a valid UUID'),
+  })
+  .strict();
+
 export type StartAttemptInput = z.infer<typeof startAttemptSchema>;
 export type ListMyAttemptsQuery = z.infer<typeof listMyAttemptsQuerySchema>;
 export type AttemptIdParams = z.infer<typeof attemptIdParamsSchema>;
 export type AttemptResponseParams = z.infer<typeof attemptResponseParamsSchema>;
 export type SubmitResponseInput = z.infer<typeof submitResponseSchema>;
+export type RecordProctoringEventInput = z.infer<typeof recordProctoringEventSchema>;
+export type CreateRetakeRequestInput = z.infer<typeof createRetakeRequestSchema>;
+export type ListRetakeRequestsQuery = z.infer<typeof listRetakeRequestsQuerySchema>;
+export type RetakeRequestIdParams = z.infer<typeof retakeRequestIdParamsSchema>;

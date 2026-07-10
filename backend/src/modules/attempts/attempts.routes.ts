@@ -2,17 +2,26 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeAny } from 'zod';
 import { idempotency } from '../../plugins/idempotency.plugin';
 import { ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG } from '../../plugins/rate-limit.plugin';
+import { requirePermission } from '../../rbac/require-permission';
 import { ValidationError } from '../../shared/errors/app-error';
 import { attemptsController } from './attempts.controller';
 import {
   attemptIdParamsSchema,
   attemptResponseParamsSchema,
+  createRetakeRequestSchema,
   listMyAttemptsQuerySchema,
+  listRetakeRequestsQuerySchema,
+  recordProctoringEventSchema,
+  retakeRequestIdParamsSchema,
   startAttemptSchema,
   submitResponseSchema,
   type AttemptIdParams,
   type AttemptResponseParams,
+  type CreateRetakeRequestInput,
   type ListMyAttemptsQuery,
+  type ListRetakeRequestsQuery,
+  type RecordProctoringEventInput,
+  type RetakeRequestIdParams,
   type StartAttemptInput,
   type SubmitResponseInput,
 } from './attempts.schema';
@@ -74,6 +83,23 @@ function validateBody(schema: ZodTypeAny) {
 // honored would only protect callers who remembered to opt in, leaving
 // every other caller exactly as unprotected as before this phase.
 const attemptIdempotency = idempotency({ required: true });
+
+// --- Staff oversight permission (Part 2, items 2 & 3) ---
+// Reuses attempts.reassign (schema.sql's ONLY seeded key for this module,
+// granted to Faculty) for BOTH staff-facing surfaces below — viewing
+// proctoring events and reviewing (approve/reject) retake requests —
+// rather than proposing a new key. Reasoning: reviewing a retake request
+// is exactly what attempts.reassign's own seeded description
+// ("Reassign/retake an attempt") already names; viewing the proctoring
+// evidence that informs that decision is a natural, connected extension
+// of the same staff capability (review evidence -> decide), not a
+// distinct privilege tier. This also matches this codebase's dominant
+// pattern of one coarse-grained key per module rather than splitting
+// view-vs-act (e.g. assessments.create already covers both reads and
+// writes for that module; questions.manage covers a trainer's full
+// question-bank CRUD). A dedicated 'attempts.view' key was considered and
+// rejected in favor of this reuse — say so if you'd rather split it.
+const ATTEMPTS_REASSIGN = requirePermission('attempts.reassign');
 
 export async function attemptsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: StartAttemptInput }>(
@@ -154,6 +180,100 @@ export async function attemptsRoutes(fastify: FastifyInstance): Promise<void> {
       config: { rateLimit: ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG },
     },
     attemptsController.submitAttempt,
+  );
+
+  // --- Proctoring events (Part 2) ---
+  // Student, self-ownership + in_progress-only gate — see
+  // attempts.service.ts's recordProctoringEvent. No Idempotency-Key here
+  // (item 4's proctoring-event call): these are high-frequency, low-stakes
+  // append-only telemetry (a browser tab could fire many tab_switch/
+  // window_blur events per attempt), unlike Part 1's low-frequency,
+  // resource-consuming/scoring mutations — a duplicate logged event is
+  // harmless, and requiring a fresh client-generated key per tiny
+  // telemetry ping would add real client complexity for no corresponding
+  // benefit. Not rate-limited either, for the same "not payment-like"
+  // reasoning (unlike the responses/submit routes above).
+  fastify.post<{ Params: AttemptIdParams; Body: RecordProctoringEventInput }>(
+    '/attempts/:attemptId/proctoring-events',
+    {
+      preHandler: [fastify.authenticate],
+      preValidation: [
+        validateParams(attemptIdParamsSchema),
+        validateBody(recordProctoringEventSchema),
+      ],
+    },
+    attemptsController.recordProctoringEvent,
+  );
+
+  // Staff-facing — see the ATTEMPTS_REASSIGN comment above for why this
+  // reuses attempts.reassign rather than a new key.
+  fastify.get<{ Params: AttemptIdParams }>(
+    '/attempts/:attemptId/proctoring-events',
+    {
+      preHandler: [fastify.authenticate, ATTEMPTS_REASSIGN],
+      preValidation: validateParams(attemptIdParamsSchema),
+    },
+    attemptsController.listProctoringEvents,
+  );
+
+  // --- Retake requests (Part 2) ---
+  // Student, self-ownership + terminal-attempt-status gate — see
+  // attempts.service.ts's createRetakeRequest. Nested under
+  // /attempts/:attemptId (not /retake-requests) since creation is always
+  // about one specific attempt the student is looking at — contrast with
+  // the flat staff worklist below. Idempotency-Key REQUIRED (item 4),
+  // same pattern and reasoning as Part 1's mutations: student-submitted,
+  // retry-prone, and a duplicate on retry would otherwise only be caught
+  // after the fact by the pending-request dedup check in
+  // attempts.service.ts (a 409, not silent, but still worth preventing at
+  // the transport layer the same way Part 1 does).
+  fastify.post<{ Params: AttemptIdParams; Body: CreateRetakeRequestInput }>(
+    '/attempts/:attemptId/retake-requests',
+    {
+      preHandler: [fastify.authenticate, attemptIdempotency.preHandler],
+      preValidation: [
+        validateParams(attemptIdParamsSchema),
+        validateBody(createRetakeRequestSchema),
+      ],
+      preSerialization: [attemptIdempotency.preSerialization],
+    },
+    attemptsController.createRetakeRequest,
+  );
+
+  // Staff worklist — flat top-level resource (not nested under
+  // /attempts), matching how a reviewer works from "what needs review"
+  // rather than browsing per-attempt. List/approve/reject are all flat;
+  // only creation above is nested. No body schema on approve/reject:
+  // assessment_retake_requests has no reviewer-notes column at all (only
+  // `reason`, which is student-authored at request-creation time), so
+  // there's genuinely nothing to validate — an empty-object schema would
+  // only add the same "does an empty POST body parse" edge case Part 1's
+  // approval-action routes already carry, for a field that doesn't exist.
+  fastify.get<{ Querystring: ListRetakeRequestsQuery }>(
+    '/retake-requests',
+    {
+      preHandler: [fastify.authenticate, ATTEMPTS_REASSIGN],
+      preValidation: validateQuery(listRetakeRequestsQuerySchema),
+    },
+    attemptsController.listRetakeRequests,
+  );
+
+  fastify.post<{ Params: RetakeRequestIdParams }>(
+    '/retake-requests/:retakeRequestId/approve',
+    {
+      preHandler: [fastify.authenticate, ATTEMPTS_REASSIGN],
+      preValidation: validateParams(retakeRequestIdParamsSchema),
+    },
+    attemptsController.approveRetakeRequest,
+  );
+
+  fastify.post<{ Params: RetakeRequestIdParams }>(
+    '/retake-requests/:retakeRequestId/reject',
+    {
+      preHandler: [fastify.authenticate, ATTEMPTS_REASSIGN],
+      preValidation: validateParams(retakeRequestIdParamsSchema),
+    },
+    attemptsController.rejectRetakeRequest,
   );
 }
 

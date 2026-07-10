@@ -1,13 +1,15 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { assessmentSections } from '../../db/schema/assessments.schema';
 import {
   assessmentAttempts,
+  assessmentRetakeRequests,
   attemptQuestionSelections,
   attemptResponses,
+  proctoringEvents,
 } from '../../db/schema/attempts.schema';
 import { questions, questionVersions } from '../../db/schema/question-bank.schema';
-import type { AssessmentAttempt, AttemptResponse } from '../../db/types';
+import type { AssessmentAttempt, AssessmentRetakeRequest, AttemptResponse, ProctoringEvent } from '../../db/types';
 import type { AttemptScoreSummary, FrozenAttemptQuestion } from './attempts.types';
 
 // Joining question_versions/assessment_sections/questions directly (rather
@@ -289,6 +291,172 @@ async function finalizeAttempt(
   return updated;
 }
 
+// --- Part 2: proctoring events ---
+// Append-only — no update/delete function exists here at all, matching
+// proctoring_events' schema (no updated_at, no deleted_at).
+
+export interface CreateProctoringEventData {
+  attemptId: string;
+  eventType:
+    | 'tab_switch'
+    | 'fullscreen_exit'
+    | 'camera_flag'
+    | 'copy_paste'
+    | 'network_disconnect'
+    | 'window_blur';
+  eventMeta?: unknown;
+}
+
+async function createProctoringEvent(data: CreateProctoringEventData): Promise<ProctoringEvent> {
+  const [row] = await db
+    .insert(proctoringEvents)
+    .values({
+      attemptId: data.attemptId,
+      eventType: data.eventType,
+      eventMeta: data.eventMeta,
+    })
+    .returning();
+  return row;
+}
+
+async function listProctoringEventsForAttempt(attemptId: string): Promise<ProctoringEvent[]> {
+  return db
+    .select()
+    .from(proctoringEvents)
+    .where(eq(proctoringEvents.attemptId, attemptId))
+    .orderBy(asc(proctoringEvents.occurredAt));
+}
+
+// --- Part 2: retake requests ---
+
+export interface CreateRetakeRequestData {
+  attemptId: string;
+  requestedBy: string | null;
+  reason?: string;
+}
+
+// Service-layer duplicate-request guard (schema.sql has no UNIQUE
+// constraint on attempt_id, so nothing at the DB level stops two pending
+// requests for the same attempt) — see attempts.service.ts's
+// createRetakeRequest.
+async function findPendingRetakeRequestForAttempt(
+  attemptId: string,
+): Promise<AssessmentRetakeRequest | undefined> {
+  const [row] = await db
+    .select()
+    .from(assessmentRetakeRequests)
+    .where(
+      and(
+        eq(assessmentRetakeRequests.attemptId, attemptId),
+        eq(assessmentRetakeRequests.status, 'pending'),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+async function createRetakeRequest(data: CreateRetakeRequestData): Promise<AssessmentRetakeRequest> {
+  const [row] = await db
+    .insert(assessmentRetakeRequests)
+    .values({
+      attemptId: data.attemptId,
+      requestedBy: data.requestedBy,
+      reason: data.reason,
+    })
+    .returning();
+  return row;
+}
+
+async function findRetakeRequestById(id: string): Promise<AssessmentRetakeRequest | undefined> {
+  const [row] = await db
+    .select()
+    .from(assessmentRetakeRequests)
+    .where(eq(assessmentRetakeRequests.id, id))
+    .limit(1);
+  return row;
+}
+
+export interface ListRetakeRequestsParams {
+  status?: 'pending' | 'approved' | 'rejected';
+  attemptId?: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListRetakeRequestsResult {
+  items: AssessmentRetakeRequest[];
+  total: number;
+}
+
+async function listRetakeRequests(
+  params: ListRetakeRequestsParams,
+): Promise<ListRetakeRequestsResult> {
+  const { status, attemptId, page, pageSize } = params;
+  const offset = (page - 1) * pageSize;
+
+  const conditions = [];
+  if (status) conditions.push(eq(assessmentRetakeRequests.status, status));
+  if (attemptId) conditions.push(eq(assessmentRetakeRequests.attemptId, attemptId));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(assessmentRetakeRequests)
+      .where(where)
+      .orderBy(desc(assessmentRetakeRequests.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(assessmentRetakeRequests).where(where),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+export interface ReviewRetakeRequestData {
+  status: 'approved' | 'rejected';
+  reviewedBy: string | null;
+}
+
+// Guarded by WHERE status = 'pending' — same double-action guard shape as
+// finalizeAttempt: a request already approved/rejected can't be reviewed
+// again; a concurrent double-click on approve gets undefined back on its
+// second call rather than silently re-processing.
+async function reviewRetakeRequest(
+  id: string,
+  data: ReviewRetakeRequestData,
+): Promise<AssessmentRetakeRequest | undefined> {
+  const [updated] = await db
+    .update(assessmentRetakeRequests)
+    .set({ status: data.status, reviewedBy: data.reviewedBy, reviewedAt: new Date() })
+    .where(and(eq(assessmentRetakeRequests.id, id), eq(assessmentRetakeRequests.status, 'pending')))
+    .returning();
+  return updated;
+}
+
+// Counts APPROVED retake requests tied to any of this student's attempts
+// for this assessment. assessment_retake_requests only has attempt_id (no
+// assessment_id/student_id columns of its own), so this joins through
+// assessment_attempts to reach them — see attempts.service.ts's
+// startAttempt for how this raises the effective max-attempts ceiling.
+async function countApprovedRetakeRequestsForStudent(
+  assessmentId: string,
+  studentId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(assessmentRetakeRequests)
+    .innerJoin(assessmentAttempts, eq(assessmentAttempts.id, assessmentRetakeRequests.attemptId))
+    .where(
+      and(
+        eq(assessmentAttempts.assessmentId, assessmentId),
+        eq(assessmentAttempts.studentId, studentId),
+        eq(assessmentRetakeRequests.status, 'approved'),
+      ),
+    );
+  return Number(row?.count ?? 0);
+}
+
 export const attemptsRepository = {
   findOpenAttempt,
   countAttemptsForStudent,
@@ -300,4 +468,12 @@ export const attemptsRepository = {
   upsertResponse,
   sumResponsesForAttempt,
   finalizeAttempt,
+  createProctoringEvent,
+  listProctoringEventsForAttempt,
+  findPendingRetakeRequestForAttempt,
+  createRetakeRequest,
+  findRetakeRequestById,
+  listRetakeRequests,
+  reviewRetakeRequest,
+  countApprovedRetakeRequestsForStudent,
 };
