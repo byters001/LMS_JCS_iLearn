@@ -92,6 +92,13 @@
       "when": 1783663110596,
       "tag": "0012_lying_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783668279060,
+      "tag": "0013_wooden_shooting_star",
+      "breakpoints": true
     }
   ]
 }

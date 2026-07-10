@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { SubmitCodeInput } from '../coding/coding.schema';
 import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { attemptsService } from './attempts.service';
@@ -70,6 +71,21 @@ async function submitResponse(
 ): Promise<void> {
   const userId = requireUserId(request);
   const response = await attemptsService.submitResponse(
+    userId,
+    request.params.attemptId,
+    request.params.questionVersionId,
+    request.body,
+  );
+  const apiResponse: ApiSuccessResponse<typeof response> = { success: true, data: response };
+  reply.status(200).send(apiResponse);
+}
+
+async function submitCode(
+  request: FastifyRequest<{ Params: AttemptResponseParams; Body: SubmitCodeInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const response = await attemptsService.submitCode(
     userId,
     request.params.attemptId,
     request.params.questionVersionId,
@@ -171,6 +187,7 @@ export const attemptsController = {
   getAttemptById,
   getAttemptQuestions,
   submitResponse,
+  submitCode,
   submitAttempt,
   recordProctoringEvent,
   listProctoringEvents,

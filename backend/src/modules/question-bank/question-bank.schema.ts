@@ -139,14 +139,16 @@ const questionImageInputSchema = z
 // supportedLanguages is validated against JUDGE0_LANGUAGE_ID's keys (C,
 // CPP, JAVA, JAVASCRIPT, PYTHON3) rather than accepting any string. Judge0
 // types.ts's SubmissionRequest.language_id is typed as a value FROM
-// JUDGE0_LANGUAGE_ID — the not-yet-built coding module will map a
-// supported_languages entry through that lookup to get language_id. An
-// unrecognized string here would silently fail at submission time, much
-// later and harder to trace, so it's rejected at write time instead. This
-// is importing a plain constants object, not calling Judge0's API or SDK,
-// so it doesn't cross CLAUDE.md's integrations/judge0/ boundary rule.
+// JUDGE0_LANGUAGE_ID — the coding module (now built, see
+// modules/coding/coding.schema.ts's submitCodeSchema) maps a submitted
+// language through this same lookup to get language_id, reusing this
+// exact schema rather than redefining it. An unrecognized string here
+// would silently fail at submission time, much later and harder to
+// trace, so it's rejected at write time instead. This is importing a
+// plain constants object, not calling Judge0's API or SDK, so it doesn't
+// cross CLAUDE.md's integrations/judge0/ boundary rule.
 const JUDGE0_LANGUAGE_KEYS = Object.keys(JUDGE0_LANGUAGE_ID) as [string, ...string[]];
-const codingLanguageSchema = z.enum(JUDGE0_LANGUAGE_KEYS);
+export const codingLanguageSchema = z.enum(JUDGE0_LANGUAGE_KEYS);
 
 const codingQuestionDetailsInputSchema = z
   .object({

@@ -47,6 +47,7 @@ import type {
   attemptResponses,
   proctoringEvents,
 } from './schema/attempts.schema';
+import type { codingSubmissions } from './schema/coding.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -176,3 +177,6 @@ export type NewProctoringEvent = InferInsertModel<typeof proctoringEvents>;
 
 export type AssessmentRetakeRequest = InferSelectModel<typeof assessmentRetakeRequests>;
 export type NewAssessmentRetakeRequest = InferInsertModel<typeof assessmentRetakeRequests>;
+
+export type CodingSubmission = InferSelectModel<typeof codingSubmissions>;
+export type NewCodingSubmission = InferInsertModel<typeof codingSubmissions>;

@@ -1,5 +1,7 @@
 import type { StudentProfile } from '../../db/types';
 import { assessmentsService } from '../assessments/assessments.service';
+import { codingService } from '../coding/coding.service';
+import type { SubmitCodeInput } from '../coding/coding.schema';
 import { questionBankService } from '../question-bank/question-bank.service';
 import { studentsService } from '../students/students.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
@@ -488,6 +490,159 @@ async function submitResponse(
   return attemptsRepository.upsertResponse(attemptId, questionVersionId, responseData);
 }
 
+// --- Coding submissions — the first real attempts <-> Judge0 integration ---
+//
+// attempts NEVER calls integrations/judge0/submission.service.ts or the
+// raw Judge0 client directly (CLAUDE.md's boundary rule: only
+// modules/coding/ may do that). This function owns everything attempts
+// already owns for every other response type — ownership, the
+// in_progress gate, frozen-selection membership, question-type
+// validation, upserting the response row — and delegates the actual
+// Judge0 orchestration + coding_submissions persistence to
+// codingService.gradeSubmission (a cross-module SERVICE call).
+//
+// Three-step write, deliberately NOT one DB transaction:
+//   1. Upsert a placeholder attempt_responses row (no grade yet) — this
+//      is what gives coding_submissions.attempt_response_id a valid FK
+//      target to reference before grading even starts.
+//   2. Call codingService.gradeSubmission — a Judge0 HTTP round-trip that
+//      can take several seconds across N polled test cases.
+//   3. Re-read the response row's CURRENT state, compare the new result
+//      against it, and only overwrite if the new result is at least as
+//      good — see "Best result wins" below.
+// A DB transaction must never stay open across an external network call
+// of unbounded/retried duration (CLAUDE.md's reliability posture already
+// implies this — see integrations/judge0/client.ts's own
+// timeout/retry/circuit-breaker machinery, which this sequence sits on
+// top of, not inside a lock). If step 2 throws (Judge0 unreachable — see
+// codingService.gradeSubmission's own module comment for the
+// all-or-nothing reasoning there), the response row is left in its
+// step-1 placeholder state (or, on a resubmission, whatever grade already
+// existed before this call) — a harmless, honest signal, never silently
+// fabricated and never left half-graded.
+//
+// Best result wins, not "always latest": a resubmission that scores worse
+// than a prior submission for the same question must NOT overwrite the
+// better recorded grade. The comparison happens right before step 3's
+// final upsertResponse call, using ANOTHER call to
+// attemptsRepository.upsertResponse(attemptId, questionVersionId, {}) —
+// the exact same no-op-on-conflict pattern step 1 already relies on
+// (every field undefined, so Drizzle's undefined-skip behavior means the
+// UPDATE branch touches only updated_at and RETURNING gives back the
+// row's untouched current is_correct/marks_obtained). This is a single
+// cheap, already-indexed UPDATE...RETURNING — not a new repository
+// function, and NOT a new long-running operation: it runs entirely AFTER
+// Judge0 grading has already completed, so it does not reintroduce any
+// transaction-spanning-external-call problem (no DB transaction is ever
+// open here, and nothing in this comparison waits on Judge0 again).
+// Re-reading at this point, rather than reusing step 1's `placeholder`
+// value captured minutes-of-Judge0-polling earlier, also keeps this
+// comparison's race window as narrow as it can be — a concurrent
+// resubmission could in principle still interleave between this read and
+// the write immediately below it, but that window is now just these two
+// statements, not the entire step 1-through-2 Judge0 duration.
+//
+// Grading formula (item 2's explicit question): PROPORTIONAL credit, not
+// all-or-nothing. marksObtained = version.marks * (testCasesPassed /
+// testCasesTotal), rounded to 2 decimal places (this codebase's
+// numeric-column string convention). isCorrect = every test case passed
+// (still a strict "fully correct" boolean signal, the same role it
+// already plays for MCQ — just computed from a pass rate instead of a
+// single option). Neither CLAUDE.md nor schema.sql specifies which
+// policy to use; proportional was chosen because this is explicitly a
+// "Placement TRAINING assessment platform" (CLAUDE.md's own framing) —
+// rewarding partial progress on a coding problem is the pedagogically
+// standard choice for a training tool (mirrors HackerRank/LeetCode-style
+// partial scoring), whereas all-or-nothing would zero out a solution
+// that passes 9 of 10 test cases, unusually harsh for this context. Say
+// so if you want all-or-nothing instead — it's a one-line change
+// (`isCorrect ? version.marks : '0'`).
+async function submitCode(
+  userId: string,
+  attemptId: string,
+  questionVersionId: string,
+  input: SubmitCodeInput,
+): Promise<AttemptResponse> {
+  const attempt = await findAttemptOr404(attemptId);
+  const studentProfile = await requireStudentProfile(userId);
+  assertOwnsAttempt(attempt, studentProfile.id);
+
+  if (attempt.status !== 'in_progress') {
+    throw new ConflictError(
+      `Cannot submit code — this attempt's status is "${attempt.status}", must be "in_progress"`,
+    );
+  }
+
+  const selection = await attemptsRepository.findSelection(attemptId, questionVersionId);
+  if (!selection) {
+    throw new ValidationError('This question is not part of this attempt');
+  }
+
+  const version = await questionBankService.findQuestionVersionContentById(questionVersionId);
+  const question = await questionBankService.findQuestionById(version.questionId);
+  if (question.type !== 'coding') {
+    throw new ValidationError(
+      `This endpoint is only valid for "coding" questions (this question is "${question.type}")`,
+    );
+  }
+
+  // Phase 1: ensure the response row exists before Judge0 grading runs.
+  const placeholder = await attemptsRepository.upsertResponse(attemptId, questionVersionId, {});
+
+  // Phase 2: Judge0 orchestration + coding_submissions persistence — the
+  // cross-module service call. Mapped explicitly onto coding.types.ts's
+  // own shapes rather than passing question-bank's raw row types through,
+  // so modules/coding stays decoupled from question-bank's exact schema
+  // (see coding.types.ts's CodingDetailsInput/TestCaseInput comments).
+  // supportedLanguages is cast the same way buildRenderableQuestion above
+  // already does — untyped JSONB at the Drizzle level.
+  const { testCasesPassed, testCasesTotal } = await codingService.gradeSubmission({
+    attemptResponseId: placeholder.id,
+    language: input.language,
+    sourceCode: input.sourceCode,
+    codingDetails: version.codingDetails
+      ? {
+          timeLimitMs: version.codingDetails.timeLimitMs,
+          memoryLimitKb: version.codingDetails.memoryLimitKb,
+          supportedLanguages: version.codingDetails.supportedLanguages as string[],
+        }
+      : null,
+    testCases: version.testCases.map((testCase) => ({
+      id: testCase.id,
+      input: testCase.input,
+      expectedOutput: testCase.expectedOutput,
+      isHidden: testCase.isHidden,
+      sortOrder: testCase.sortOrder,
+    })),
+  });
+
+  const isCorrect = testCasesTotal > 0 && testCasesPassed === testCasesTotal;
+  const marksObtained =
+    testCasesTotal > 0
+      ? (Number(version.marks) * (testCasesPassed / testCasesTotal)).toFixed(2)
+      : '0';
+
+  // Phase 3a: cheap re-read (see this function's module comment on why
+  // this isn't a new long-running operation) to compare against whatever
+  // grade is currently recorded.
+  const current = await attemptsRepository.upsertResponse(attemptId, questionVersionId, {});
+  const existingMarksObtained =
+    current.marksObtained !== null ? Number(current.marksObtained) : null;
+
+  if (existingMarksObtained !== null && Number(marksObtained) < existingMarksObtained) {
+    // This submission scored worse than what's already recorded — keep
+    // the existing (better) grade untouched and report it back as-is.
+    return current;
+  }
+
+  // Phase 3b: no prior grade existed, or the new result is >= the
+  // existing one — write it onto the SAME response row.
+  return attemptsRepository.upsertResponse(attemptId, questionVersionId, {
+    isCorrect,
+    marksObtained,
+  });
+}
+
 // --- Submit the whole attempt (item 5) ---
 //
 // total_score = SUM(attempt_responses.marks_obtained) computed entirely in
@@ -763,6 +918,7 @@ export const attemptsService = {
   listMyAttempts,
   getAttemptQuestions,
   submitResponse,
+  submitCode,
   submitAttempt,
   recordProctoringEvent,
   listProctoringEvents,

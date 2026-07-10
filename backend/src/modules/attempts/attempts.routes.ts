@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeAny } from 'zod';
+import { submitCodeSchema, type SubmitCodeInput } from '../coding/coding.schema';
 import { idempotency } from '../../plugins/idempotency.plugin';
 import { ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG } from '../../plugins/rate-limit.plugin';
 import { requirePermission } from '../../rbac/require-permission';
@@ -67,21 +68,25 @@ function validateBody(schema: ZodTypeAny) {
 // granting students a permission key to work around that.
 
 // --- Idempotency-Key (CLAUDE.md non-negotiable #4) ---
-// One shared instance, reused across all three mutating routes below —
+// One shared instance, reused across every mutating route below —
 // idempotency()'s returned hooks hold no per-route state of their own
 // (everything they need lives on `request` per-call), so a single
 // `{ required: true }` pair is safe to attach to multiple routes. REQUIRED
-// (not optional-but-honored) on all three: CLAUDE.md's own wording already
-// says this is "required" on the attempts submit route, and these three
-// specifically are the ones where a silently-missing key would let the
-// exact failure this mechanism exists to prevent slip through unguarded —
-// starting an attempt burns a scarce attempt_number, submitting a response
-// can double-score, and finalizing an attempt is a one-way transition.
-// Making the header mandatory is stricter (any client that forgets to send
-// it gets a clear 400 instead of a silent gap), which is the right
-// trade-off for this class of "payment-like" mutation — optional-but-
-// honored would only protect callers who remembered to opt in, leaving
-// every other caller exactly as unprotected as before this phase.
+// (not optional-but-honored) on all of them: CLAUDE.md's own wording
+// already says this is "required" on both the attempts submit route AND
+// the coding submit route, and every route it's attached to below is one
+// where a silently-missing key would let the exact failure this mechanism
+// exists to prevent slip through unguarded — starting an attempt burns a
+// scarce attempt_number, submitting a response can double-score,
+// finalizing an attempt is a one-way transition, and submitting code
+// triggers real, retry-prone Judge0 execution (the single most expensive,
+// one-shot mutation in this codebase — see coding.service.ts's
+// gradeSubmission). Making the header mandatory is stricter (any client
+// that forgets to send it gets a clear 400 instead of a silent gap),
+// which is the right trade-off for this class of "payment-like" mutation
+// — optional-but-honored would only protect callers who remembered to
+// opt in, leaving every other caller exactly as unprotected as before
+// this phase.
 const attemptIdempotency = idempotency({ required: true });
 
 // --- Staff oversight permission (Part 2, items 2 & 3) ---
@@ -162,6 +167,31 @@ export async function attemptsRoutes(fastify: FastifyInstance): Promise<void> {
       config: { rateLimit: ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG },
     },
     attemptsController.submitResponse,
+  );
+
+  // --- Coding submissions (attempts <-> Judge0, via modules/coding) ---
+  // Same per-attempt rate limit and REQUIRED Idempotency-Key as the routes
+  // around it — this IS "the coding submit route" CLAUDE.md's
+  // non-negotiable #4 names explicitly (alongside the attempts submit
+  // route below), and the most expensive, one-shot, retry-prone mutation
+  // in this codebase (real Judge0 execution across every test case — see
+  // coding.service.ts's gradeSubmission). Body validated against
+  // modules/coding's own submitCodeSchema (reused here, not redefined) —
+  // params reuse attemptResponseParamsSchema since the path shape is
+  // identical to the responses route above, just with a /submit-code
+  // suffix.
+  fastify.post<{ Params: AttemptResponseParams; Body: SubmitCodeInput }>(
+    '/attempts/:attemptId/responses/:questionVersionId/submit-code',
+    {
+      preHandler: [fastify.authenticate, attemptIdempotency.preHandler],
+      preValidation: [
+        validateParams(attemptResponseParamsSchema),
+        validateBody(submitCodeSchema),
+      ],
+      preSerialization: [attemptIdempotency.preSerialization],
+      config: { rateLimit: ASSESSMENT_SUBMIT_RATE_LIMIT_CONFIG },
+    },
+    attemptsController.submitCode,
   );
 
   // Same per-attempt rate limit as the responses route above, plus
