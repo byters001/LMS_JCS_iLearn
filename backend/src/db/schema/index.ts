@@ -6,3 +6,4 @@ export * from './question-bank.schema';
 export * from './assessments.schema';
 export * from './attempts.schema';
 export * from './coding.schema';
+export * from './settings.schema';

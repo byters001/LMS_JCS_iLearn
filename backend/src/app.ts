@@ -6,6 +6,7 @@ import attemptsRoutes from './modules/attempts/attempts.routes';
 import authRoutes from './modules/auth/auth.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import questionBankRoutes from './modules/question-bank/question-bank.routes';
+import settingsRoutes from './modules/settings/settings.routes';
 import studentsRoutes from './modules/students/students.routes';
 import trainersRoutes from './modules/trainers/trainers.routes';
 import usersRoutes from './modules/users/users.routes';
@@ -90,17 +91,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   // their decorators/hooks (fastify.authenticate, the onRequest hook, the
   // error handler) down into this prefixed child context regardless.
   //
-  // Of CLAUDE.md's 13 modules, 8 — auth, users, organization, trainers,
-  // students, question-bank, assessments, attempts (Part 1: lifecycle +
-  // frozen selections; proctoring_events/assessment_retake_requests are
-  // Part 2) — currently export a registrable route plugin. The remaining 5
-  // are still stub files (`export {};`, nothing to import): coding,
-  // reports, analytics, notifications, settings
-  // Importing/registering any of those today would either fail to compile
-  // (nothing named to import) or register `undefined` as a plugin at
-  // runtime. Each needs exactly one line added here —
-  // `await app.register(xRoutes, { prefix: API_PREFIX });` — once its
-  // routes.ts is actually built out. Not done speculatively.
+  // Of CLAUDE.md's 13 modules, 9 — auth, users, organization, trainers,
+  // students, question-bank, assessments, attempts (Part 1 + Part 2:
+  // lifecycle, frozen selections, proctoring_events,
+  // assessment_retake_requests, and coding-submission grading via
+  // modules/coding), settings (feature_flags, module_toggles,
+  // system_settings — CRUD only, no enforcement middleware; see
+  // settings.service.ts's module comment for why) — currently export a
+  // registrable route plugin. `coding` itself still has no routes of its
+  // own (its endpoint is registered by attempts.routes.ts — see
+  // coding.routes.ts's own comment). The remaining 3 — reports,
+  // analytics, notifications — are still stub files (`export {};`,
+  // nothing to import). Importing/registering any of those today would
+  // either fail to compile (nothing named to import) or register
+  // `undefined` as a plugin at runtime. Each needs exactly one line added
+  // here — `await app.register(xRoutes, { prefix: API_PREFIX });` — once
+  // its routes.ts is actually built out. Not done speculatively.
   //
   // organization.routes.ts registers its own top-level paths (/colleges,
   // /departments, /academic-years) rather than nesting under /organization —
@@ -118,6 +124,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(questionBankRoutes, { prefix: API_PREFIX });
   await app.register(assessmentsRoutes, { prefix: API_PREFIX });
   await app.register(attemptsRoutes, { prefix: API_PREFIX });
+  await app.register(settingsRoutes, { prefix: API_PREFIX });
 
   return app;
 }

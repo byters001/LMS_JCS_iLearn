@@ -48,6 +48,7 @@ import type {
   proctoringEvents,
 } from './schema/attempts.schema';
 import type { codingSubmissions } from './schema/coding.schema';
+import type { featureFlags, moduleToggles, systemSettings } from './schema/settings.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -180,3 +181,12 @@ export type NewAssessmentRetakeRequest = InferInsertModel<typeof assessmentRetak
 
 export type CodingSubmission = InferSelectModel<typeof codingSubmissions>;
 export type NewCodingSubmission = InferInsertModel<typeof codingSubmissions>;
+
+export type FeatureFlag = InferSelectModel<typeof featureFlags>;
+export type NewFeatureFlag = InferInsertModel<typeof featureFlags>;
+
+export type ModuleToggle = InferSelectModel<typeof moduleToggles>;
+export type NewModuleToggle = InferInsertModel<typeof moduleToggles>;
+
+export type SystemSetting = InferSelectModel<typeof systemSettings>;
+export type NewSystemSetting = InferInsertModel<typeof systemSettings>;
