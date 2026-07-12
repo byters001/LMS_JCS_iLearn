@@ -58,8 +58,23 @@ async function withResilience<T>(operationName: string, operation: () => Promise
     }
   }
 
+  // lastError.message is folded into THIS error's own message (not just
+  // left inside `details`) because a native Error's message/stack are
+  // non-enumerable own properties — JSON.stringify(lastError) (and
+  // therefore JSON.stringify({ cause: lastError }), and pino's own
+  // serialization of nested, non-top-level error objects inside `details`)
+  // silently produces `{}`, which is exactly how this bug manifested
+  // ("cause: {}" — confirmed by testing `JSON.stringify({cause: new
+  // Error('x')})` directly: it really does yield `{"cause":{}}`). Custom
+  // properties assigned onto an Error instance afterward (rawSendEmail's
+  // .status/.statusText/.body below) ARE enumerable and survive
+  // JSON.stringify fine — only the engine-built-in message/stack don't —
+  // so `details: { cause: lastError }` below now actually carries useful
+  // data too, this line is just defense-in-depth so the real reason is
+  // visible even from the top-level message alone.
+  const lastErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
   throw new ServiceUnavailableError(
-    `Resend request "${operationName}" failed after ${MAX_RETRY_ATTEMPTS} attempts`,
+    `Resend request "${operationName}" failed after ${MAX_RETRY_ATTEMPTS} attempts: ${lastErrorMessage}`,
     { cause: lastError },
   );
 }
@@ -103,6 +118,31 @@ interface ResendSendResponse {
   id: string;
 }
 
+// Resend's own error responses are JSON, e.g.
+// {"statusCode":422,"name":"validation_error","message":"The `from` address
+// is not verified"} — that `message` field is the actual, actionable
+// diagnostic. The previous version of rawSendEmail below threw
+// `new Error(\`Resend request failed: ${status} ${statusText}\`)` WITHOUT
+// ever reading the response body at all — response.statusText is often
+// just the generic HTTP reason phrase (e.g. "Unprocessable Entity"), not
+// Resend's own message, so that body was the only place the real reason
+// ever existed, and it was being discarded before anyone could see it.
+interface ResendErrorBody {
+  statusCode?: number;
+  name?: string;
+  message?: string;
+}
+
+function extractResendErrorMessage(body: unknown, fallback: string): string {
+  if (body !== null && typeof body === 'object' && 'message' in body) {
+    const message = (body as ResendErrorBody).message;
+    if (typeof message === 'string' && message.length > 0) {
+      return message;
+    }
+  }
+  return fallback;
+}
+
 // Raw fetch against Resend's REST API directly, no `resend` SDK dependency
 // — same "no SDK, plain fetch wrapped in the resilience helpers above"
 // shape judge0/client.ts already uses (Judge0 has no official Node SDK
@@ -127,7 +167,37 @@ async function rawSendEmail(params: SendEmailParams): Promise<ResendSendResponse
   });
 
   if (!response.ok) {
-    throw new Error(`Resend request failed: ${response.status} ${response.statusText}`);
+    // Read the body BEFORE throwing — response.text() still works on a
+    // non-ok response; the previous version never called it at all. Resend
+    // doesn't always return JSON (e.g. a raw 5xx from an edge/proxy layer
+    // could be plain text or HTML), so JSON.parse is attempted and the raw
+    // text is kept as a fallback rather than assumed.
+    const rawBody = await response.text();
+    let parsedBody: unknown = rawBody;
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      // Not JSON — parsedBody stays the raw text.
+    }
+
+    const resendMessage = extractResendErrorMessage(
+      parsedBody,
+      rawBody || `${response.status} ${response.statusText}`,
+    );
+
+    // status/statusText/body are assigned onto the Error AFTER
+    // construction — these ARE enumerable own properties (unlike the
+    // engine-built-in message/stack), so they survive JSON.stringify
+    // correctly once this propagates up through withResilience's
+    // `{ cause: lastError }` — see that function's own comment for why
+    // that distinction is exactly what caused "cause: {}" previously.
+    const error = new Error(
+      `Resend request failed: ${response.status} ${response.statusText} — ${resendMessage}`,
+    ) as Error & { status: number; statusText: string; body: unknown };
+    error.status = response.status;
+    error.statusText = response.statusText;
+    error.body = parsedBody;
+    throw error;
   }
 
   return (await response.json()) as ResendSendResponse;
