@@ -2,9 +2,11 @@ import type { StudentProfile } from '../../db/types';
 import { assessmentsService } from '../assessments/assessments.service';
 import { codingService } from '../coding/coding.service';
 import type { SubmitCodeInput } from '../coding/coding.schema';
+import { notificationsService } from '../notifications/notifications.service';
 import { questionBankService } from '../question-bank/question-bank.service';
 import { studentsService } from '../students/students.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
+import { logger } from '../../logger';
 import { attemptsRepository, type SelectionInput } from './attempts.repository';
 import type {
   CreateRetakeRequestInput,
@@ -695,6 +697,33 @@ async function submitAttempt(userId: string, attemptId: string): Promise<Assessm
   if (!updated) {
     throw new ConflictError('This attempt was already submitted');
   }
+
+  // Notification trigger (notifications module, item 6): fires ONLY when
+  // the resulting status is 'submitted' — the score is genuinely ready.
+  // When hasUngradedCoding is true the status is 'pending_evaluation'
+  // instead, meaning totalScore isn't final yet; notifying "your score is
+  // ready" in that state would be misleading. Confirmed (not assumed, via
+  // grep) that nothing else in this codebase currently transitions a
+  // pending_evaluation attempt back to submitted later — there is no
+  // manual-coding-grading endpoint yet — so this notification simply
+  // doesn't fire for that path in this phase; a future grading feature
+  // would need its own trigger call at whatever point IT finalizes the
+  // score.
+  //
+  // studentProfile here is the CALLER's own profile (requireStudentProfile
+  // above, resolved from the JWT), and assertOwnsAttempt already confirmed
+  // studentProfile.id === attempt.studentId — so studentProfile.userId is
+  // exactly the recipient's users.id, no extra lookup needed.
+  //
+  // Not awaited (fire-and-forget, item 3) — same reasoning as
+  // publishAssessment's wiring in assessments.service.ts: submitAttempt's
+  // return below is unaffected by notification/email latency or failure.
+  if (updated.status === 'submitted') {
+    void notificationsService.notifyAttemptFinalized(updated, studentProfile.userId).catch((err) => {
+      logger.error({ err, attemptId }, 'notifyAttemptFinalized rejected unexpectedly');
+    });
+  }
+
   return updated;
 }
 
@@ -882,18 +911,33 @@ async function reviewRetakeRequest(
   );
 }
 
+// Both approve/reject wrappers fire notifyRetakeRequestReviewed the same
+// way (item 6) — AFTER reviewRetakeRequest has already committed the
+// status change, not awaited (fire-and-forget, item 3), same reasoning as
+// publishAssessment's and submitAttempt's wiring. notifyRetakeRequestReviewed
+// itself reads the row's own `status` field to decide the approved-vs-
+// rejected copy/type, so both call sites can share the exact same trigger
+// call rather than duplicating notification-building logic per outcome.
 async function approveRetakeRequest(
   retakeRequestId: string,
   reviewedBy: string,
 ): Promise<AssessmentRetakeRequest> {
-  return reviewRetakeRequest(retakeRequestId, reviewedBy, 'approved');
+  const updated = await reviewRetakeRequest(retakeRequestId, reviewedBy, 'approved');
+  void notificationsService.notifyRetakeRequestReviewed(updated).catch((err) => {
+    logger.error({ err, retakeRequestId }, 'notifyRetakeRequestReviewed rejected unexpectedly');
+  });
+  return updated;
 }
 
 async function rejectRetakeRequest(
   retakeRequestId: string,
   reviewedBy: string,
 ): Promise<AssessmentRetakeRequest> {
-  return reviewRetakeRequest(retakeRequestId, reviewedBy, 'rejected');
+  const updated = await reviewRetakeRequest(retakeRequestId, reviewedBy, 'rejected');
+  void notificationsService.notifyRetakeRequestReviewed(updated).catch((err) => {
+    logger.error({ err, retakeRequestId }, 'notifyRetakeRequestReviewed rejected unexpectedly');
+  });
+  return updated;
 }
 
 // Staff-facing worklist — gated at the route level by attempts.reassign.

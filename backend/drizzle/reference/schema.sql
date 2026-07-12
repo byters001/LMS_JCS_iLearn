@@ -47,6 +47,8 @@ CREATE TYPE feature_flag_scope_enum AS ENUM ('global', 'college');
 CREATE TYPE module_name_enum AS ENUM ('question_bank', 'coding', 'leaderboard', 'practice_tests', 'ai_assistant', 'reports');
 CREATE TYPE setting_value_type_enum AS ENUM ('string', 'number', 'boolean', 'json');
 CREATE TYPE setting_category_enum AS ENUM ('general', 'security', 'integration', 'email', 'ai');
+CREATE TYPE notification_type_enum AS ENUM ('assessment_published', 'retake_request_approved', 'retake_request_rejected', 'attempt_finalized');
+CREATE TYPE notification_entity_type_enum AS ENUM ('assessment', 'attempt', 'retake_request');
 
 -- ============================================================================
 -- SECTION 2: IDENTITY & DYNAMIC RBAC
@@ -804,6 +806,29 @@ WHERE r.slug = 'faculty'
 INSERT INTO module_toggles (module, is_enabled, college_id)
 SELECT m, true, NULL
 FROM unnest(enum_range(NULL::module_name_enum)) AS m;
+
+-- ============================================================================
+-- SECTION 13: NOTIFICATIONS
+-- ============================================================================
+-- No seed data — rows are created entirely by the trigger points inside
+-- assessments.service.ts (publishAssessment) and attempts.service.ts
+-- (approveRetakeRequest/rejectRetakeRequest, submitAttempt). No CREATE
+-- endpoint exists for this table.
+
+CREATE TABLE notifications (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type                  notification_type_enum NOT NULL,
+  title                 TEXT NOT NULL,
+  body                  TEXT NOT NULL,
+  related_entity_type   notification_entity_type_enum NOT NULL,
+  related_entity_id     UUID NOT NULL,
+  is_read               BOOLEAN NOT NULL DEFAULT false,
+  read_at               TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_notifications_recipient_created ON notifications(recipient_id, created_at);
+CREATE INDEX idx_notifications_recipient_unread ON notifications(recipient_id, is_read);
 
 -- ============================================================================
 -- END OF SCHEMA

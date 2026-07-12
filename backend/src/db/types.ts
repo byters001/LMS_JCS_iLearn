@@ -49,6 +49,7 @@ import type {
 } from './schema/attempts.schema';
 import type { codingSubmissions } from './schema/coding.schema';
 import type { featureFlags, moduleToggles, systemSettings } from './schema/settings.schema';
+import type { notifications } from './schema/notifications.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -190,3 +191,6 @@ export type NewModuleToggle = InferInsertModel<typeof moduleToggles>;
 
 export type SystemSetting = InferSelectModel<typeof systemSettings>;
 export type NewSystemSetting = InferInsertModel<typeof systemSettings>;
+
+export type Notification = InferSelectModel<typeof notifications>;
+export type NewNotification = InferInsertModel<typeof notifications>;

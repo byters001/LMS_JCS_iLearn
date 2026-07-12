@@ -58,6 +58,30 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => (value ? value : undefined)),
+
+  // Optional, same tier as JUDGE0_API_KEY — email is fire-and-forget,
+  // best-effort infrastructure (see notifications.service.ts's module
+  // comment), not something the app should refuse to boot over. A missing
+  // key means integrations/email/client.ts short-circuits every send with
+  // a clear, caught-and-logged error instead of attempting a doomed
+  // request; it does NOT mean the backend fails to start, unlike
+  // DATABASE_URL/SUPABASE_*/JWT_* which the app cannot function without.
+  RESEND_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+
+  // Confirmed there's no system_settings 'email.from_address' row to read
+  // instead (grepped the whole repo — nothing seeds one, and nothing in
+  // this codebase currently reads system_settings at runtime at all; see
+  // settings.service.ts's own "item 4" comment). Plain hardcoded env
+  // default, same as every other env var with a fallback. This placeholder
+  // domain is NOT a Resend-verified sending domain — swap it for a real
+  // one before any email actually needs to leave the building.
+  EMAIL_FROM_ADDRESS: z
+    .string()
+    .min(1, 'EMAIL_FROM_ADDRESS must not be empty')
+    .default('JCS iLearn <notifications@jcsilearn.app>'),
 });
 
 function loadEnv() {

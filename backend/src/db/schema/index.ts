@@ -7,3 +7,4 @@ export * from './assessments.schema';
 export * from './attempts.schema';
 export * from './coding.schema';
 export * from './settings.schema';
+export * from './notifications.schema';

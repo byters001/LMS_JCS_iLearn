@@ -5,6 +5,7 @@ import analyticsRoutes from './modules/analytics/analytics.routes';
 import assessmentsRoutes from './modules/assessments/assessments.routes';
 import attemptsRoutes from './modules/attempts/attempts.routes';
 import authRoutes from './modules/auth/auth.routes';
+import notificationsRoutes from './modules/notifications/notifications.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import questionBankRoutes from './modules/question-bank/question-bank.routes';
 import reportsRoutes from './modules/reports/reports.routes';
@@ -93,7 +94,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // their decorators/hooks (fastify.authenticate, the onRequest hook, the
   // error handler) down into this prefixed child context regardless.
   //
-  // Of CLAUDE.md's 13 modules, 11 — auth, users, organization, trainers,
+  // Of CLAUDE.md's 13 modules, 12 — auth, users, organization, trainers,
   // students, question-bank, assessments, attempts (Part 1 + Part 2:
   // lifecycle, frozen selections, proctoring_events,
   // assessment_retake_requests, and coding-submission grading via
@@ -104,15 +105,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   // — see reports.service.ts's module comment), analytics (batch-level
   // performance summary, staff-facing, gated by analytics.view — see
   // analytics.service.ts's module comment for the passing-threshold and
-  // college-scoping design) — currently export a registrable route
-  // plugin. `coding` itself still has no routes of its own (its endpoint
-  // is registered by attempts.routes.ts — see coding.routes.ts's own
-  // comment). The remaining 1 — notifications — is still a stub file
-  // (`export {};`, nothing to import). Importing/registering it today
-  // would either fail to compile (nothing named to import) or register
-  // `undefined` as a plugin at runtime. It needs exactly one line added
-  // here — `await app.register(notificationsRoutes, { prefix: API_PREFIX });`
-  // — once its routes.ts is actually built out. Not done speculatively.
+  // college-scoping design), notifications (in-app + email via Resend;
+  // self-scoped GET/PATCH, no create endpoint — rows only get created
+  // internally by trigger points inside assessments.service.ts and
+  // attempts.service.ts; see notifications.service.ts's module comment
+  // for the fire-and-forget email design) — currently export a
+  // registrable route plugin. `coding` itself still has no routes of its
+  // own (its endpoint is registered by attempts.routes.ts — see
+  // coding.routes.ts's own comment).
   //
   // organization.routes.ts registers its own top-level paths (/colleges,
   // /departments, /academic-years) rather than nesting under /organization —
@@ -133,6 +133,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(settingsRoutes, { prefix: API_PREFIX });
   await app.register(reportsRoutes, { prefix: API_PREFIX });
   await app.register(analyticsRoutes, { prefix: API_PREFIX });
+  await app.register(notificationsRoutes, { prefix: API_PREFIX });
 
   return app;
 }

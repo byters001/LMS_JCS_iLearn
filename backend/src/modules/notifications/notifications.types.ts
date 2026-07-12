@@ -1,2 +1,10 @@
-// TypeScript types for notifications module will go here
-export {};
+import type { Notification } from '../../db/types';
+
+export type { Notification };
+
+export interface ListNotificationsResult {
+  items: Notification[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

@@ -4,10 +4,12 @@ import type {
   AssessmentSection,
   AssessmentSectionPool,
 } from '../../db/types';
+import { notificationsService } from '../notifications/notifications.service';
 import { organizationService } from '../organization/organization.service';
 import { questionBankService } from '../question-bank/question-bank.service';
 import { trainersService } from '../trainers/trainers.service';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
+import { logger } from '../../logger';
 import { assessmentsRepository } from './assessments.repository';
 import type {
   AssessmentApprovalActionInput,
@@ -685,6 +687,29 @@ async function publishAssessment(
     performedBy,
     notes: input.notes,
   });
+
+  // Notification trigger (notifications module, item 6) — fired here,
+  // AFTER recordApprovalAction has already committed the status flip to
+  // 'live'. batchIds resolved via this same module's own repository
+  // (listAssessmentBatchIds), not re-derived through notificationsService,
+  // to avoid a circular import (notifications.service.ts would otherwise
+  // need to import assessmentsService back just to resolve the batches for
+  // an assessment it's already been handed) — see notifications.service.ts's
+  // module comment for the full reasoning.
+  //
+  // Deliberately NOT awaited (fire-and-forget, item 3): publishAssessment's
+  // return value/throw path below is entirely unaffected by however long
+  // resolving recipients, inserting notification rows, and dispatching
+  // email actually takes, and by whether any of it fails. A down/
+  // misconfigured Resend, or a bug in the notification fan-out, can never
+  // turn an already-successful publish into a failed request — the
+  // `.catch()` here is a second, defense-in-depth backstop on top of
+  // notifyAssessmentPublished's own internal try/catch.
+  const batchIds = await assessmentsRepository.listAssessmentBatchIds(id);
+  void notificationsService.notifyAssessmentPublished(updated, batchIds).catch((err) => {
+    logger.error({ err, assessmentId: id }, 'notifyAssessmentPublished rejected unexpectedly');
+  });
+
   return updated;
 }
 
