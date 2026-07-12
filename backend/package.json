@@ -7,7 +7,9 @@
     "db:generate": "node --env-file=.env node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file=.env node_modules/drizzle-kit/bin.cjs migrate",
     "db:studio": "node --env-file=.env node_modules/drizzle-kit/bin.cjs studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -33,6 +35,7 @@
     "@types/node": "^26.1.0",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }
