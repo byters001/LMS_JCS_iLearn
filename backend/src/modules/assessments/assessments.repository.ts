@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import {
   assessmentApprovalHistory,
@@ -61,6 +61,63 @@ async function listAssessments(params: ListAssessmentsParams): Promise<ListAsses
   ]);
 
   return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+export interface ListAvailableAssessmentsParams {
+  batchIds: string[];
+  status?: 'scheduled' | 'live';
+  page: number;
+  pageSize: number;
+}
+
+// Student-facing counterpart to listAssessments above — filtered to
+// assessment_batches membership (batchIds = the caller's own active batch
+// ids, resolved by assessments.service.ts via studentsService), NOT a
+// trainingSessionId/arbitrary-status staff query. Restricted to
+// 'scheduled'/'live' (or whichever one of those two the caller asked for)
+// — see listAvailableAssessmentsQuerySchema's comment for why those are the
+// only two statuses a student should ever see here. DISTINCT guards against
+// an assessment linked to more than one of the student's batches, same
+// precaution as students.repository.ts's own batchId-joined listStudentProfiles.
+async function listAvailableAssessments(
+  params: ListAvailableAssessmentsParams,
+): Promise<ListAssessmentsResult> {
+  const { batchIds, status, page, pageSize } = params;
+  const offset = (page - 1) * pageSize;
+
+  // No batches -> no possible matches; skip the query entirely rather than
+  // let an empty inArray(...) silently produce a WHERE false with an extra
+  // round trip.
+  if (batchIds.length === 0) {
+    return { items: [], total: 0 };
+  }
+
+  const where = and(
+    isNull(assessments.deletedAt),
+    status ? eq(assessments.status, status) : inArray(assessments.status, ['scheduled', 'live']),
+    inArray(assessmentBatches.batchId, batchIds),
+  );
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .selectDistinct({ assessment: assessments })
+      .from(assessments)
+      .innerJoin(assessmentBatches, eq(assessmentBatches.assessmentId, assessments.id))
+      .where(where)
+      .orderBy(asc(assessments.startAt))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(distinct ${assessments.id})` })
+      .from(assessments)
+      .innerJoin(assessmentBatches, eq(assessmentBatches.assessmentId, assessments.id))
+      .where(where),
+  ]);
+
+  return {
+    items: items.map((row) => row.assessment),
+    total: Number(totalRows[0]?.count ?? 0),
+  };
 }
 
 async function findAssessmentById(id: string): Promise<Assessment | undefined> {
@@ -527,6 +584,7 @@ async function listApprovalHistory(
 
 export const assessmentsRepository = {
   listAssessments,
+  listAvailableAssessments,
   findAssessmentById,
   createAssessmentWithBatches,
   updateAssessment,

@@ -14,6 +14,7 @@ import type {
   CreateAssessmentSectionPoolInput,
   ListAssessmentApprovalHistoryQuery,
   ListAssessmentsQuery,
+  ListAvailableAssessmentsQuery,
   ScheduleAssessmentInput,
   UpdateAssessmentInput,
   UpdateAssessmentQuestionInput,
@@ -34,6 +35,19 @@ async function listAssessments(
   reply: FastifyReply,
 ): Promise<void> {
   const result = await assessmentsService.listAssessments(request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+// Student-facing — see GET /assessments/available in assessments.routes.ts
+// for why this is a distinct route/permission model from listAssessments
+// above, not a query-param variant of it.
+async function listAvailableAssessments(
+  request: FastifyRequest<{ Querystring: ListAvailableAssessmentsQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await assessmentsService.listAvailableAssessments(userId, request.query);
   const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
   reply.status(200).send(response);
 }
@@ -367,6 +381,7 @@ async function listAssessmentApprovalHistory(
 
 export const assessmentsController = {
   listAssessments,
+  listAvailableAssessments,
   getAssessmentById,
   createAssessment,
   updateAssessment,

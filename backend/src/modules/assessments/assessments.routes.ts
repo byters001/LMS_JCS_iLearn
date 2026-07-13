@@ -15,6 +15,7 @@ import {
   createAssessmentSectionSchema,
   listAssessmentApprovalHistoryQuerySchema,
   listAssessmentsQuerySchema,
+  listAvailableAssessmentsQuerySchema,
   scheduleAssessmentSchema,
   updateAssessmentQuestionSchema,
   updateAssessmentSchema,
@@ -30,6 +31,7 @@ import {
   type CreateAssessmentSectionPoolInput,
   type ListAssessmentApprovalHistoryQuery,
   type ListAssessmentsQuery,
+  type ListAvailableAssessmentsQuery,
   type ScheduleAssessmentInput,
   type UpdateAssessmentInput,
   type UpdateAssessmentQuestionInput,
@@ -99,6 +101,27 @@ export async function assessmentsRoutes(fastify: FastifyInstance): Promise<void>
       preValidation: validateQuery(listAssessmentsQuerySchema),
     },
     assessmentsController.listAssessments,
+  );
+
+  // Student-facing exception to ASSESSMENTS_MANAGE above — deliberately NOT
+  // gated by requirePermission at all, same model as attempts.routes.ts's
+  // self-scoped routes: schema.sql seeds the 'student' role with ZERO
+  // permission keys, so requirePermission(<anything>) would reject every
+  // student unconditionally. Authorization here is data-scoped instead —
+  // assessments.service.ts's listAvailableAssessments resolves the caller's
+  // OWN active batch ids and only returns assessments actually linked to one
+  // of them via assessment_batches, never the full platform-wide list
+  // listAssessments above returns. Registered as a static path
+  // ('/assessments/available'); Fastify's router (find-my-way) matches
+  // static routes ahead of parametric ones regardless of registration
+  // order, so this can't be shadowed by — or shadow — GET /assessments/:id.
+  fastify.get<{ Querystring: ListAvailableAssessmentsQuery }>(
+    '/assessments/available',
+    {
+      preHandler: [fastify.authenticate],
+      preValidation: validateQuery(listAvailableAssessmentsQuerySchema),
+    },
+    assessmentsController.listAvailableAssessments,
   );
 
   fastify.get<{ Params: AssessmentIdParams }>(

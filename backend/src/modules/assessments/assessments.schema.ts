@@ -19,6 +19,20 @@ export const listAssessmentsQuerySchema = z
   })
   .strict();
 
+// Student-facing counterpart to listAssessmentsQuerySchema — deliberately a
+// separate, narrower schema rather than reusing the staff one: no
+// trainingSessionId (a student doesn't pick a training session, their batch
+// membership determines what they see), and status is restricted to
+// 'scheduled' | 'live' only — draft/review/approved are internal pre-publish
+// states, completed/archived are no longer "available." See
+// GET /assessments/available in assessments.routes.ts.
+export const listAvailableAssessmentsQuerySchema = z
+  .object({
+    status: z.enum(['scheduled', 'live']).optional(),
+    ...paginationFields,
+  })
+  .strict();
+
 // batchIds here drives assessment_batches rows created atomically alongside
 // the assessment — see assessments.service.ts's module comment for why
 // this isn't a separate top-level CRUD resource.
@@ -211,6 +225,7 @@ export const listAssessmentApprovalHistoryQuerySchema = z
   .strict();
 
 export type ListAssessmentsQuery = z.infer<typeof listAssessmentsQuerySchema>;
+export type ListAvailableAssessmentsQuery = z.infer<typeof listAvailableAssessmentsQuerySchema>;
 export type CreateAssessmentInput = z.infer<typeof createAssessmentSchema>;
 export type UpdateAssessmentInput = z.infer<typeof updateAssessmentSchema>;
 export type AssessmentIdParams = z.infer<typeof assessmentIdParamsSchema>;

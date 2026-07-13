@@ -7,8 +7,14 @@ import type {
 import { notificationsService } from '../notifications/notifications.service';
 import { organizationService } from '../organization/organization.service';
 import { questionBankService } from '../question-bank/question-bank.service';
+import { studentsService } from '../students/students.service';
 import { trainersService } from '../trainers/trainers.service';
-import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '../../shared/errors/app-error';
 import { logger } from '../../logger';
 import { assessmentsRepository } from './assessments.repository';
 import type {
@@ -19,6 +25,7 @@ import type {
   CreateAssessmentSectionPoolInput,
   ListAssessmentApprovalHistoryQuery,
   ListAssessmentsQuery,
+  ListAvailableAssessmentsQuery,
   ScheduleAssessmentInput,
   UpdateAssessmentInput,
   UpdateAssessmentQuestionInput,
@@ -198,6 +205,49 @@ async function listAssessments(query: ListAssessmentsQuery): Promise<ListAssessm
     trainingSessionId: query.trainingSessionId,
     status: query.status,
     testCategory: query.testCategory,
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+// Self-scoped, permission-free — same authorization model as
+// attempts.service.ts's requireStudentProfile (schema.sql seeds the
+// 'student' role with ZERO permission keys, so requirePermission(<anything>)
+// would reject every student; a caller with no student_profiles row for
+// their JWT user id is rejected here instead, by data, not by an RBAC key).
+// Duplicated here rather than imported from attempts.service.ts because
+// that function isn't exported (module-local helper) and modules may only
+// call each other's exported SERVICE functions, never reach into another
+// module's internals to grab a private helper.
+async function requireStudentProfile(userId: string) {
+  const studentProfile = await studentsService.findStudentProfileByUserId(userId);
+  if (!studentProfile) {
+    throw new ForbiddenError('Only students may view available assessments');
+  }
+  return studentProfile;
+}
+
+// The actual gap this phase closes: GET /assessments (listAssessments
+// above) is staff-only (assessments.create) and has no batch scoping at
+// all — unusable and, if the permission model ever changed, a real
+// cross-batch data leak for student-facing UI. This resolves the caller's
+// OWN active batch ids (studentsService.listActiveBatchIdsForStudent —
+// already exported for exactly this purpose, see its own comment) and
+// passes them to the repository's batch-joined query, so a student only
+// ever sees assessments their own batch is actually authorized for — the
+// same assessment_batches check attempts.service.ts's assertBatchAuthorized
+// enforces at attempt-creation time, surfaced here as a list instead.
+async function listAvailableAssessments(
+  userId: string,
+  query: ListAvailableAssessmentsQuery,
+): Promise<ListAssessmentsResult> {
+  const studentProfile = await requireStudentProfile(userId);
+  const batchIds = await studentsService.listActiveBatchIdsForStudent(studentProfile.id);
+
+  const { items, total } = await assessmentsRepository.listAvailableAssessments({
+    batchIds,
+    status: query.status,
     page: query.page,
     pageSize: query.pageSize,
   });
@@ -728,6 +778,7 @@ async function listAssessmentApprovalHistory(
 
 export const assessmentsService = {
   listAssessments,
+  listAvailableAssessments,
   findAssessmentById,
   findAssessmentWithBatches,
   listAssessmentBatches,
