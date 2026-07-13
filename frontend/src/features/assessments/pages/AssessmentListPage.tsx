@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,9 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { AssessmentStatusBadge } from '../components/AssessmentStatusBadge'
 import { useAssessments } from '../api'
-import type { AssessmentStatus, TestCategory } from '../types'
+import type { TestCategory } from '../types'
 
 const PAGE_SIZE = 20
 
@@ -22,56 +23,18 @@ const TEST_CATEGORY_LABELS: Record<TestCategory, string> = {
   mixed: 'Mixed',
 }
 
-// More granular than StudentAssessmentsPage's student-facing badge (which
-// only ever shows Live/Scheduled/other, since a student never sees
-// draft/review/approved/completed/archived assessments at all) — staff
-// need to distinguish all seven assessment_status_enum values at a glance.
-const STATUS_LABELS: Record<AssessmentStatus, string> = {
-  draft: 'Draft',
-  review: 'In Review',
-  approved: 'Approved',
-  scheduled: 'Scheduled',
-  live: 'Live',
-  completed: 'Completed',
-  archived: 'Archived',
-}
-
-const STATUS_STYLES: Record<AssessmentStatus, string> = {
-  draft: 'bg-muted text-muted-foreground',
-  review: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  approved: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  scheduled: 'border border-brand-primary/30 text-brand-primary',
-  live: 'bg-brand-accent text-white',
-  completed: 'bg-green-600/10 text-green-700 dark:text-green-400',
-  archived: 'bg-muted text-muted-foreground/60',
-}
-
-function StatusBadge({ status }: { status: AssessmentStatus }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-        STATUS_STYLES[status],
-      )}
-    >
-      {status === 'live' && <span className="size-1.5 rounded-full bg-white" />}
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  )
-}
-
 function formatDate(value: string): string {
   return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 // Staff-facing assessment list at /trainer/assessments and
-// /admin/assessments — first real content in either shell beyond the
-// students table, mirroring that exact pattern (api.ts hook -> paginated
-// table -> brand styling). Read-only: no create/edit UI this phase, same
-// scope discipline as StudentListPage.tsx. No filter controls either
+// /admin/assessments — mirrors StudentListPage.tsx's exact pattern (api.ts
+// hook -> paginated table -> brand styling). No filter controls
 // (status/testCategory/trainingSessionId are supported by the backend and
 // already typed in ListAssessmentsParams, just not exposed as UI yet) —
-// same minimalism the students list already established.
+// same minimalism the students list already established. Each title links
+// to AssessmentEditPage — the only way to reach an existing assessment's
+// edit view once it's no longer the one you just created.
 export default function AssessmentListPage() {
   const [page, setPage] = useState(1)
   const { data, isPending, isError, error, isFetching } = useAssessments({
@@ -90,6 +53,9 @@ export default function AssessmentListPage() {
             Every assessment across the platform, at every stage of the approval workflow.
           </p>
         </div>
+        <Button asChild className="bg-brand-accent text-white hover:bg-brand-accent/90">
+          <Link to="new">Create Assessment</Link>
+        </Button>
       </div>
 
       {isPending && (
@@ -130,12 +96,17 @@ export default function AssessmentListPage() {
               ) : (
                 data.items.map((assessment) => (
                   <TableRow key={assessment.id}>
-                    <TableCell className="font-medium text-brand-primary">
-                      {assessment.title}
+                    <TableCell className="font-medium">
+                      <Link
+                        to={`${assessment.id}/edit`}
+                        className="text-brand-primary hover:underline"
+                      >
+                        {assessment.title}
+                      </Link>
                     </TableCell>
                     <TableCell>{TEST_CATEGORY_LABELS[assessment.testCategory]}</TableCell>
                     <TableCell>
-                      <StatusBadge status={assessment.status} />
+                      <AssessmentStatusBadge status={assessment.status} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}

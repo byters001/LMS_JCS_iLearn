@@ -3,7 +3,9 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/features/auth/pages/LoginPage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
+import AssessmentEditPage from '@/features/assessments/pages/AssessmentEditPage'
 import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
+import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
@@ -83,14 +85,30 @@ export function AppRoutes() {
         <Route element={<RequireRole roles={['faculty']} />}>
           <Route path="/trainer" element={<TrainerLayout />}>
             <Route index element={<StudentListPage />} />
-            <Route path="assessments" element={<AssessmentListPage />} />
+            {/* Properly NESTED (not flat siblings) — React Router resolves
+                relative navigate()/Link paths (".." , "new", "${id}/edit")
+                against the ROUTE TREE's nesting depth, not URL segment
+                count. Flat siblings here previously sent CreateAssessmentPage's
+                post-create navigate('../id/edit') up to /trainer itself
+                instead of /trainer/assessments — confirmed live before this
+                fix. Omitting `element` on the parent "assessments" Route
+                renders an implicit <Outlet />. */}
+            <Route path="assessments">
+              <Route index element={<AssessmentListPage />} />
+              <Route path="new" element={<CreateAssessmentPage />} />
+              <Route path=":id/edit" element={<AssessmentEditPage />} />
+            </Route>
           </Route>
         </Route>
 
         <Route element={<RequireRole roles={['super_admin']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<StudentListPage />} />
-            <Route path="assessments" element={<AssessmentListPage />} />
+            <Route path="assessments">
+              <Route index element={<AssessmentListPage />} />
+              <Route path="new" element={<CreateAssessmentPage />} />
+              <Route path=":id/edit" element={<AssessmentEditPage />} />
+            </Route>
           </Route>
         </Route>
       </Route>
