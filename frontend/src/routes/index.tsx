@@ -2,6 +2,7 @@
 // scattered per-page (CLAUDE1.md "Boundary rules").
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/features/auth/pages/LoginPage'
+import StudentListPage from '@/features/students/pages/StudentListPage'
 import AdminLayout from '@/layouts/AdminLayout'
 import StudentLayout from '@/layouts/StudentLayout'
 import TrainerLayout from '@/layouts/TrainerLayout'
@@ -62,11 +63,15 @@ export function AppRoutes() {
         </Route>
 
         <Route element={<RequireRole roles={['faculty']} />}>
-          <Route path="/trainer" element={<TrainerLayout />} />
+          <Route path="/trainer" element={<TrainerLayout />}>
+            <Route index element={<StudentListPage />} />
+          </Route>
         </Route>
 
         <Route element={<RequireRole roles={['super_admin']} />}>
-          <Route path="/admin" element={<AdminLayout />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<StudentListPage />} />
+          </Route>
         </Route>
       </Route>
 
