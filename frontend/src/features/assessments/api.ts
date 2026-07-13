@@ -2,7 +2,12 @@
 // This is the only file in this feature allowed to import from api/.
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { ListAvailableAssessmentsParams, ListAvailableAssessmentsResponse } from './types'
+import type {
+  ListAssessmentsParams,
+  ListAssessmentsResult,
+  ListAvailableAssessmentsParams,
+  ListAvailableAssessmentsResponse,
+} from './types'
 
 // Calls the student-scoped GET /assessments/available (batch-authorized
 // only) — NOT GET /assessments, which is staff-only and unscoped. See
@@ -18,6 +23,21 @@ export function useAvailableAssessments(params: ListAvailableAssessmentsParams) 
   return useQuery({
     queryKey: ['assessments', 'available', params],
     queryFn: () => listAvailableAssessments(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+// Staff-facing GET /assessments — full platform-wide list, gated by the
+// assessments.create permission (assessments.routes.ts's ASSESSMENTS_MANAGE).
+// NOT the same endpoint useAvailableAssessments calls.
+function listAssessments(params: ListAssessmentsParams): Promise<ListAssessmentsResult> {
+  return api.get<ListAssessmentsResult>('/assessments', { params })
+}
+
+export function useAssessments(params: ListAssessmentsParams) {
+  return useQuery({
+    queryKey: ['assessments', 'list', params],
+    queryFn: () => listAssessments(params),
     placeholderData: keepPreviousData,
   })
 }

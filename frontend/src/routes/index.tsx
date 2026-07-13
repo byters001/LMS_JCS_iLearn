@@ -3,6 +3,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/features/auth/pages/LoginPage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
+import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
@@ -82,12 +83,14 @@ export function AppRoutes() {
         <Route element={<RequireRole roles={['faculty']} />}>
           <Route path="/trainer" element={<TrainerLayout />}>
             <Route index element={<StudentListPage />} />
+            <Route path="assessments" element={<AssessmentListPage />} />
           </Route>
         </Route>
 
         <Route element={<RequireRole roles={['super_admin']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<StudentListPage />} />
+            <Route path="assessments" element={<AssessmentListPage />} />
           </Route>
         </Route>
       </Route>

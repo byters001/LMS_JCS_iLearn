@@ -1,9 +1,19 @@
-import { Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { UserMenu } from '@/components/UserMenu'
 import { useLogout } from '@/features/auth/api'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
-// Placeholder shell — real admin dashboard UI comes in a later phase.
+// "Assessments" added alongside the existing "Students" link — first real
+// nav here, mirroring StudentLayout.tsx's pattern exactly. No p-6 wrapper
+// around <Outlet /> (each page owns its own padding, same convention
+// StudentLayout already uses) — the previous placeholder version had one,
+// which double-padded every page under it.
+const NAV_LINKS = [
+  { to: '/admin', label: 'Students', end: true },
+  { to: '/admin/assessments', label: 'Assessments', end: true },
+]
+
 function AdminLayout() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
@@ -15,17 +25,36 @@ function AdminLayout() {
 
   return (
     <div>
-      <header className="flex items-center justify-end border-b border-border bg-background px-6 py-3">
-        <UserMenu
-          name={user?.fullName ?? ''}
-          email={user?.email ?? ''}
-          onLogout={handleLogout}
-          isLoggingOut={logout.isPending}
-        />
+      <header className="border-b border-border bg-background px-6 py-3">
+        <div className="flex items-center justify-between">
+          <nav className="flex gap-4">
+            {NAV_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  cn(
+                    'text-sm font-medium transition-colors',
+                    isActive
+                      ? 'text-brand-accent'
+                      : 'text-muted-foreground hover:text-brand-primary',
+                  )
+                }
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+          <UserMenu
+            name={user?.fullName ?? ''}
+            email={user?.email ?? ''}
+            onLogout={handleLogout}
+            isLoggingOut={logout.isPending}
+          />
+        </div>
       </header>
-      <div className="p-6">
-        <Outlet />
-      </div>
+      <Outlet />
     </div>
   )
 }

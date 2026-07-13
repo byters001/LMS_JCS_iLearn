@@ -51,3 +51,27 @@ export interface ListAvailableAssessmentsResponse {
   page: number
   pageSize: number
 }
+
+// Staff-facing GET /assessments (NOT /assessments/available — that one's
+// student-scoped, resolved from the caller's own batch membership; this is
+// the full platform-wide list, gated by the assessments.create permission
+// per assessments.routes.ts). Matches backend/assessments.schema.ts's
+// listAssessmentsQuerySchema exactly: trainingSessionId/status/testCategory
+// are all optional filters the backend already supports, kept here for
+// type completeness even though this phase's UI doesn't expose filter
+// controls yet (read-only listing only, same scope discipline as
+// StudentListPage.tsx).
+export interface ListAssessmentsParams {
+  page?: number
+  pageSize?: number
+  trainingSessionId?: string
+  status?: AssessmentStatus
+  testCategory?: TestCategory
+}
+
+export interface ListAssessmentsResult {
+  items: Assessment[]
+  total: number
+  page: number
+  pageSize: number
+}
