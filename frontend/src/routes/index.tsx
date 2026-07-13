@@ -5,6 +5,7 @@ import LoginPage from '@/features/auth/pages/LoginPage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
+import AttemptSubmittedPage from '@/features/attempts/pages/AttemptSubmittedPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import AdminLayout from '@/layouts/AdminLayout'
 import StudentLayout from '@/layouts/StudentLayout'
@@ -66,6 +67,7 @@ export function AppRoutes() {
             <Route index element={<StudentAssessmentsPage />} />
             <Route path="assessments/:id" element={<AssessmentDetailPage />} />
             <Route path="attempts/:attemptId" element={<AttemptPage />} />
+            <Route path="attempts/:attemptId/submitted" element={<AttemptSubmittedPage />} />
           </Route>
         </Route>
 

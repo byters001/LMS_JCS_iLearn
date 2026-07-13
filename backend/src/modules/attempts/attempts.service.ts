@@ -22,6 +22,8 @@ import type {
   FrozenAttemptQuestion,
   ListRetakeRequestsResult,
   ProctoringEvent,
+  SanitizedSavedResponse,
+  SubmitCodeResult,
 } from './attempts.types';
 
 // --- Permission model (item 6) ---
@@ -310,7 +312,15 @@ async function getAttemptQuestions(
   assertOwnsAttempt(attempt, studentProfile.id);
 
   const frozenQuestions = await attemptsRepository.listFrozenQuestions(attemptId);
-  return Promise.all(frozenQuestions.map((frozen) => buildRenderableQuestion(frozen)));
+  // Part 3: threaded through so a reloaded/revisited attempt page can
+  // pre-fill what's already been answered — see attempts.types.ts's
+  // SanitizedSavedResponse for exactly what's (and isn't) exposed.
+  const ownResponses = await attemptsRepository.listOwnResponses(attemptId);
+  return Promise.all(
+    frozenQuestions.map((frozen) =>
+      buildRenderableQuestion(frozen, ownResponses.get(frozen.questionVersionId)),
+    ),
+  );
 }
 
 // Sanitization per question type — confirmed each table's actual columns
@@ -332,6 +342,7 @@ async function getAttemptQuestions(
 //     ones too — same scoring-metadata category as is_correct/trait_weight.
 async function buildRenderableQuestion(
   frozen: FrozenAttemptQuestion,
+  savedResponse?: SanitizedSavedResponse,
 ): Promise<AttemptQuestionContent> {
   const version = await questionBankService.findQuestionVersionContentById(
     frozen.questionVersionId,
@@ -339,6 +350,9 @@ async function buildRenderableQuestion(
   const question = await questionBankService.findQuestionById(version.questionId);
 
   const enriched: AttemptQuestionContent = { ...frozen, type: question.type };
+  if (savedResponse) {
+    enriched.savedResponse = savedResponse;
+  }
 
   if (question.type === 'mcq') {
     enriched.options = version.options.map((option) => ({
@@ -564,7 +578,7 @@ async function submitCode(
   attemptId: string,
   questionVersionId: string,
   input: SubmitCodeInput,
-): Promise<AttemptResponse> {
+): Promise<SubmitCodeResult> {
   const attempt = await findAttemptOr404(attemptId);
   const studentProfile = await requireStudentProfile(userId);
   assertOwnsAttempt(attempt, studentProfile.id);
@@ -633,16 +647,19 @@ async function submitCode(
 
   if (existingMarksObtained !== null && Number(marksObtained) < existingMarksObtained) {
     // This submission scored worse than what's already recorded — keep
-    // the existing (better) grade untouched and report it back as-is.
-    return current;
+    // the existing (better) grade untouched, but still report THIS
+    // submission's own test-case tally back (see attempts.types.ts's
+    // SubmitCodeResult comment on why these two are never "stale").
+    return { ...current, testCasesPassed, testCasesTotal };
   }
 
   // Phase 3b: no prior grade existed, or the new result is >= the
   // existing one — write it onto the SAME response row.
-  return attemptsRepository.upsertResponse(attemptId, questionVersionId, {
+  const updated = await attemptsRepository.upsertResponse(attemptId, questionVersionId, {
     isCorrect,
     marksObtained,
   });
+  return { ...updated, testCasesPassed, testCasesTotal };
 }
 
 // --- Submit the whole attempt (item 5) ---

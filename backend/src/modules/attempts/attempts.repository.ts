@@ -189,6 +189,28 @@ async function findSelection(
   return row;
 }
 
+// Reads back the caller's own previously-saved responses for this attempt,
+// keyed by question_version_id — used by attempts.service.ts's
+// getAttemptQuestions so a reloaded/revisited attempt page can pre-fill
+// what's already been answered (Part 3). SELECTs only the fields
+// getAttemptQuestions is allowed to re-expose mid-attempt — never
+// is_correct/marks_obtained (see attempts.types.ts's
+// SanitizedSavedResponse for why those two stay out of this read path).
+async function listOwnResponses(
+  attemptId: string,
+): Promise<Map<string, { selectedOptionId: string | null; likertValue: number | null; isMarkedForReview: boolean }>> {
+  const rows = await db
+    .select({
+      questionVersionId: attemptResponses.questionVersionId,
+      selectedOptionId: attemptResponses.selectedOptionId,
+      likertValue: attemptResponses.likertValue,
+      isMarkedForReview: attemptResponses.isMarkedForReview,
+    })
+    .from(attemptResponses)
+    .where(eq(attemptResponses.attemptId, attemptId));
+  return new Map(rows.map((row) => [row.questionVersionId, row]));
+}
+
 export interface UpsertResponseData {
   selectedOptionId?: string | null;
   likertValue?: number | null;
@@ -465,6 +487,7 @@ export const attemptsRepository = {
   createAttemptWithSelections,
   listFrozenQuestions,
   findSelection,
+  listOwnResponses,
   upsertResponse,
   sumResponsesForAttempt,
   finalizeAttempt,

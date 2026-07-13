@@ -1,26 +1,35 @@
 import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import type { ListAvailableAssessmentsResponse } from '@/features/assessments/types'
-import { useAttempt, useAttemptQuestions } from '../api'
+import { useAttempt, useAttemptQuestions, useSubmitAttempt } from '../api'
 import { AttemptTimer } from '../components/AttemptTimer'
 import { CodingQuestion } from '../components/CodingQuestion'
 import { McqQuestion } from '../components/McqQuestion'
 import { PsychometricQuestion } from '../components/PsychometricQuestion'
 import { QuestionNavigator } from '../components/QuestionNavigator'
+import { SubmitAttemptButton } from '../components/SubmitAttemptButton'
 
-// Part 2: real question rendering + navigation + a visual-only timer.
-// Answer submission (Save Answer / Run-Submit Code stubs in the per-type
-// question components) and the timer's auto-submit-on-expiry behavior are
-// both Part 3's scope.
+// Part 3: real answer submission (per-question Save/Run-Submit, wired in
+// McqQuestion/PsychometricQuestion/CodingQuestion) and final submit — both
+// the manual "Submit Attempt" confirmation and the timer's automatic
+// submit-on-expiry, which both land here on the same submitted-confirmation
+// navigation.
 export default function AttemptPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [currentIndex, setCurrentIndex] = useState(0)
+  // Set the instant the timer hits zero, before the auto-submit request
+  // even resolves — this is what makes the takeover message appear
+  // immediately and block further interaction, not just once the mutation
+  // finishes.
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(false)
 
   const attemptQuery = useAttempt(attemptId)
   const questionsQuery = useAttemptQuestions(attemptId)
+  const submitAttempt = useSubmitAttempt(attemptId ?? '')
 
   // There is no student-scoped GET /assessments/:id (assessments.routes.ts's
   // GET /assessments/:id is staff-only, ASSESSMENTS_MANAGE-gated) — same gap
@@ -40,6 +49,23 @@ export default function AttemptPage() {
       .find((item) => item !== undefined)
     return match?.timerMinutes ?? null
   }, [cachedLists, attemptQuery.data?.assessmentId])
+
+  function goToSubmittedPage() {
+    navigate(`/student/attempts/${attemptId}/submitted`, { replace: true })
+  }
+
+  // No user action required, no way to cancel: called by AttemptTimer at
+  // most once (see its own hasFiredRef guard) when remainingSeconds hits 0.
+  // The isAutoSubmitting takeover below has no close/cancel affordance —
+  // the only way off this screen is the mutation itself resolving.
+  function handleTimerExpire() {
+    if (!attemptId) return
+    setIsAutoSubmitting(true)
+    submitAttempt.mutate(
+      { idempotencyKey: crypto.randomUUID() },
+      { onSuccess: goToSubmittedPage },
+    )
+  }
 
   if (attemptQuery.isLoading || questionsQuery.isLoading) {
     return (
@@ -73,32 +99,66 @@ export default function AttemptPage() {
   }
 
   const currentQuestion = questions[currentIndex]
+  const answeredCount = questions.filter((question) => question.savedResponse !== undefined).length
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <div className="relative flex flex-col gap-4 p-6">
+      {isAutoSubmitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-8 text-center shadow-xl">
+            <h2 className="text-lg font-semibold text-brand-primary">Time&apos;s up</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {submitAttempt.isError
+                ? 'Submitting your attempt failed — retrying…'
+                : 'Submitting your attempt automatically. Please wait…'}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-b border-border pb-3">
         <h1 className="text-lg font-semibold text-brand-primary">
           Question {currentIndex + 1} of {questions.length}
         </h1>
-        {timerMinutes !== null && <AttemptTimer timerMinutes={timerMinutes} />}
+        {timerMinutes !== null && (
+          <AttemptTimer timerMinutes={timerMinutes} onExpire={handleTimerExpire} />
+        )}
       </div>
 
       <div className="flex gap-4">
-        <QuestionNavigator
-          questions={questions}
-          currentIndex={currentIndex}
-          onNavigate={setCurrentIndex}
-        />
+        <div className="flex shrink-0 flex-col gap-4">
+          <QuestionNavigator
+            questions={questions}
+            currentIndex={currentIndex}
+            onNavigate={setCurrentIndex}
+          />
+          {attemptId && (
+            <SubmitAttemptButton
+              attemptId={attemptId}
+              answeredCount={answeredCount}
+              totalCount={questions.length}
+              onSubmitted={goToSubmittedPage}
+            />
+          )}
+        </div>
 
         <div className="min-w-0 flex-1 rounded-lg border border-border bg-background p-6 shadow-sm">
-          {currentQuestion.type === 'mcq' && (
-            <McqQuestion key={currentQuestion.id} question={currentQuestion} />
+          {attemptId && currentQuestion.type === 'mcq' && (
+            <McqQuestion key={currentQuestion.id} attemptId={attemptId} question={currentQuestion} />
           )}
-          {currentQuestion.type === 'psychometric' && (
-            <PsychometricQuestion key={currentQuestion.id} question={currentQuestion} />
+          {attemptId && currentQuestion.type === 'psychometric' && (
+            <PsychometricQuestion
+              key={currentQuestion.id}
+              attemptId={attemptId}
+              question={currentQuestion}
+            />
           )}
-          {currentQuestion.type === 'coding' && (
-            <CodingQuestion key={currentQuestion.id} question={currentQuestion} />
+          {attemptId && currentQuestion.type === 'coding' && (
+            <CodingQuestion
+              key={currentQuestion.id}
+              attemptId={attemptId}
+              question={currentQuestion}
+            />
           )}
 
           <div className="mt-8 flex justify-between border-t border-border pt-4">

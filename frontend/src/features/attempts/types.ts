@@ -74,6 +74,18 @@ export interface AttemptCodingContent {
   sampleTestCases: AttemptTestCase[]
 }
 
+// Part 3: the subset of attempt_responses the backend hands back mid-attempt
+// via GET /attempts/:id/questions (see backend/attempts.types.ts's
+// SanitizedSavedResponse) — deliberately excludes isCorrect/marksObtained
+// (those only ever arrive as the DIRECT response of an explicit save/submit
+// action, never via this read path, so a reload can't be used to peek at
+// "was I right" on a question without re-submitting it).
+export interface SavedResponse {
+  selectedOptionId: string | null
+  likertValue: number | null
+  isMarkedForReview: boolean
+}
+
 interface AttemptQuestionBase {
   id: string
   assessmentSectionId: string
@@ -81,6 +93,11 @@ interface AttemptQuestionBase {
   questionText: string
   marks: string
   sortOrder: number
+  // Present only once this question has been touched by at least one
+  // save/submit call — absent (not null) for an untouched question. Used
+  // both to pre-fill a reloaded page's already-answered questions and to
+  // compute the "X of Y answered" count for the final-submit confirmation.
+  savedResponse?: SavedResponse
 }
 
 export interface McqAttemptQuestion extends AttemptQuestionBase {
@@ -106,3 +123,33 @@ export type AttemptQuestion =
   | McqAttemptQuestion
   | PsychometricAttemptQuestion
   | CodingAttemptQuestion
+
+// --- Part 3: submission ---
+
+// Matches backend/src/db/schema/attempts.schema.ts's attempt_responses row
+// exactly — the shape returned by both PUT .../responses/:questionVersionId
+// and POST .../submit-code (submitCode's own response extends this, see
+// SubmitCodeResult below).
+export interface AttemptResponse {
+  id: string
+  attemptId: string
+  questionVersionId: string
+  selectedOptionId: string | null
+  likertValue: number | null
+  isMarkedForReview: boolean
+  isCorrect: boolean | null
+  marksObtained: string | null
+  timeSpentSeconds: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+// submitCode's actual response: the AttemptResponse row plus THIS
+// submission's own test-case tally (testCasesPassed/testCasesTotal aren't
+// persisted attempt_responses columns — see backend/attempts.types.ts's
+// SubmitCodeResult comment — so they only ever arrive this way, as direct
+// feedback on the submission that just ran).
+export interface SubmitCodeResult extends AttemptResponse {
+  testCasesPassed: number
+  testCasesTotal: number
+}

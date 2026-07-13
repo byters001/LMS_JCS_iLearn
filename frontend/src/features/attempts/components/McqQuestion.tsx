@@ -1,20 +1,49 @@
 import { useState } from 'react'
+import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useSubmitResponse } from '../api'
 import type { McqAttemptQuestion } from '../types'
+import { useStableIdempotencyKey } from '../useStableIdempotencyKey'
 
 interface McqQuestionProps {
+  attemptId: string
   question: McqAttemptQuestion
 }
 
-// Selection state is local-only and intentionally not persisted anywhere —
-// answer submission (PUT /attempts/:attemptId/responses/:questionVersionId)
-// is Part 3's scope. AttemptPage renders this component keyed by
-// question.id, so it remounts (and this state resets) whenever the
-// question changes, rather than a stale selection leaking across
-// questions.
-export function McqQuestion({ question }: McqQuestionProps) {
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null)
+// Explicit Save Answer button, not save-on-select: a click on an option is
+// often exploratory (a student trying out choices before committing), and
+// auto-saving on every one of those would fire a real network request —
+// and burn a fresh Idempotency-Key — per exploratory click rather than per
+// actual decision. This also matches the existing stub button from Part 2
+// rather than replacing it with a different interaction model.
+//
+// Initial selection comes from question.savedResponse (Part 3's backend
+// addition to GET /attempts/:id/questions) so a reload shows what was
+// already answered — this component still remounts (and resets local
+// state) on question change via AttemptPage's key={question.id}, exactly
+// as it did in Part 2.
+export function McqQuestion({ attemptId, question }: McqQuestionProps) {
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
+    question.savedResponse?.selectedOptionId ?? null,
+  )
+  const submitResponse = useSubmitResponse(attemptId)
+  const idempotencyKey = useStableIdempotencyKey(selectedOptionId ?? '')
+
+  // Once the selection moves away from whatever the last successful save
+  // was for, that save no longer describes the CURRENT selection — the
+  // "Saved" indicator must stop claiming it does.
+  const isSavedForCurrentSelection =
+    submitResponse.isSuccess && submitResponse.variables?.selectedOptionId === selectedOptionId
+
+  function handleSave() {
+    if (selectedOptionId === null) return
+    submitResponse.mutate({
+      questionVersionId: question.questionVersionId,
+      selectedOptionId,
+      idempotencyKey,
+    })
+  }
 
   return (
     <div>
@@ -55,10 +84,24 @@ export function McqQuestion({ question }: McqQuestionProps) {
         ))}
       </div>
 
-      {/* Stub — Part 3 wires this to PUT /attempts/:attemptId/responses/:questionVersionId */}
-      <Button className="mt-6" disabled={selectedOptionId === null}>
-        Save Answer
-      </Button>
+      <div className="mt-6 flex items-center gap-3">
+        <Button
+          disabled={selectedOptionId === null || submitResponse.isPending}
+          onClick={handleSave}
+        >
+          {submitResponse.isPending ? 'Saving…' : 'Save Answer'}
+        </Button>
+        {isSavedForCurrentSelection && (
+          <span className="text-sm font-medium text-green-600 dark:text-green-500">Saved</span>
+        )}
+        {submitResponse.isError && !submitResponse.isPending && (
+          <span className="text-sm text-destructive">
+            {submitResponse.error instanceof ApiError
+              ? submitResponse.error.message
+              : 'Failed to save — try again.'}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

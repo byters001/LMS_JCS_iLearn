@@ -83,18 +83,53 @@ export interface SanitizedCodingContent {
   sampleTestCases: SanitizedTestCase[];
 }
 
+// Part 3: the subset of attempt_responses safe to hand back mid-attempt via
+// getAttemptQuestions, so a reloaded/revisited attempt page can pre-fill
+// what's already been answered. Deliberately excludes is_correct/
+// marks_obtained: those DO come back directly from submitResponse's/
+// submitCode's own PUT/POST response (an existing, unchanged part of this
+// API, returned once as direct feedback on an explicit submit action) — but
+// re-exposing them through this READ path would let a student reload
+// mid-attempt and see "was I right" on every previously-answered question
+// without re-submitting, the same class of leak SanitizedOption's dropped
+// is_correct exists to prevent, just at the response level instead of the
+// option level.
+export interface SanitizedSavedResponse {
+  selectedOptionId: string | null;
+  likertValue: number | null;
+  isMarkedForReview: boolean;
+}
+
 // getAttemptQuestions' actual per-question response shape: FrozenAttemptQuestion
 // plus the question's type and exactly one of options/psychometricOptions/
 // coding, matching that type. mcq -> options; psychometric ->
 // psychometricOptions; coding -> coding (present only if
 // coding_question_details exists for this version — absent otherwise, not
 // an error). Never includes is_correct, trait_weight, hidden test cases, or
-// test case points.
+// test case points. savedResponse is present only once the student has
+// touched this question at least once (a PUT responses/... or POST
+// submit-code call has happened) — absent, not null, for an untouched one.
 export interface AttemptQuestionContent extends FrozenAttemptQuestion {
   type: 'mcq' | 'coding' | 'psychometric';
   options?: SanitizedOption[];
   psychometricOptions?: SanitizedPsychometricOption[];
   coding?: SanitizedCodingContent;
+  savedResponse?: SanitizedSavedResponse;
+}
+
+// submitCode's actual HTTP response shape (Part 3): the upserted
+// attempt_responses row plus THIS submission's test-case tally.
+// testCasesPassed/testCasesTotal are not persisted columns on
+// attempt_responses (they live on coding_submissions — see schema.sql) —
+// merged onto the response here rather than queried back separately, since
+// attempts.service.ts's submitCode already computes them in the same call.
+// Always describes the run that just executed, even on the "existing grade
+// was already better, so keep it" path in submitCode, where the PERSISTED
+// isCorrect/marksObtained stay whichever scored higher historically but the
+// counts reported back are this specific submission's own result.
+export interface SubmitCodeResult extends AttemptResponse {
+  testCasesPassed: number;
+  testCasesTotal: number;
 }
 
 // attempts.repository.ts's sumResponsesForAttempt result — see

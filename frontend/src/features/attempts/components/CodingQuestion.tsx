@@ -1,7 +1,10 @@
 import { lazy, Suspense, useState } from 'react'
+import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { JUDGE0_TO_MONACO_LANGUAGE } from '@/lib/monaco.config'
+import { useSubmitCode } from '../api'
 import type { CodingAttemptQuestion } from '../types'
+import { useStableIdempotencyKey } from '../useStableIdempotencyKey'
 
 // Lazy-loaded — CLAUDE1.md non-negotiable #7: Monaco must never ship in the
 // main bundle, since not every assessment includes a coding section. This
@@ -11,6 +14,7 @@ import type { CodingAttemptQuestion } from '../types'
 const CodeEditor = lazy(() => import('@/features/coding/components/CodeEditor'))
 
 interface CodingQuestionProps {
+  attemptId: string
   question: CodingAttemptQuestion
 }
 
@@ -22,10 +26,34 @@ const LANGUAGE_LABELS: Record<string, string> = {
   PYTHON3: 'Python 3',
 }
 
-export function CodingQuestion({ question }: CodingQuestionProps) {
+export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
   const supportedLanguages = question.coding?.supportedLanguages ?? []
   const [language, setLanguage] = useState(supportedLanguages[0] ?? '')
   const [sourceCode, setSourceCode] = useState('')
+  const submitCode = useSubmitCode(attemptId)
+  // Signature covers both language and code — switching language for the
+  // same code (or vice versa) is a genuinely different submission (Judge0
+  // needs to know which language to compile/run as), so either change
+  // alone must produce a fresh key.
+  const idempotencyKey = useStableIdempotencyKey(`${language}:${sourceCode}`)
+
+  // Once the code or language changes away from whatever the last
+  // submission covered, that result no longer describes the CURRENT code —
+  // stop presenting it as this submission's outcome.
+  const isResultForCurrentCode =
+    submitCode.isSuccess &&
+    submitCode.variables?.language === language &&
+    submitCode.variables?.sourceCode === sourceCode
+
+  function handleSubmit() {
+    if (!question.questionVersionId || !language || sourceCode.trim().length === 0) return
+    submitCode.mutate({
+      questionVersionId: question.questionVersionId,
+      language,
+      sourceCode,
+      idempotencyKey,
+    })
+  }
 
   // `coding` is absent (not an error) when coding_question_details hasn't
   // been authored yet for this question version — see
@@ -150,12 +178,56 @@ export function CodingQuestion({ question }: CodingQuestionProps) {
           </Suspense>
         </div>
 
-        {/* Stub — Part 3 wires this to
-            POST /attempts/:attemptId/responses/:questionVersionId/submit-code
-            (Idempotency-Key required, per CLAUDE1.md non-negotiable #8) */}
-        <Button className="mt-4" disabled={!language}>
-          Run / Submit Code
+        {/* A REAL Judge0 call — several seconds, proven in backend testing.
+            Disabled while pending so a second click can't queue up a second
+            real submission on top of one already in flight. */}
+        <Button
+          className="mt-4"
+          disabled={!language || sourceCode.trim().length === 0 || submitCode.isPending}
+          onClick={handleSubmit}
+        >
+          {submitCode.isPending ? 'Running…' : 'Run / Submit Code'}
         </Button>
+
+        {submitCode.isPending && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Running your code against the test cases — this can take a few seconds…
+          </p>
+        )}
+
+        {isResultForCurrentCode && submitCode.data && (
+          <div
+            className={
+              submitCode.data.isCorrect
+                ? 'mt-3 rounded-md border border-green-600/30 bg-green-600/5 p-3 text-sm dark:border-green-500/30 dark:bg-green-500/5'
+                : 'mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm'
+            }
+          >
+            <p
+              className={
+                submitCode.data.isCorrect
+                  ? 'font-semibold text-green-700 dark:text-green-400'
+                  : 'font-semibold text-destructive'
+              }
+            >
+              {submitCode.data.isCorrect ? 'All test cases passed' : 'Some test cases failed'}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              {submitCode.data.testCasesPassed} / {submitCode.data.testCasesTotal} test cases passed
+              {submitCode.data.marksObtained !== null && (
+                <> &middot; {submitCode.data.marksObtained} marks</>
+              )}
+            </p>
+          </div>
+        )}
+
+        {submitCode.isError && !submitCode.isPending && (
+          <p className="mt-3 text-sm text-destructive">
+            {submitCode.error instanceof ApiError
+              ? submitCode.error.message
+              : 'Failed to run your code — try again.'}
+          </p>
+        )}
       </div>
     </div>
   )

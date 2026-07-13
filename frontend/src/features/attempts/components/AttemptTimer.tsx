@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface AttemptTimerProps {
   timerMinutes: number
-  // Left as an optional escape hatch for Part 3 (auto-submit on expiry) so
-  // that phase can wire in a callback without needing to restructure where
-  // this countdown state lives — this component owns it, starting from the
-  // moment it mounts (i.e. when AttemptPage first renders the questions).
-  // NOT called/wired to anything yet in this phase.
+  // Part 3: triggers AttemptPage's auto-submit. This component still owns
+  // the countdown state itself (starting from the moment it mounts), and
+  // guarantees onExpire fires exactly once regardless of parent re-renders
+  // (see the hasFiredRef guard below) — the caller doesn't need its own
+  // dedup logic to stay safe against a double auto-submit.
   onExpire?: () => void
 }
 
@@ -28,8 +28,17 @@ export function AttemptTimer({ timerMinutes, onExpire }: AttemptTimerProps) {
     return () => clearInterval(interval)
   }, [])
 
+  // hasFiredRef (not just the remainingSeconds===0 check alone) is what
+  // makes "exactly once" hold even if `onExpire`'s function identity
+  // changes across AttemptPage re-renders after expiry (each such change
+  // would otherwise re-run this effect, since remainingSeconds itself
+  // staying at 0 doesn't stop React from re-running an effect whose OTHER
+  // dependency changed) — a plain re-render must never re-trigger
+  // auto-submit.
+  const hasFiredRef = useRef(false)
   useEffect(() => {
-    if (remainingSeconds === 0) {
+    if (remainingSeconds === 0 && !hasFiredRef.current) {
+      hasFiredRef.current = true
       onExpire?.()
     }
   }, [remainingSeconds, onExpire])
