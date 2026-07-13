@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { useAvailableAssessments } from '../api'
@@ -48,7 +49,10 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
   const startDate = formatStartDate(assessment.startAt)
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
+    <Link
+      to={`/student/assessments/${assessment.id}`}
+      className="block rounded-lg border border-border bg-background p-4 shadow-sm transition-colors hover:border-brand-accent/50"
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-semibold text-brand-primary">{assessment.title}</h3>
         <StatusBadge status={assessment.status} />
@@ -69,7 +73,7 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
           Max attempts: {assessment.maxAttempts}
         </p>
       </div>
-    </div>
+    </Link>
   )
 }
 

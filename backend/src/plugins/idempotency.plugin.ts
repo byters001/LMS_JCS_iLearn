@@ -59,10 +59,10 @@ import {
 //     in_progress) gets 409 Conflict — it must NOT proceed and must NOT
 //     silently wait, since there's no cheap way to block-and-poll here
 //     without adding new infrastructure beyond what's asked for.
-//   - {"status":"completed","httpStatus":n,"body":...} — written by
-//     persistIdempotentOutcome (a preSerialization hook) once the route
-//     handler actually finishes. A later request with the same key
-//     replays this exact status+body without the handler running again.
+//   - {"status":"completed","httpStatus":n,"body":...} — written once the
+//     route handler actually finishes (see persistOutcome's onResponse
+//     hook below). A later request with the same key replays this exact
+//     status+body without the handler running again.
 // On a 5xx from the handler, the claim is DELETED instead of cached as
 // "completed" — a transient/server-side failure shouldn't leave a retry
 // stuck replaying that same 500 for the rest of the TTL; only
@@ -72,6 +72,33 @@ import {
 // fingerprinting to detect a key being reused for a logically different
 // payload (Stripe does this; a reasonable follow-up, not required by the
 // "execute once, replay on repeat" behavior actually requested here).
+//
+// --- Bug fix: preSerialization -> onResponse split ---
+//
+// The Redis "persist completed outcome" write used to happen directly
+// inside the preSerialization hook (`await redisClient.set(...)` before
+// returning `payload`). That's a real async I/O call sitting inside a hook
+// whose only documented job is transforming the payload before
+// serialization. Under real latency (a slow route handler — confirmed via
+// instrumentation to take ~2.7s for POST /attempts's sequential DB calls —
+// plus Redis round-trip time), this raced Fastify's own reply-finalization:
+// the connection would get finalized with an EMPTY body before this hook's
+// pending await resolved, and when the hook's own (correct) completion
+// then tried to have Fastify actually write the response, it crashed with
+// ERR_HTTP_HEADERS_SENT ("Cannot write headers after they are sent") —
+// reproduced consistently via curl, raw fetch, and a real browser, and
+// root-caused via added instrumentation (removed here) showing
+// `reply.raw`'s 'close' event firing (headersSent=true) mere milliseconds
+// into the hook's pending Redis call.
+//
+// Fix: preSerialization now does ONLY synchronous work — it captures the
+// payload/status on `request` and returns immediately, never awaiting
+// anything. The actual Redis write moves to a NEW onResponse hook, which
+// Fastify guarantees fires strictly AFTER the response has already been
+// sent — there is no send-pipeline left for a slow Redis call to race
+// against at that point. This mirrors the standard Fastify pattern for
+// "do a side effect once the response is out the door, without blocking
+// or risking the response itself" (logging, metrics, cache writes).
 
 const IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60;
 const IDEMPOTENCY_HEADER = 'idempotency-key';
@@ -83,15 +110,20 @@ type IdempotencyRecord =
 declare module 'fastify' {
   interface FastifyRequest {
     // Set only when THIS request freshly claimed its Idempotency-Key (i.e.
-    // it is not a cache replay) — persistIdempotentOutcome uses this to
-    // know whether there's anything to write back.
+    // it is not a cache replay) — the onResponse hook below uses this to
+    // know whether there's anything to persist.
     idempotencyClaimKey?: string;
+    // Captured synchronously in preSerialization, consumed by onResponse —
+    // the response has already been serialized/sent by the time onResponse
+    // runs, so the outcome has to be stashed somewhere before then.
+    idempotencyOutcome?: { httpStatus: number; body: unknown };
   }
 }
 
 export interface IdempotencyHooks {
   preHandler: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   preSerialization: (request: FastifyRequest, reply: FastifyReply, payload: unknown) => Promise<unknown>;
+  onResponse: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
 }
 
 export interface IdempotencyOptions {
@@ -142,7 +174,7 @@ export function idempotency(options: IdempotencyOptions = {}): IdempotencyHooks 
 
     if (claimed === 'OK') {
       // Fresh claim — this request will actually run the handler;
-      // preSerialization persists the outcome once it's known.
+      // onResponse persists the outcome once the response has been sent.
       request.idempotencyClaimKey = redisKey;
       return;
     }
@@ -171,19 +203,32 @@ export function idempotency(options: IdempotencyOptions = {}): IdempotencyHooks 
     throw new ConflictError('A request with this Idempotency-Key is already being processed');
   }
 
+  // Synchronous only, deliberately — see this file's module comment on why
+  // the actual Redis write was moved out of here and into onResponse.
   async function preSerialization(
     request: FastifyRequest,
     reply: FastifyReply,
     payload: unknown,
   ): Promise<unknown> {
-    if (!request.idempotencyClaimKey) {
-      // Either no key was sent (optional + absent) or this response IS
-      // the cache replay itself (already sent directly from preHandler,
-      // via reply.send() above) — nothing to persist either way.
-      return payload;
+    if (request.idempotencyClaimKey) {
+      request.idempotencyOutcome = { httpStatus: reply.statusCode, body: payload };
+    }
+    return payload;
+  }
+
+  // Runs strictly after the response has already been sent — safe to do
+  // slow/async I/O here without racing the send pipeline (see module
+  // comment above).
+  async function onResponse(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
+    if (!request.idempotencyClaimKey || !request.idempotencyOutcome) {
+      // Either no key was sent (optional + absent), this response IS the
+      // cache replay itself (already sent directly from preHandler), or
+      // preSerialization never ran (e.g. the request errored before
+      // reaching the handler) — nothing to persist in any case.
+      return;
     }
 
-    const httpStatus = reply.statusCode;
+    const { httpStatus, body } = request.idempotencyOutcome;
     try {
       if (httpStatus >= 500) {
         // Transient/server failure — release the claim so a genuine retry
@@ -195,25 +240,23 @@ export function idempotency(options: IdempotencyOptions = {}): IdempotencyHooks 
           JSON.stringify({
             status: 'completed',
             httpStatus,
-            body: payload,
+            body,
           } satisfies IdempotencyRecord),
           'EX',
           IDEMPOTENCY_TTL_SECONDS,
         );
       }
     } catch (err) {
-      // Don't fail an already-computed response just because the cache
-      // write failed — the mutation already happened; the client should
-      // still get their real answer. Worst case: the claim is left
-      // dangling as 'in_progress' until its TTL naturally expires, which
-      // BLOCKS retries with this same key for up to 24h rather than
-      // risking a double-execution — a conservative failure mode,
-      // consistent with this file's fail-closed preHandler.
+      // Don't fail an already-sent response just because the cache write
+      // failed — the mutation already happened; the client already has
+      // their real answer. Worst case: the claim is left dangling as
+      // 'in_progress' until its TTL naturally expires, which BLOCKS
+      // retries with this same key for up to 24h rather than risking a
+      // double-execution — a conservative failure mode, consistent with
+      // this file's fail-closed preHandler.
       logger.error({ err }, 'Idempotency-Key: failed to persist outcome');
     }
-
-    return payload;
   }
 
-  return { preHandler, preSerialization };
+  return { preHandler, preSerialization, onResponse };
 }
