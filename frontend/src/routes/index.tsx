@@ -5,7 +5,8 @@ import LoginPage from '@/features/auth/pages/LoginPage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
-import AttemptSubmittedPage from '@/features/attempts/pages/AttemptSubmittedPage'
+import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
+import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import AdminLayout from '@/layouts/AdminLayout'
 import StudentLayout from '@/layouts/StudentLayout'
@@ -66,8 +67,15 @@ export function AppRoutes() {
           <Route path="/student" element={<StudentLayout />}>
             <Route index element={<StudentAssessmentsPage />} />
             <Route path="assessments/:id" element={<AssessmentDetailPage />} />
+            <Route path="attempts" element={<MyAttemptsListPage />} />
             <Route path="attempts/:attemptId" element={<AttemptPage />} />
-            <Route path="attempts/:attemptId/submitted" element={<AttemptSubmittedPage />} />
+            {/* Same route Part 3's manual-submit and timer-auto-submit
+                navigate() calls already target — merged onto this new
+                results page rather than adding a new URL, so that
+                untouched (features/attempts is off-limits this phase
+                beyond this file) navigation logic lands somewhere useful
+                without needing its own changes. */}
+            <Route path="attempts/:attemptId/submitted" element={<AttemptResultPage />} />
           </Route>
         </Route>
 
