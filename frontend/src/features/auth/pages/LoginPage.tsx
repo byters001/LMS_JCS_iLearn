@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { getRoleHomePath } from '@/routes/roles'
 import { useLogin } from '../api'
 
 const loginSchema = z.object({
@@ -28,7 +29,7 @@ export default function LoginPage() {
 
   const onSubmit = handleSubmit((values) => {
     login.mutate(values, {
-      onSuccess: () => navigate('/'),
+      onSuccess: (data) => navigate(getRoleHomePath(data.user.roles), { replace: true }),
     })
   })
 
