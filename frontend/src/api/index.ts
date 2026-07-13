@@ -70,7 +70,11 @@ let refreshPromise: Promise<string> | null = null
 function refreshAccessToken(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = rawApi
-      .post<{ accessToken: string }>('/auth/refresh')
+      // Body must be an explicit `{}`, not omitted — same as
+      // features/auth/api.ts's logout(): the backend's refreshSchema is
+      // `z.object({}).strict()`, which Zod rejects (422) when
+      // request.body is undefined, not just when it has unexpected keys.
+      .post<{ accessToken: string }>('/auth/refresh', {})
       .then((data) => {
         // Response interceptor below already unwrapped this to `{ accessToken }`
         // despite the AxiosResponse<T> return type axios declares.
@@ -94,6 +98,18 @@ rawApi.interceptors.response.use(
   // but actually returns the unwrapped `data` payload directly — see the
   // ApiClient cast at the bottom of this file, which is what callers see.
   (response: AxiosResponse<ApiResponseBody<unknown>>): AxiosResponse => {
+    // A 204 (e.g. POST /auth/logout) has no body at all by HTTP spec —
+    // response.data is empty/undefined, not the {success,data} envelope.
+    // Accessing body.success on that would throw (caught by nothing, since
+    // a throw inside a fulfilled interceptor doesn't reach this same
+    // .use() call's rejected handler below — it just silently rejects the
+    // caller's promise). Confirmed live: this broke logout entirely,
+    // useLogout's onSuccess never firing. Every caller of a 204 route
+    // expects Promise<void> anyway, so returning undefined here is exactly
+    // right, not just a defensive guard.
+    if (response.status === 204 || !response.data) {
+      return undefined as unknown as AxiosResponse
+    }
     const body = response.data
     if (body.success) {
       return body.data as unknown as AxiosResponse

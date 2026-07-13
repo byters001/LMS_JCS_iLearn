@@ -9,11 +9,22 @@ import { authService } from './auth.service';
 import type { LoginInput } from './auth.schema';
 import type { LoginResultUser } from './auth.types';
 
+// path MUST match the actual mounted route prefix (app.ts's
+// API_PREFIX = '/api/v1', so the real endpoints are /api/v1/auth/refresh
+// and /api/v1/auth/logout) — a browser only attaches a cookie to a request
+// whose path starts with the cookie's own `path` attribute. This was
+// previously '/auth', which never matches '/api/v1/auth/...' at all, so
+// the cookie was silently never sent to either endpoint: readRefreshTokenCookie
+// always saw it as missing, meaning POST /auth/refresh 401'd unconditionally
+// and clearCookie on logout never matched the real stored cookie either.
+// Confirmed live via a corrupted-access-token test that the refresh call
+// itself 401'd with "Missing refresh token cookie" even though login had
+// just set the cookie moments before.
 const REFRESH_COOKIE_OPTIONS: CookieSerializeOptions = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
   sameSite: 'lax',
-  path: '/auth',
+  path: '/api/v1/auth',
 };
 
 function setRefreshTokenCookie(reply: FastifyReply, refreshToken: string): void {
@@ -65,7 +76,11 @@ async function logout(request: FastifyRequest, reply: FastifyReply): Promise<voi
     await authService.logout(refreshToken);
   }
 
-  reply.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/auth' });
+  // Must match REFRESH_COOKIE_OPTIONS.path exactly — clearing a cookie is
+  // itself just setting an expired cookie with the same name/path/domain;
+  // a mismatched path here would silently fail to clear the real cookie,
+  // same bug class as above.
+  reply.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/api/v1/auth' });
   reply.status(204).send();
 }
 

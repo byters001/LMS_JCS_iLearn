@@ -9,8 +9,12 @@ function login(input: LoginInput): Promise<LoginResponse> {
   return api.post<LoginResponse>('/auth/login', input)
 }
 
+// Body must be an explicit `{}`, not omitted — the backend's logoutSchema
+// is `z.object({}).strict()`, which Zod rejects when request.body is
+// undefined (no Content-Type/body sent at all), not just when it has
+// unexpected keys. Confirmed live: omitting the body 422s.
 function logout(): Promise<void> {
-  return api.post<void>('/auth/logout')
+  return api.post<void>('/auth/logout', {})
 }
 
 export function useLogin() {

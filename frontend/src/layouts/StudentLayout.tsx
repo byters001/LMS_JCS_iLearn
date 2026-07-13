@@ -1,4 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { UserMenu } from '@/components/UserMenu'
+import { useLogout } from '@/features/auth/api'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
@@ -13,34 +15,43 @@ const NAV_LINKS = [
 
 function StudentLayout() {
   const user = useAuthStore((state) => state.user)
+  const navigate = useNavigate()
+  const logout = useLogout()
+
+  function handleLogout() {
+    logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
+  }
 
   return (
     <div>
       <header className="border-b border-border bg-background px-6 py-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-brand-primary">
-            Logged in as: {user?.fullName} (student)
-          </p>
+          <nav className="flex gap-4">
+            {NAV_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  cn(
+                    'text-sm font-medium transition-colors',
+                    isActive
+                      ? 'text-brand-accent'
+                      : 'text-muted-foreground hover:text-brand-primary',
+                  )
+                }
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+          <UserMenu
+            name={user?.fullName ?? ''}
+            email={user?.email ?? ''}
+            onLogout={handleLogout}
+            isLoggingOut={logout.isPending}
+          />
         </div>
-        <nav className="mt-2 flex gap-4">
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                cn(
-                  'text-sm font-medium transition-colors',
-                  isActive
-                    ? 'text-brand-accent'
-                    : 'text-muted-foreground hover:text-brand-primary',
-                )
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
       </header>
       <Outlet />
     </div>

@@ -1,14 +1,31 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
+import { UserMenu } from '@/components/UserMenu'
+import { useLogout } from '@/features/auth/api'
 import { useAuthStore } from '@/store/authStore'
 
 // Placeholder shell — real admin dashboard UI comes in a later phase.
 function AdminLayout() {
   const user = useAuthStore((state) => state.user)
+  const navigate = useNavigate()
+  const logout = useLogout()
+
+  function handleLogout() {
+    logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
+  }
 
   return (
-    <div className="p-6">
-      <p className="text-brand-primary">Logged in as: {user?.fullName} (super_admin)</p>
-      <Outlet />
+    <div>
+      <header className="flex items-center justify-end border-b border-border bg-background px-6 py-3">
+        <UserMenu
+          name={user?.fullName ?? ''}
+          email={user?.email ?? ''}
+          onLogout={handleLogout}
+          isLoggingOut={logout.isPending}
+        />
+      </header>
+      <div className="p-6">
+        <Outlet />
+      </div>
     </div>
   )
 }
