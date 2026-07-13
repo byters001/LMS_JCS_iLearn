@@ -1,0 +1,12 @@
+packages:
+  - .
+
+# Forces a single zod resolution across the tree — shadcn's CLI pulls in
+# @modelcontextprotocol/sdk, which depends on zod@3, alongside the app's own
+# zod@4 (used by Zod-resolver React Hook Form validation). Two zod installs
+# made @hookform/resolvers/zod's zod/v3 + zod/v4/core subpath imports
+# resolve against the wrong one, breaking zodResolver's types. sdk's own
+# dependency range (zod: ^3.25 || ^4.0) already accepts v4, so this is a
+# safe de-dupe, not a version downgrade for anything that needs v3.
+overrides:
+  zod: ^4.4.3

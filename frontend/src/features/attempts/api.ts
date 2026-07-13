@@ -1,8 +1,8 @@
 // TanStack Query hooks for the "attempts" feature, calling the shared api/ client.
 // This is the only file in this feature allowed to import from api/.
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { Attempt } from './types'
+import type { Attempt, AttemptQuestion } from './types'
 
 interface StartAttemptVariables {
   assessmentId: string
@@ -28,5 +28,40 @@ function startAttempt({ assessmentId, idempotencyKey }: StartAttemptVariables): 
 export function useStartAttempt() {
   return useMutation({
     mutationFn: startAttempt,
+  })
+}
+
+// --- Part 2: question rendering ---
+
+function getAttempt(attemptId: string): Promise<Attempt> {
+  return api.get<Attempt>(`/attempts/${attemptId}`)
+}
+
+// Used by AttemptPage to resolve this attempt's assessmentId, which is
+// then used to look up timerMinutes from whatever available-assessments
+// list is already cached (see AttemptPage.tsx's comment on why there's no
+// direct student-scoped endpoint for that).
+export function useAttempt(attemptId: string | undefined) {
+  return useQuery({
+    queryKey: ['attempts', attemptId],
+    queryFn: () => getAttempt(attemptId as string),
+    enabled: Boolean(attemptId),
+  })
+}
+
+function getAttemptQuestions(attemptId: string): Promise<AttemptQuestion[]> {
+  return api.get<AttemptQuestion[]>(`/attempts/${attemptId}/questions`)
+}
+
+// Wraps GET /attempts/:attemptId/questions — reads the FROZEN
+// attempt_question_selections snapshot (see attempts.service.ts's
+// getAttemptQuestions), never re-resolves the assessment's sections live,
+// so this is stable for the lifetime of the attempt regardless of any
+// later edits to the assessment itself.
+export function useAttemptQuestions(attemptId: string | undefined) {
+  return useQuery({
+    queryKey: ['attempts', attemptId, 'questions'],
+    queryFn: () => getAttemptQuestions(attemptId as string),
+    enabled: Boolean(attemptId),
   })
 }
