@@ -33,12 +33,21 @@ const UNAUTHORIZED_ERROR_CODE = 'UNAUTHORIZED'
 export class ApiError extends Error {
   readonly code: string
   readonly details?: unknown
+  // The raw HTTP status, when one exists — absent for NETWORK_ERROR (no
+  // response was ever received, so there's no status to report). This is
+  // what App.tsx's QueryClient retry policy keys off of to tell "the
+  // request is deterministically wrong" (4xx) apart from "worth retrying"
+  // (5xx/network) — the backend's `code` string alone doesn't reliably map
+  // to a status class (new codes could be added without that mapping
+  // being obvious here), so the real status is captured directly instead.
+  readonly status?: number
 
-  constructor(code: string, message: string, details?: unknown) {
+  constructor(code: string, message: string, details?: unknown, status?: number) {
     super(message)
     this.name = 'ApiError'
     this.code = code
     this.details = details
+    this.status = status
   }
 }
 
@@ -114,7 +123,7 @@ rawApi.interceptors.response.use(
     if (body.success) {
       return body.data as unknown as AxiosResponse
     }
-    throw new ApiError(body.error.code, body.error.message, body.error.details)
+    throw new ApiError(body.error.code, body.error.message, body.error.details, response.status)
   },
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) {
@@ -147,11 +156,11 @@ rawApi.interceptors.response.use(
       } catch {
         useAuthStore.getState().clearAuth()
         window.location.href = '/login'
-        return Promise.reject(new ApiError(code, message, details))
+        return Promise.reject(new ApiError(code, message, details, error.response.status))
       }
     }
 
-    return Promise.reject(new ApiError(code, message, details))
+    return Promise.reject(new ApiError(code, message, details, error.response.status))
   },
 )
 

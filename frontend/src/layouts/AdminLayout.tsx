@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore'
 const NAV_LINKS = [
   { to: '/admin', label: 'Students', end: true },
   { to: '/admin/assessments', label: 'Assessments', end: true },
+  { to: '/admin/analytics', label: 'Analytics', end: true },
 ]
 
 function AdminLayout() {

@@ -2,6 +2,7 @@
 // scattered per-page (CLAUDE1.md "Boundary rules").
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/features/auth/pages/LoginPage'
+import BatchPerformancePage from '@/features/analytics/pages/BatchPerformancePage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
 import AssessmentEditPage from '@/features/assessments/pages/AssessmentEditPage'
 import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
@@ -98,6 +99,7 @@ export function AppRoutes() {
               <Route path="new" element={<CreateAssessmentPage />} />
               <Route path=":id/edit" element={<AssessmentEditPage />} />
             </Route>
+            <Route path="analytics" element={<BatchPerformancePage />} />
           </Route>
         </Route>
 
@@ -109,6 +111,7 @@ export function AppRoutes() {
               <Route path="new" element={<CreateAssessmentPage />} />
               <Route path=":id/edit" element={<AssessmentEditPage />} />
             </Route>
+            <Route path="analytics" element={<BatchPerformancePage />} />
           </Route>
         </Route>
       </Route>
