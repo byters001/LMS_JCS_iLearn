@@ -60,7 +60,7 @@ export default function AssessmentEditPage() {
         &larr; Back to assessments
       </Link>
 
-      <div className="mt-3 rounded-lg border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-brand-primary">{assessment.title}</h1>
@@ -71,7 +71,7 @@ export default function AssessmentEditPage() {
           <AssessmentStatusBadge status={assessment.status} />
         </div>
 
-        <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+        <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
           <div>
             <dt className="text-muted-foreground">Timer</dt>
             <dd className="font-medium text-brand-primary">
@@ -89,13 +89,13 @@ export default function AssessmentEditPage() {
         </dl>
       </div>
 
-      <div className="mt-6 rounded-lg border border-border bg-background p-6 shadow-sm">
+      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Sections
         </h2>
 
         {!isContentEditable && (
-          <p className="mt-2 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+          <p className="mt-3 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
             Content is locked — only a &quot;draft&quot; assessment can have sections, questions,
             or pools added. This assessment&apos;s status is &quot;{assessment.status}&quot;.
           </p>
@@ -106,32 +106,39 @@ export default function AssessmentEditPage() {
             <p className="text-sm text-muted-foreground">No sections yet.</p>
           ) : (
             assessment.sections.map((section) => (
-              <div key={section.id} className="rounded-md border border-border p-4">
-                <div className="flex items-center justify-between gap-3">
+              <div key={section.id} className="overflow-hidden rounded-lg border border-border">
+                <div className="flex items-center justify-between gap-3 bg-muted/30 px-4 py-2.5">
                   <h3 className="font-medium text-brand-primary">{section.title}</h3>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">
                     {section.selectionMode === 'manual' ? 'Manual' : 'Pool'}
                   </span>
                 </div>
 
-                {section.resolvedQuestions.length === 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">No questions yet.</p>
-                ) : (
-                  <ul className="mt-2 space-y-1 text-sm">
-                    {section.resolvedQuestions.map((question) => (
-                      <li
-                        key={question.questionVersionId}
-                        className="flex items-center justify-between gap-3 text-muted-foreground"
-                      >
-                        <span className="truncate">{question.questionText}</span>
-                        <span className="shrink-0">{question.marks} marks</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="p-4">
+                  {section.resolvedQuestions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No questions yet.</p>
+                  ) : (
+                    <ul className="space-y-1.5 text-sm">
+                      {section.resolvedQuestions.map((question) => (
+                        <li
+                          key={question.questionVersionId}
+                          className="flex items-center justify-between gap-3 text-muted-foreground"
+                        >
+                          <span className="truncate">{question.questionText}</span>
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs">
+                            {question.marks} marks
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
 
                 {isContentEditable && (
-                  <div className="mt-3 border-t border-border pt-3">
+                  <div className="border-t border-border bg-muted/10 px-4 py-3">
+                    <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      {section.selectionMode === 'manual' ? 'Attach a question' : 'Attach a pool'}
+                    </p>
                     {section.selectionMode === 'manual' ? (
                       <AttachQuestionForm
                         assessmentId={assessment.id}
@@ -153,17 +160,20 @@ export default function AssessmentEditPage() {
         </div>
 
         {isContentEditable && (
-          <div className="mt-4 border-t border-border pt-4">
+          <div className="mt-4 rounded-lg border-2 border-dashed border-border p-4">
+            <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Add a new section
+            </p>
             <AddSectionForm assessmentId={assessment.id} />
           </div>
         )}
       </div>
 
-      <div className="mt-6 rounded-lg border border-border bg-background p-6 shadow-sm">
+      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Batches
         </h2>
-        <div className="mt-3">
+        <div className="mt-4">
           <BatchesEditor
             assessmentId={assessment.id}
             status={assessment.status}
@@ -172,11 +182,11 @@ export default function AssessmentEditPage() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-lg border border-border bg-background p-6 shadow-sm">
+      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Workflow
         </h2>
-        <div className="mt-3">
+        <div className="mt-4">
           <WorkflowActions assessmentId={assessment.id} status={assessment.status} />
         </div>
       </div>

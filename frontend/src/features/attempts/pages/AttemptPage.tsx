@@ -105,7 +105,7 @@ export default function AttemptPage() {
     <div className="relative flex flex-col gap-4 p-6">
       {isAutoSubmitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-8 text-center shadow-xl">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-8 text-center shadow-xl">
             <h2 className="text-lg font-semibold text-brand-primary">Time&apos;s up</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {submitAttempt.isError
@@ -116,16 +116,21 @@ export default function AttemptPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between border-b border-border pb-3">
-        <h1 className="text-lg font-semibold text-brand-primary">
-          Question {currentIndex + 1} of {questions.length}
-        </h1>
+      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <h1 className="text-lg font-semibold text-brand-primary">
+            Question {currentIndex + 1} of {questions.length}
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {answeredCount} of {questions.length} answered
+          </p>
+        </div>
         {timerMinutes !== null && (
           <AttemptTimer timerMinutes={timerMinutes} onExpire={handleTimerExpire} />
         )}
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex gap-5">
         <div className="flex shrink-0 flex-col gap-4">
           <QuestionNavigator
             questions={questions}
@@ -142,7 +147,7 @@ export default function AttemptPage() {
           )}
         </div>
 
-        <div className="min-w-0 flex-1 rounded-lg border border-border bg-background p-6 shadow-sm">
+        <div className="min-w-0 flex-1 rounded-xl border border-border bg-background p-6 shadow-sm">
           {attemptId && currentQuestion.type === 'mcq' && (
             <McqQuestion key={currentQuestion.id} attemptId={attemptId} question={currentQuestion} />
           )}

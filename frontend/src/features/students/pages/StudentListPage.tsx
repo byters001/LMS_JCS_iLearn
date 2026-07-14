@@ -39,14 +39,11 @@ export default function StudentListPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-baseline justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-brand-primary">Students</h1>
-          <p className="text-sm text-muted-foreground">
-            Department and user columns show raw IDs — GET /student-profiles doesn't
-            currently join in fullName/department name.
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-brand-primary">Students</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Every student profile across your college, at a glance.
+        </p>
       </div>
 
       {isPending && (
@@ -58,45 +55,47 @@ export default function StudentListPage() {
       )}
 
       {isError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error instanceof ApiError ? error.message : 'Failed to load students. Please try again.'}
         </div>
       )}
 
       {data && (
-        <>
+        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="pl-4">Name</TableHead>
                 <TableHead>Roll Number</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Department ID</TableHead>
-                <TableHead>College ID</TableHead>
-                <TableHead>User ID</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>College</TableHead>
+                <TableHead className="pr-4">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No students found.
                   </TableCell>
                 </TableRow>
               ) : (
                 data.items.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>{student.rollNumber ?? '—'}</TableCell>
-                    <TableCell>
+                  <TableRow key={student.id} className="hover:bg-muted/30">
+                    <TableCell className="pl-4 font-medium text-brand-primary">
+                      {student.fullName ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {student.rollNumber ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {student.departmentName ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {student.collegeName ?? '—'}
+                    </TableCell>
+                    <TableCell className="pr-4">
                       <StatusBadge status={student.status} />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {student.departmentId ?? '—'}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {student.collegeId}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {student.userId}
                     </TableCell>
                   </TableRow>
                 ))
@@ -104,7 +103,7 @@ export default function StudentListPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
             <p className="text-sm text-muted-foreground">
               Page {data.page} of {totalPages} &middot; {data.total} student
               {data.total === 1 ? '' : 's'}
@@ -113,6 +112,7 @@ export default function StudentListPage() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                 disabled={page <= 1 || isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -121,6 +121,7 @@ export default function StudentListPage() {
               </Button>
               <Button
                 variant="outline"
+                size="sm"
                 className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                 disabled={page >= totalPages || isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -129,7 +130,7 @@ export default function StudentListPage() {
               </Button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

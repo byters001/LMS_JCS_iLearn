@@ -76,7 +76,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
           submitAssessment.mutate({ notes: values.notes || undefined }),
         )}
         noValidate
-        className="space-y-2"
+        className="space-y-3"
       >
         <NotesField form={notesForm} />
         <Button type="submit" disabled={submitAssessment.isPending}>
@@ -89,7 +89,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
 
   if (status === 'review') {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         <NotesField form={notesForm} />
         <div className="flex gap-2">
           <Button
@@ -126,7 +126,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
           }),
         )}
         noValidate
-        className="space-y-2"
+        className="space-y-3"
       >
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
@@ -161,7 +161,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
           publishAssessment.mutate({ notes: values.notes || undefined }),
         )}
         noValidate
-        className="space-y-2"
+        className="space-y-3"
       >
         <NotesField form={notesForm} />
         <Button

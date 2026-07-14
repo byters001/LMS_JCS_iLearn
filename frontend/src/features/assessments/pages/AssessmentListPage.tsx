@@ -46,10 +46,10 @@ export default function AssessmentListPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-baseline justify-between">
+      <div className="mb-6 flex items-baseline justify-between">
         <div>
           <h1 className="text-xl font-semibold text-brand-primary">Assessments</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             Every assessment across the platform, at every stage of the approval workflow.
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function AssessmentListPage() {
       )}
 
       {isError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load assessments. Please try again.'}
@@ -75,28 +75,28 @@ export default function AssessmentListPage() {
       )}
 
       {data && (
-        <>
+        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="pl-4">Title</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Timer</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="pr-4">Created</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                     No assessments found.
                   </TableCell>
                 </TableRow>
               ) : (
                 data.items.map((assessment) => (
-                  <TableRow key={assessment.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={assessment.id} className="hover:bg-muted/30">
+                    <TableCell className="pl-4 font-medium">
                       <Link
                         to={`${assessment.id}/edit`}
                         className="text-brand-primary hover:underline"
@@ -111,7 +111,7 @@ export default function AssessmentListPage() {
                     <TableCell className="text-muted-foreground">
                       {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="pr-4 text-muted-foreground">
                       {formatDate(assessment.createdAt)}
                     </TableCell>
                   </TableRow>
@@ -120,7 +120,7 @@ export default function AssessmentListPage() {
             </TableBody>
           </Table>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
             <p className="text-sm text-muted-foreground">
               Page {data.page} of {totalPages} &middot; {data.total} assessment
               {data.total === 1 ? '' : 's'}
@@ -129,6 +129,7 @@ export default function AssessmentListPage() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                 disabled={page <= 1 || isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -137,6 +138,7 @@ export default function AssessmentListPage() {
               </Button>
               <Button
                 variant="outline"
+                size="sm"
                 className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                 disabled={page >= totalPages || isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -145,7 +147,7 @@ export default function AssessmentListPage() {
               </Button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

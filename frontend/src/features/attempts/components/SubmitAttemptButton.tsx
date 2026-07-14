@@ -53,7 +53,7 @@ export function SubmitAttemptButton({
 
       {isConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-lg border border-border bg-background p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl">
             <h2 className="text-base font-semibold text-brand-primary">Submit this attempt?</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {answeredCount} of {totalCount} questions answered. Once submitted, you cannot

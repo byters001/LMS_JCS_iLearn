@@ -47,22 +47,22 @@ export function McqQuestion({ attemptId, question }: McqQuestionProps) {
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-base text-brand-primary">{question.questionText}</p>
+      <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <p className="text-base leading-relaxed text-brand-primary">{question.questionText}</p>
         <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
           {question.marks} marks
         </span>
       </div>
 
-      <div className="mt-5 space-y-2">
+      <div className="mt-5 space-y-2.5">
         {question.options.map((option) => (
           <label
             key={option.id}
             className={cn(
-              'flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors',
+              'flex cursor-pointer items-center gap-3 rounded-lg border p-3.5 text-sm transition-all',
               selectedOptionId === option.id
-                ? 'border-brand-accent bg-brand-accent/5'
-                : 'border-border hover:bg-muted/50',
+                ? 'border-brand-accent bg-brand-accent/5 shadow-sm ring-1 ring-brand-accent/20'
+                : 'border-border hover:border-brand-accent/30 hover:bg-muted/50',
             )}
           >
             <input
@@ -70,7 +70,7 @@ export function McqQuestion({ attemptId, question }: McqQuestionProps) {
               name={`mcq-${question.id}`}
               checked={selectedOptionId === option.id}
               onChange={() => setSelectedOptionId(option.id)}
-              className="accent-brand-accent"
+              className="size-4 accent-brand-accent"
             />
             <span className="text-brand-primary">{option.optionText}</span>
             {option.imageUrl && (

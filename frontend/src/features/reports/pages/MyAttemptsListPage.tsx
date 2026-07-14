@@ -36,9 +36,9 @@ export default function MyAttemptsListPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4">
+      <div className="mb-6">
         <h1 className="text-xl font-semibold text-brand-primary">Your Attempt History</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           Every past and in-progress attempt across all your assessments.
         </p>
       </div>
@@ -52,7 +52,7 @@ export default function MyAttemptsListPage() {
       )}
 
       {isError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load your attempt history. Please try again.'}
@@ -60,46 +60,47 @@ export default function MyAttemptsListPage() {
       )}
 
       {data && (
-        <>
+        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
           {data.items.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            <div className="p-8 text-center text-sm text-muted-foreground">
               You haven&apos;t attempted any assessments yet.
             </div>
           ) : (
-            <div className="space-y-2">
+            <ul className="divide-y divide-border">
               {data.items.map((attempt) => (
-                <Link
-                  key={attempt.id}
-                  to={`/student/attempts/${attempt.id}/submitted`}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-4 shadow-sm transition-colors hover:border-brand-accent/50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-brand-primary">
-                      {attempt.assessmentTitle}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Attempt #{attempt.attemptNumber}
-                      {attempt.isRetake ? ' · Retake' : ''} &middot;{' '}
-                      {formatDate(attempt.submissionTime ?? attempt.createdAt)}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-medium text-brand-primary">
-                      {attempt.status === 'pending_evaluation'
-                        ? 'Pending'
-                        : (attempt.totalScore ?? '—')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {STATUS_LABELS[attempt.status] ?? attempt.status}
-                    </p>
-                  </div>
-                </Link>
+                <li key={attempt.id}>
+                  <Link
+                    to={`/student/attempts/${attempt.id}/submitted`}
+                    className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/30"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-brand-primary">
+                        {attempt.assessmentTitle}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Attempt #{attempt.attemptNumber}
+                        {attempt.isRetake ? ' · Retake' : ''} &middot;{' '}
+                        {formatDate(attempt.submissionTime ?? attempt.createdAt)}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-medium text-brand-primary">
+                        {attempt.status === 'pending_evaluation'
+                          ? 'Pending'
+                          : (attempt.totalScore ?? '—')}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {STATUS_LABELS[attempt.status] ?? attempt.status}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
           {data.total > 0 && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
               <p className="text-sm text-muted-foreground">
                 Page {data.page} of {totalPages} &middot; {data.total} attempt
                 {data.total === 1 ? '' : 's'}
@@ -108,6 +109,7 @@ export default function MyAttemptsListPage() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -116,6 +118,7 @@ export default function MyAttemptsListPage() {
                 </Button>
                 <Button
                   variant="outline"
+                  size="sm"
                   className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -125,7 +128,7 @@ export default function MyAttemptsListPage() {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )

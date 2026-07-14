@@ -75,13 +75,13 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <h3 className="text-base font-semibold text-brand-primary">Problem Statement</h3>
           <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
             {question.marks} marks
           </span>
         </div>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-brand-primary">
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-brand-primary">
           {coding.problemStatement}
         </p>
 
@@ -142,27 +142,36 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
       </div>
 
       <div>
-        <div className="flex items-center justify-between gap-3">
-          <label className="text-sm font-medium text-brand-primary" htmlFor={`language-${question.id}`}>
-            Language
-          </label>
-          {/* Limited to this question's supportedLanguages only — never a
-              hardcoded/global language list. */}
-          <select
-            id={`language-${question.id}`}
-            value={language}
-            onChange={(event) => setLanguage(event.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-sm"
-          >
-            {supportedLanguages.map((lang) => (
-              <option key={lang} value={lang}>
-                {LANGUAGE_LABELS[lang] ?? lang}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* CodeSignal-style editor chrome: a toolbar strip (window-dot
+            affordance + language switcher) sitting directly on the editor,
+            not a separate label row floating above it. */}
+        <div className="overflow-hidden rounded-lg border border-border shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-3 py-2">
+            <div className="flex items-center gap-2.5">
+              <span className="flex gap-1.5" aria-hidden="true">
+                <span className="size-2.5 rounded-full bg-destructive/50" />
+                <span className="size-2.5 rounded-full bg-amber-500/50" />
+                <span className="size-2.5 rounded-full bg-green-600/50" />
+              </span>
+              <span className="text-xs font-medium text-muted-foreground">Code Editor</span>
+            </div>
+            {/* Limited to this question's supportedLanguages only — never a
+                hardcoded/global language list. */}
+            <select
+              id={`language-${question.id}`}
+              aria-label="Language"
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-brand-primary outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            >
+              {supportedLanguages.map((lang) => (
+                <option key={lang} value={lang}>
+                  {LANGUAGE_LABELS[lang] ?? lang}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="mt-3 overflow-hidden rounded-md border border-border">
           <Suspense
             fallback={
               <div className="flex h-[480px] items-center justify-center text-sm text-muted-foreground">

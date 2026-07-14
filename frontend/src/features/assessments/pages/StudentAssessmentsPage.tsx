@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
 import type { Assessment } from '../types'
 
@@ -45,13 +46,24 @@ function formatStartDate(startAt: string | null): string | null {
   })
 }
 
+// Left-border accent by status — live/scheduled are the two states a
+// student actually needs to scan for quickly (everything else falls back to
+// the neutral border), matching StatusBadge's own live/scheduled/other split.
+const STATUS_ACCENT: Partial<Record<Assessment['status'], string>> = {
+  live: 'border-l-brand-accent',
+  scheduled: 'border-l-brand-primary',
+}
+
 function AssessmentCard({ assessment }: { assessment: Assessment }) {
   const startDate = formatStartDate(assessment.startAt)
 
   return (
     <Link
       to={`/student/assessments/${assessment.id}`}
-      className="block rounded-lg border border-border bg-background p-4 shadow-sm transition-colors hover:border-brand-accent/50"
+      className={cn(
+        'block rounded-lg border border-l-4 border-border bg-background p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2',
+        STATUS_ACCENT[assessment.status] ?? 'border-l-border',
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-semibold text-brand-primary">{assessment.title}</h3>
@@ -66,7 +78,7 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{assessment.description}</p>
       )}
 
-      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+      <div className="mt-3 space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
         <p>{assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}</p>
         {assessment.status === 'scheduled' && startDate && <p>Starts: {startDate}</p>}
         <p>
@@ -88,16 +100,16 @@ export default function StudentAssessmentsPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4">
+      <div className="mb-6">
         <h1 className="text-xl font-semibold text-brand-primary">Your Assessments</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           Live and upcoming assessments for your batch.
         </p>
       </div>
 
       {isPending && (
         <div
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           role="status"
           aria-label="Loading assessments"
         >
@@ -108,7 +120,7 @@ export default function StudentAssessmentsPage() {
       )}
 
       {isError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load assessments. Please try again.'}
@@ -118,11 +130,11 @@ export default function StudentAssessmentsPage() {
       {data && (
         <>
           {data.items.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               No assessments available right now.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {data.items.map((assessment) => (
                 <AssessmentCard key={assessment.id} assessment={assessment} />
               ))}
@@ -130,7 +142,7 @@ export default function StudentAssessmentsPage() {
           )}
 
           {data.total > 0 && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-6 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 Page {data.page} of {totalPages} &middot; {data.total} assessment
                 {data.total === 1 ? '' : 's'}
@@ -139,6 +151,7 @@ export default function StudentAssessmentsPage() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -147,6 +160,7 @@ export default function StudentAssessmentsPage() {
                 </Button>
                 <Button
                   variant="outline"
+                  size="sm"
                   className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

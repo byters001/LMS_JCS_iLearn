@@ -1,10 +1,10 @@
 // Frontend-side types for the "students" feature (own copy, not shared with
-// the backend's *.types.ts). Matches the RAW student_profiles row shape —
-// backend/src/modules/students/students.repository.ts's listStudentProfiles
-// is a plain `db.select().from(studentProfiles)`, no join to users or
-// departments. userId/departmentId/collegeId are bare UUIDs here, NOT
-// resolved fullName/department-name strings — confirmed against the
-// backend, not assumed.
+// the backend's *.types.ts). Matches backend/src/modules/students/
+// students.repository.ts's listStudentProfiles, which now LEFT JOINs
+// users/departments/colleges for display names alongside the raw ids
+// (StudentProfileWithNames there) — ids are kept here too since some future
+// action may still need them, they're just no longer the primary display
+// value (see StudentListPage.tsx).
 export type StudentStatus = 'active' | 'archived'
 
 export interface StudentProfile {
@@ -23,6 +23,11 @@ export interface StudentProfile {
   updatedAt: string
   createdBy: string | null
   updatedBy: string | null
+  // Resolved via LEFT JOIN — null is a real, possible value (an orphaned
+  // row, or no department set), not just a loading placeholder.
+  fullName: string | null
+  departmentName: string | null
+  collegeName: string | null
 }
 
 // Matches backend/src/modules/students/students.schema.ts's

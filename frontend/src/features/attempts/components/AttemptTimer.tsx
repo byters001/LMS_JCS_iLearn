@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { cn } from '@/lib/utils'
 
 interface AttemptTimerProps {
   timerMinutes: number
@@ -43,16 +44,32 @@ export function AttemptTimer({ timerMinutes, onExpire }: AttemptTimerProps) {
     }
   }, [remainingSeconds, onExpire])
 
-  const isLow = remainingSeconds <= 60
+  // Three tiers, not two: a plain countdown reads as alarming the moment it
+  // turns red, so the color only escalates in the final stretch — neutral
+  // and prominent for almost the entire attempt, amber once genuinely
+  // "wrap up soon" (5 min), red only once truly urgent (60s) — matching the
+  // task's ask for "prominent but not alarming until near-expiry."
+  const isCritical = remainingSeconds <= 60
+  const isWarning = !isCritical && remainingSeconds <= 300
 
   return (
     <div
-      className={
-        isLow
-          ? 'rounded-md border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-sm font-semibold tabular-nums text-destructive'
-          : 'rounded-md border border-border bg-background px-3 py-1.5 text-sm font-semibold tabular-nums text-brand-primary'
-      }
+      role="timer"
+      aria-live={isCritical ? 'assertive' : 'off'}
+      className={cn(
+        'flex items-center gap-2 rounded-lg border px-4 py-2 text-base font-semibold tabular-nums transition-colors',
+        isCritical &&
+          'animate-pulse border-destructive/40 bg-destructive/10 text-destructive',
+        isWarning && 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+        !isCritical && !isWarning && 'border-border bg-muted/40 text-brand-primary',
+      )}
     >
+      <span
+        className={cn(
+          'size-2 shrink-0 rounded-full',
+          isCritical ? 'bg-destructive' : isWarning ? 'bg-amber-500' : 'bg-brand-accent',
+        )}
+      />
       {formatRemaining(remainingSeconds)}
     </div>
   )

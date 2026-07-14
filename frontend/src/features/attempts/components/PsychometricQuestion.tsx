@@ -57,43 +57,47 @@ export function PsychometricQuestion({ attemptId, question }: PsychometricQuesti
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-base text-brand-primary">{question.questionText}</p>
+      <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+        <p className="text-base leading-relaxed text-brand-primary">{question.questionText}</p>
         <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
           {question.marks} marks
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-5 gap-2">
-        {(scale ?? GENERIC_LIKERT_LABELS).map((entry, index) => {
-          const value = index + 1
-          const label = typeof entry === 'string' ? entry : entry.optionText
-          return (
-            <button
-              key={typeof entry === 'string' ? value : entry.id}
-              type="button"
-              onClick={() => setLikertValue(value)}
-              className={cn(
-                'flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center text-xs transition-colors',
-                likertValue === value
-                  ? 'border-brand-accent bg-brand-accent/5'
-                  : 'border-border hover:bg-muted/50',
-              )}
-            >
-              <span
-                className={cn(
-                  'flex size-7 items-center justify-center rounded-full border text-sm font-semibold',
-                  likertValue === value
-                    ? 'border-brand-accent bg-brand-accent text-white'
-                    : 'border-border text-brand-primary',
-                )}
+      {/* A connected track behind the points, not five isolated buttons —
+          reads as one scale being picked from (classic Likert presentation)
+          rather than a row of unrelated choices. */}
+      <div className="relative mt-8 rounded-xl border border-border bg-muted/20 px-6 pt-7 pb-5">
+        <div className="pointer-events-none absolute top-[2.45rem] right-12 left-12 h-0.5 bg-border" />
+        <div className="relative grid grid-cols-5 gap-2">
+          {(scale ?? GENERIC_LIKERT_LABELS).map((entry, index) => {
+            const value = index + 1
+            const label = typeof entry === 'string' ? entry : entry.optionText
+            const isSelected = likertValue === value
+            return (
+              <button
+                key={typeof entry === 'string' ? value : entry.id}
+                type="button"
+                onClick={() => setLikertValue(value)}
+                className="group flex flex-col items-center gap-2 text-center text-xs"
               >
-                {value}
-              </span>
-              <span className="text-muted-foreground">{label}</span>
-            </button>
-          )
-        })}
+                <span
+                  className={cn(
+                    'flex size-9 items-center justify-center rounded-full border-2 bg-background text-sm font-semibold transition-all group-hover:scale-110',
+                    isSelected
+                      ? 'border-brand-accent bg-brand-accent text-white shadow-md'
+                      : 'border-border text-brand-primary group-hover:border-brand-accent/50',
+                  )}
+                >
+                  {value}
+                </span>
+                <span className={cn('transition-colors', isSelected ? 'font-medium text-brand-primary' : 'text-muted-foreground')}>
+                  {label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="mt-6 flex items-center gap-3">

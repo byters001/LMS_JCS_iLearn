@@ -35,8 +35,11 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to px-4">
-      <div className="w-full max-w-sm rounded-xl bg-background p-8 shadow-xl">
-        <h1 className="text-2xl font-semibold text-brand-primary">JCS iLearn</h1>
+      <div className="w-full max-w-sm rounded-xl border border-border bg-background p-8 shadow-xl">
+        <div className="mb-1 h-1 w-10 rounded-full bg-brand-accent" />
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-brand-primary">
+          JCS iLearn
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
 
         <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
