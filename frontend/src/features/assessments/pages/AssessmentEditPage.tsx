@@ -133,9 +133,17 @@ export default function AssessmentEditPage() {
                 {isContentEditable && (
                   <div className="mt-3 border-t border-border pt-3">
                     {section.selectionMode === 'manual' ? (
-                      <AttachQuestionForm assessmentId={assessment.id} sectionId={section.id} />
+                      <AttachQuestionForm
+                        assessmentId={assessment.id}
+                        sectionId={section.id}
+                        testCategory={assessment.testCategory}
+                      />
                     ) : (
-                      <AttachPoolForm assessmentId={assessment.id} sectionId={section.id} />
+                      <AttachPoolForm
+                        assessmentId={assessment.id}
+                        sectionId={section.id}
+                        testCategory={assessment.testCategory}
+                      />
                     )}
                   </div>
                 )}

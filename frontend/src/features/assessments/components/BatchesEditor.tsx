@@ -1,39 +1,21 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
-import { z } from 'zod'
+import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/Combobox'
+import { useBatches } from '@/features/organization/api'
 import { useUpdateAssessmentBatches } from '../api'
 import type { AssessmentStatus } from '../types'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-// batchIds replaces the whole set server-side, so the form's only field is
-// the full desired list, parsed from one newline/comma-separated textarea
-// rather than a real multi-select (no batches-browsing UI this phase,
-// same "paste the ID" limitation as questions/pools — GET /batches does
-// exist on the backend, but building a picker fed by it is out of this
-// phase's scope alongside the other two).
-const batchesFormSchema = z.object({
-  batchIdsText: z.string().refine(
-    (value) => {
-      const tokens = parseTokens(value)
-      return tokens.every((token) => UUID_RE.test(token))
-    },
-    { message: 'Every non-empty line/entry must be a valid UUID' },
-  ),
-})
-
-type BatchesFormValues = z.infer<typeof batchesFormSchema>
-
-function parseTokens(value: string): string[] {
-  return value
-    .split(/[\n,]/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0)
-}
-
 const BATCH_LOCKED_STATUSES: AssessmentStatus[] = ['live', 'completed', 'archived']
+
+// No trainingProgramId filter here — listBatchesQuerySchema supports one,
+// but resolving "the training program this assessment's training session
+// belongs to" would need a single-session lookup the trainers module
+// doesn't expose (GET /training-sessions is list-only, no /:id route this
+// phase — see trainers.routes.ts). Listing all batches, paginated, mirrors
+// the same unscoped-discovery precedent CreateAssessmentPage's
+// trainingSessionId dropdown already established.
+const BATCH_PICKER_PAGE_SIZE = 100
 
 interface BatchesEditorProps {
   assessmentId: string
@@ -44,19 +26,22 @@ interface BatchesEditorProps {
 export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorProps) {
   const updateBatches = useUpdateAssessmentBatches(assessmentId)
   const isLocked = BATCH_LOCKED_STATUSES.includes(status)
+  const batches = useBatches({ page: 1, pageSize: BATCH_PICKER_PAGE_SIZE })
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<BatchesFormValues>({
-    resolver: zodResolver(batchesFormSchema),
-    defaultValues: { batchIdsText: batchIds.join('\n') },
-  })
+  // Initialized once from the incoming prop, same convention as every other
+  // form on this page (e.g. CreateAssessmentPage's useForm defaultValues) —
+  // this component doesn't re-sync mid-session if the parent refetches.
+  const [selectedIds, setSelectedIds] = useState<string[]>(batchIds)
 
-  const onSubmit = handleSubmit((values) => {
-    updateBatches.mutate(parseTokens(values.batchIdsText))
-  })
+  const batchesById = new Map((batches.data?.items ?? []).map((batch) => [batch.id, batch]))
+
+  const addOptions = (batches.data?.items ?? [])
+    .filter((batch) => !selectedIds.includes(batch.id))
+    .map((batch) => ({ value: batch.id, label: batch.name }))
+
+  const onSave = () => {
+    updateBatches.mutate(selectedIds)
+  }
 
   return (
     <div>
@@ -66,36 +51,65 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
           status is &quot;{status}&quot;.
         </p>
       ) : (
-        <>
+        <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            One batch UUID per line (or comma-separated). No batch picker exists yet — paste real
-            batch IDs directly. Saving replaces the entire current list.
+            Search and add every batch authorized to take this assessment. Saving replaces the
+            entire current list.
           </p>
-          <form onSubmit={onSubmit} noValidate className="mt-2 space-y-2">
-            <textarea
-              rows={4}
-              disabled={isLocked}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-              {...register('batchIdsText')}
-            />
-            {errors.batchIdsText && (
-              <p className="text-xs text-destructive">{errors.batchIdsText.message}</p>
-            )}
-            {updateBatches.isError && (
-              <p className="text-xs text-destructive">
-                {updateBatches.error instanceof ApiError
-                  ? updateBatches.error.message
-                  : 'Failed to save batches.'}
-              </p>
-            )}
-            {updateBatches.isSuccess && (
-              <p className="text-xs font-medium text-green-600 dark:text-green-500">Saved</p>
-            )}
-            <Button type="submit" size="sm" disabled={updateBatches.isPending}>
-              {updateBatches.isPending ? 'Saving…' : 'Save Batches'}
-            </Button>
-          </form>
-        </>
+
+          {selectedIds.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {selectedIds.map((id) => (
+                <li
+                  key={id}
+                  className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-brand-primary"
+                >
+                  <span>{batchesById.get(id)?.name ?? id}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${batchesById.get(id)?.name ?? id}`}
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => setSelectedIds((prev) => prev.filter((existing) => existing !== id))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Combobox
+            id="batchPicker"
+            options={addOptions}
+            value={null}
+            onSelect={(value) => setSelectedIds((prev) => [...prev, value])}
+            placeholder="Search batches by name to add…"
+            isLoading={batches.isPending}
+            isError={batches.isError}
+            errorMessage="Failed to load batches."
+            emptyMessage={
+              batches.isPending
+                ? 'Loading…'
+                : addOptions.length === 0 && (batches.data?.items.length ?? 0) > 0
+                  ? 'All available batches are already added.'
+                  : 'No batches found.'
+            }
+          />
+
+          {updateBatches.isError && (
+            <p className="text-xs text-destructive">
+              {updateBatches.error instanceof ApiError
+                ? updateBatches.error.message
+                : 'Failed to save batches.'}
+            </p>
+          )}
+          {updateBatches.isSuccess && (
+            <p className="text-xs font-medium text-green-600 dark:text-green-500">Saved</p>
+          )}
+          <Button type="button" size="sm" disabled={updateBatches.isPending} onClick={onSave}>
+            {updateBatches.isPending ? 'Saving…' : 'Save Batches'}
+          </Button>
+        </div>
       )}
     </div>
   )
