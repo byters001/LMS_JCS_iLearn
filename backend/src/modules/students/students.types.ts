@@ -1,7 +1,7 @@
-import type { StudentProfile } from '../../db/types';
+import type { StudentProfileWithNames } from './students.repository';
 
 export interface ListStudentProfilesResult {
-  items: StudentProfile[];
+  items: StudentProfileWithNames[];
   total: number;
   page: number;
   pageSize: number;

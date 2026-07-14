@@ -1,5 +1,7 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
+import { users } from '../../db/schema/identity.schema';
+import { colleges, departments } from '../../db/schema/organization.schema';
 import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
 import type { StudentProfile } from '../../db/types';
 
@@ -22,8 +24,48 @@ export interface ListStudentProfilesParams {
   pageSize: number;
 }
 
+// Name-joined read shape for listStudentProfiles — mirrors
+// analytics.repository.ts's listBatchAttemptsForAssessment pattern (an
+// explicit named-column select alongside the join, not a bare
+// db.select().from(...)), the closest existing precedent for "resolve a
+// human-readable name via a join" in this codebase, reused here rather than
+// inventing a different shape. All three joins are LEFT JOINs, including
+// users/colleges (whose FKs are NOT NULL and would never actually produce a
+// missing match) — deliberately so a hypothetical orphaned row is never
+// silently dropped from the list, just returned with a null name; the type
+// below reflects that honestly instead of asserting non-null on a LEFT JOIN
+// result. departmentId is a genuinely optional FK (student_profiles.
+// department_id has no NOT NULL), so departmentName is null there for a
+// real, expected reason (no department set), not just join defensiveness.
+export interface StudentProfileWithNames extends StudentProfile {
+  fullName: string | null;
+  departmentName: string | null;
+  collegeName: string | null;
+}
+
+const STUDENT_PROFILE_WITH_NAMES_COLUMNS = {
+  id: studentProfiles.id,
+  userId: studentProfiles.userId,
+  collegeId: studentProfiles.collegeId,
+  departmentId: studentProfiles.departmentId,
+  rollNumber: studentProfiles.rollNumber,
+  photoUrl: studentProfiles.photoUrl,
+  contactEmailAlt: studentProfiles.contactEmailAlt,
+  contactPhone: studentProfiles.contactPhone,
+  status: studentProfiles.status,
+  archivedAt: studentProfiles.archivedAt,
+  accessRevokedAt: studentProfiles.accessRevokedAt,
+  createdAt: studentProfiles.createdAt,
+  updatedAt: studentProfiles.updatedAt,
+  createdBy: studentProfiles.createdBy,
+  updatedBy: studentProfiles.updatedBy,
+  fullName: users.fullName,
+  departmentName: departments.name,
+  collegeName: colleges.name,
+} as const;
+
 export interface ListStudentProfilesResult {
-  items: StudentProfile[];
+  items: StudentProfileWithNames[];
   total: number;
 }
 
@@ -63,8 +105,11 @@ async function listStudentProfiles(
 
     const [items, totalRows] = await Promise.all([
       db
-        .select()
+        .select(STUDENT_PROFILE_WITH_NAMES_COLUMNS)
         .from(studentProfiles)
+        .leftJoin(users, eq(users.id, studentProfiles.userId))
+        .leftJoin(departments, eq(departments.id, studentProfiles.departmentId))
+        .leftJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
         .where(where)
         .orderBy(asc(studentProfiles.createdAt))
         .limit(pageSize)
@@ -80,11 +125,22 @@ async function listStudentProfiles(
   ];
   const where = and(...conditions);
 
+  // selectDistinct on the flat named-column shape directly — no need for
+  // the nested-then-unwrapped `{ studentProfile: studentProfiles }` shape
+  // the pre-name-join version used, now that the select is already an
+  // explicit column list. DISTINCT still only bites on the same thing it
+  // did before (collapsing duplicate rows from a student with more than one
+  // matching training_program_students row) — fullName/departmentName/
+  // collegeName are functionally dependent on studentProfiles' own id, so
+  // joining them in adds no new source of duplication.
   const [items, totalRows] = await Promise.all([
     db
-      .selectDistinct({ studentProfile: studentProfiles })
+      .selectDistinct(STUDENT_PROFILE_WITH_NAMES_COLUMNS)
       .from(studentProfiles)
       .innerJoin(trainingProgramStudents, eq(trainingProgramStudents.studentId, studentProfiles.id))
+      .leftJoin(users, eq(users.id, studentProfiles.userId))
+      .leftJoin(departments, eq(departments.id, studentProfiles.departmentId))
+      .leftJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
       .where(where)
       .orderBy(asc(studentProfiles.createdAt))
       .limit(pageSize)
@@ -96,10 +152,7 @@ async function listStudentProfiles(
       .where(where),
   ]);
 
-  return {
-    items: items.map((row) => row.studentProfile),
-    total: Number(totalRows[0]?.count ?? 0),
-  };
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
 }
 
 async function findStudentProfileById(id: string): Promise<StudentProfile | undefined> {
