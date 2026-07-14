@@ -4,8 +4,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { useTrainingSessions } from '@/features/trainers/api'
 import { cn } from '@/lib/utils'
 import { useCreateAssessment } from '../api'
+
+// One-shot fetch at the backend's max page size, not a real paginated/
+// searchable picker — this phase only unblocks discovering a valid
+// trainingSessionId at all (previously there was no list endpoint). A
+// searchable picker with its own pagination is deferred, larger scope (same
+// bucket as the question/pool/batch pickers).
+const TRAINING_SESSION_PAGE_SIZE = 100
 
 // Optional numeric fields stay as plain strings at the SCHEMA level (Zod
 // only validates the string's shape here) rather than z.coerce.number() or
@@ -66,6 +74,7 @@ const inputClassName =
 export default function CreateAssessmentPage() {
   const navigate = useNavigate()
   const createAssessment = useCreateAssessment()
+  const trainingSessions = useTrainingSessions({ page: 1, pageSize: TRAINING_SESSION_PAGE_SIZE })
 
   const {
     register,
@@ -143,23 +152,53 @@ export default function CreateAssessmentPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="trainingSessionId" className="text-sm font-medium text-brand-primary">
-              Training Session ID
+              Training Session
             </label>
-            {/* No training-session picker exists yet — there is no backend
-                endpoint to list/search training_sessions at all (confirmed:
-                no /training-sessions route anywhere in this API), so a
-                real picker isn't buildable this phase regardless of scope
-                choices. Paste a real training_sessions.id UUID directly. */}
-            <input
-              id="trainingSessionId"
-              placeholder="00000000-0000-0000-0000-000000000000"
-              className={cn(inputClassName, 'font-mono')}
-              {...register('trainingSessionId')}
-            />
-            <p className="text-xs text-muted-foreground">
-              No training-session picker exists yet (no list endpoint on the backend) — paste the
-              UUID directly.
-            </p>
+
+            {trainingSessions.isPending && (
+              <div
+                role="status"
+                aria-label="Loading training sessions"
+                className={cn(inputClassName, 'animate-pulse text-muted-foreground')}
+              >
+                Loading sessions…
+              </div>
+            )}
+
+            {trainingSessions.isError && (
+              <p className="text-sm text-destructive">
+                {trainingSessions.error instanceof ApiError
+                  ? trainingSessions.error.message
+                  : 'Failed to load training sessions. Please try again.'}
+              </p>
+            )}
+
+            {trainingSessions.data && (
+              <select
+                id="trainingSessionId"
+                className={inputClassName}
+                disabled={trainingSessions.data.items.length === 0}
+                {...register('trainingSessionId')}
+              >
+                <option value="" disabled>
+                  {trainingSessions.data.items.length === 0
+                    ? 'No training sessions available'
+                    : 'Select a training session'}
+                </option>
+                {trainingSessions.data.items.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {session.title} — {session.sessionDate}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {trainingSessions.data?.items.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No training sessions exist yet — create one before scheduling an assessment.
+              </p>
+            )}
+
             {errors.trainingSessionId && (
               <p className="text-sm text-destructive">{errors.trainingSessionId.message}</p>
             )}
