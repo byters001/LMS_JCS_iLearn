@@ -166,6 +166,48 @@ async function findTrainingSessionById(id: string): Promise<TrainingSession | un
   return session;
 }
 
+export interface ListTrainingSessionsParams {
+  trainingProgramId?: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListTrainingSessionsResult {
+  items: TrainingSession[];
+  total: number;
+}
+
+// List-only read for this phase (see this file's module comment on
+// training_sessions ownership being unsettled) — added so the frontend has
+// a way to discover valid trainingSessionId values for assessment creation.
+// Ordered by session_date then session_number: session_date is the field a
+// person actually schedules around (chronological, matches idx_training_
+// sessions_date), session_number is the tiebreaker for same-day sessions
+// rather than the primary sort — a program's sessions aren't guaranteed to
+// be numbered in date order.
+async function listTrainingSessions(
+  params: ListTrainingSessionsParams,
+): Promise<ListTrainingSessionsResult> {
+  const { trainingProgramId, page, pageSize } = params;
+  const offset = (page - 1) * pageSize;
+  const where = trainingProgramId
+    ? eq(trainingSessions.trainingProgramId, trainingProgramId)
+    : undefined;
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(trainingSessions)
+      .where(where)
+      .orderBy(asc(trainingSessions.sessionDate), asc(trainingSessions.sessionNumber))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(trainingSessions).where(where),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
 export const trainersRepository = {
   listTrainerProfiles,
   findTrainerProfileById,
@@ -174,4 +216,5 @@ export const trainersRepository = {
   updateTrainerProfile,
   deleteTrainerProfile,
   findTrainingSessionById,
+  listTrainingSessions,
 };

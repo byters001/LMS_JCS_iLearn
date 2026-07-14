@@ -5,9 +5,10 @@ import { trainersRepository } from './trainers.repository';
 import type {
   CreateTrainerProfileInput,
   ListTrainerProfilesQuery,
+  ListTrainingSessionsQuery,
   UpdateTrainerProfileInput,
 } from './trainers.schema';
-import type { ListTrainerProfilesResult } from './trainers.types';
+import type { ListTrainerProfilesResult, ListTrainingSessionsResult } from './trainers.types';
 
 async function listTrainerProfiles(
   query: ListTrainerProfilesQuery,
@@ -90,6 +91,21 @@ async function findTrainingSessionById(id: string): Promise<TrainingSession> {
   return session;
 }
 
+// List-only counterpart to findTrainingSessionById above — unblocks
+// assessment creation, which had no way to discover valid
+// trainingSessionId values. Same pagination-result shape as
+// listTrainerProfiles.
+async function listTrainingSessions(
+  query: ListTrainingSessionsQuery,
+): Promise<ListTrainingSessionsResult> {
+  const { items, total } = await trainersRepository.listTrainingSessions({
+    trainingProgramId: query.trainingProgramId,
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
 export const trainersService = {
   listTrainerProfiles,
   findTrainerProfileById,
@@ -97,4 +113,5 @@ export const trainersService = {
   updateTrainerProfile,
   deleteTrainerProfile,
   findTrainingSessionById,
+  listTrainingSessions,
 };

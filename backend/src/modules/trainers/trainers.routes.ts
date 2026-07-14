@@ -6,10 +6,12 @@ import { trainersController } from './trainers.controller';
 import {
   createTrainerProfileSchema,
   listTrainerProfilesQuerySchema,
+  listTrainingSessionsQuerySchema,
   trainerProfileIdParamsSchema,
   updateTrainerProfileSchema,
   type CreateTrainerProfileInput,
   type ListTrainerProfilesQuery,
+  type ListTrainingSessionsQuery,
   type TrainerProfileIdParams,
   type UpdateTrainerProfileInput,
 } from './trainers.schema';
@@ -105,6 +107,20 @@ export async function trainersRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: validateParams(trainerProfileIdParamsSchema),
     },
     trainersController.deleteTrainerProfile,
+  );
+
+  // List-only, read path — 'trainers.view' matches the read-route precedent
+  // above (GET /trainer-profiles). No create/update/delete route here:
+  // training_session content ownership is unsettled (see db/schema/
+  // trainers.schema.ts and this module's repository/service comments) —
+  // full CRUD is a later, larger scope decision, not this phase's.
+  fastify.get<{ Querystring: ListTrainingSessionsQuery }>(
+    '/training-sessions',
+    {
+      preHandler: [fastify.authenticate, requirePermission('trainers.view')],
+      preValidation: validateQuery(listTrainingSessionsQuerySchema),
+    },
+    trainersController.listTrainingSessions,
   );
 }
 

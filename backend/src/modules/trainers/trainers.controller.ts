@@ -4,6 +4,7 @@ import { trainersService } from './trainers.service';
 import type {
   CreateTrainerProfileInput,
   ListTrainerProfilesQuery,
+  ListTrainingSessionsQuery,
   TrainerProfileIdParams,
   UpdateTrainerProfileInput,
 } from './trainers.schema';
@@ -64,10 +65,20 @@ async function deleteTrainerProfile(
   reply.status(204).send();
 }
 
+async function listTrainingSessions(
+  request: FastifyRequest<{ Querystring: ListTrainingSessionsQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await trainersService.listTrainingSessions(request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const trainersController = {
   listTrainerProfiles,
   getTrainerProfileById,
   createTrainerProfile,
   updateTrainerProfile,
   deleteTrainerProfile,
+  listTrainingSessions,
 };

@@ -14,6 +14,13 @@ export const listTrainerProfilesQuerySchema = z
   })
   .strict();
 
+export const listTrainingSessionsQuerySchema = z
+  .object({
+    trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID').optional(),
+    ...paginationFields,
+  })
+  .strict();
+
 export const createTrainerProfileSchema = z
   .object({
     userId: z.string().uuid('userId must be a valid UUID'),
@@ -39,6 +46,7 @@ export const trainerProfileIdParamsSchema = z
   .strict();
 
 export type ListTrainerProfilesQuery = z.infer<typeof listTrainerProfilesQuerySchema>;
+export type ListTrainingSessionsQuery = z.infer<typeof listTrainingSessionsQuerySchema>;
 export type CreateTrainerProfileInput = z.infer<typeof createTrainerProfileSchema>;
 export type UpdateTrainerProfileInput = z.infer<typeof updateTrainerProfileSchema>;
 export type TrainerProfileIdParams = z.infer<typeof trainerProfileIdParamsSchema>;
