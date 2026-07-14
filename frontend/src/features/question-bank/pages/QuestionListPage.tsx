@@ -9,9 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
 import { useQuestionsWithText } from '../api'
-import type { QuestionDifficulty, QuestionStatus, QuestionType } from '../types'
+import { QuestionStatusBadge } from '../components/QuestionStatusBadge'
+import type { QuestionDifficulty, QuestionType } from '../types'
 
 const PAGE_SIZE = 20
 const QUESTION_TEXT_TRUNCATE_LENGTH = 100
@@ -28,35 +28,6 @@ const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
   hard: 'Hard',
 }
 
-const STATUS_LABELS: Record<QuestionStatus, string> = {
-  draft: 'Draft',
-  pending_review: 'Pending Review',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  archived: 'Archived',
-}
-
-const STATUS_STYLES: Record<QuestionStatus, string> = {
-  draft: 'bg-muted text-muted-foreground',
-  pending_review: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  approved: 'bg-green-600/10 text-green-700 dark:text-green-400',
-  rejected: 'bg-destructive/10 text-destructive',
-  archived: 'bg-muted text-muted-foreground/60',
-}
-
-function StatusBadge({ status }: { status: QuestionStatus }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        STATUS_STYLES[status],
-      )}
-    >
-      {STATUS_LABELS[status]}
-    </span>
-  )
-}
-
 function truncate(text: string): string {
   return text.length > QUESTION_TEXT_TRUNCATE_LENGTH
     ? `${text.slice(0, QUESTION_TEXT_TRUNCATE_LENGTH)}…`
@@ -66,10 +37,9 @@ function truncate(text: string): string {
 // Basic browsing list — GET /questions/list has no join to question_versions
 // (see api.ts's useQuestionsForPicker comment), so question text comes from
 // a per-row enrichment fetch via useQuestionsWithText, same pattern the
-// AttachQuestionForm picker already established. No row click-through: the
-// question detail/edit/versioning UI is explicitly out of this phase's
-// scope (see CreateQuestionPage.tsx's module comment), so rows here are
-// read-only.
+// AttachQuestionForm picker already established. Each row links to
+// QuestionDetailPage — that page is minimal by design (workflow actions
+// only), question editing/versioning UI remains a separate later phase.
 export default function QuestionListPage() {
   const [page, setPage] = useState(1)
   const questions = useQuestionsWithText({ page, pageSize: PAGE_SIZE })
@@ -125,8 +95,10 @@ export default function QuestionListPage() {
               ) : (
                 questions.items.map((question) => (
                   <TableRow key={question.id} className="hover:bg-muted/30">
-                    <TableCell className="pl-4 font-medium text-brand-primary">
-                      {question.questionText ? truncate(question.questionText) : '—'}
+                    <TableCell className="pl-4 font-medium">
+                      <Link to={question.id} className="text-brand-primary hover:underline">
+                        {question.questionText ? truncate(question.questionText) : '—'}
+                      </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {TYPE_LABELS[question.type]}
@@ -135,7 +107,7 @@ export default function QuestionListPage() {
                       {DIFFICULTY_LABELS[question.difficulty]}
                     </TableCell>
                     <TableCell className="pr-4">
-                      <StatusBadge status={question.status} />
+                      <QuestionStatusBadge status={question.status} />
                     </TableCell>
                   </TableRow>
                 ))

@@ -256,3 +256,11 @@ export interface QuestionWithText {
   questionText: string | null
   createdAt: string
 }
+
+// --- Approval workflow (this phase) ---
+
+// Matches backend's approvalActionSchema exactly — shared by submit/
+// approve/reject, all three take only an optional free-text justification.
+export interface ApprovalActionInput {
+  notes?: string
+}

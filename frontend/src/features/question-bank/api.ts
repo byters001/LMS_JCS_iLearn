@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type {
+  ApprovalActionInput,
   CreateQuestionInput,
   ListQuestionCategoriesParams,
   ListQuestionCategoriesResponse,
@@ -14,6 +15,7 @@ import type {
   ListQuestionTagsResponse,
   ListQuestionTopicsParams,
   ListQuestionTopicsResponse,
+  Question,
   QuestionWithCurrentVersion,
   QuestionWithText,
 } from './types'
@@ -204,6 +206,67 @@ export function useCreateQuestion() {
   return useMutation({
     mutationFn: createQuestion,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
+  })
+}
+
+// --- Approval workflow (this phase) ---
+// draft/rejected --submit--> pending_review --approve--> approved
+//                                            \--reject--> rejected --submit--> pending_review
+// (loops back) — confirmed by reading question-bank.service.ts's
+// SUBMITTABLE_STATUSES and approveQuestion/rejectQuestion directly, not
+// assumed from an earlier session. Simpler than assessments' five-action
+// workflow (no schedule step, no required date fields) — all three actions
+// here take only an optional `notes` string, same ApprovalActionInput shape
+// throughout, matching the real approvalActionSchema on the backend.
+
+function submitQuestion(id: string, input: ApprovalActionInput): Promise<Question> {
+  return api.post<Question>(`/questions/${id}/submit`, input)
+}
+
+export function useSubmitQuestion(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ApprovalActionInput) => submitQuestion(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'detail', id] })
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
+  })
+}
+
+// Gated by questions.approve on the backend — distinct from questions.
+// manage/manage_global, which gates create/submit. The frontend doesn't
+// mirror that permission check itself (no per-permission introspection
+// exists here, same as WorkflowActions.tsx's precedent for assessments) —
+// an unauthorized click still surfaces the backend's real rejection via
+// isError, it just isn't hidden pre-emptively.
+function approveQuestion(id: string, input: ApprovalActionInput): Promise<Question> {
+  return api.post<Question>(`/questions/${id}/approve`, input)
+}
+
+export function useApproveQuestion(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ApprovalActionInput) => approveQuestion(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'detail', id] })
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
+  })
+}
+
+function rejectQuestion(id: string, input: ApprovalActionInput): Promise<Question> {
+  return api.post<Question>(`/questions/${id}/reject`, input)
+}
+
+export function useRejectQuestion(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ApprovalActionInput) => rejectQuestion(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'detail', id] })
       queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
     },
   })

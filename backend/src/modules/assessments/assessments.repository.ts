@@ -16,6 +16,7 @@ import type {
   AssessmentSection,
   AssessmentSectionPool,
 } from '../../db/types';
+import { ConflictError } from '../../shared/errors/app-error';
 
 // --- Assessments ---
 // Soft delete: deleted_at exists in schema.sql, same treatment as questions/
@@ -416,16 +417,43 @@ async function createAssessmentQuestion(
   sectionId: string,
   data: CreateAssessmentQuestionData,
 ): Promise<AssessmentQuestion> {
-  const [row] = await db
-    .insert(assessmentQuestions)
-    .values({
-      assessmentSectionId: sectionId,
-      questionVersionId: data.questionVersionId,
-      marksOverride: data.marksOverride !== undefined ? String(data.marksOverride) : undefined,
-      sortOrder: data.sortOrder,
-    })
-    .returning();
-  return row;
+  try {
+    const [row] = await db
+      .insert(assessmentQuestions)
+      .values({
+        assessmentSectionId: sectionId,
+        questionVersionId: data.questionVersionId,
+        marksOverride: data.marksOverride !== undefined ? String(data.marksOverride) : undefined,
+        sortOrder: data.sortOrder,
+      })
+      .returning();
+    return row;
+  } catch (error) {
+    // 23505 = Postgres's unique_violation SQLSTATE — fires here when the
+    // same question version is attached to the same section twice
+    // (assessment_questions_assessment_section_id_question_version_key).
+    // Drizzle wraps the raw postgres.js error as DrizzleQueryError with the
+    // original PostgresError (which carries .code) on `.cause` — confirmed
+    // directly against the actual 500 this used to surface as, not assumed.
+    //
+    // Every OTHER unique-constraint case in this codebase (e.g.
+    // organization.service.ts's createCollege, against colleges.code) is
+    // instead handled with a pre-check: look up by the unique field first,
+    // throw ConflictError if found, before ever calling insert. That
+    // pattern doesn't fully close this particular race either (two
+    // concurrent attach requests can both pass the pre-check and then
+    // collide at insert time), so this catches the constraint violation
+    // directly at the one place it can actually happen, rather than
+    // layering an equally-racy pre-check in the service on top of it. No
+    // other repository in this codebase catches a raw driver error code
+    // today — this is the first — but a repository is exactly where a raw
+    // driver error must stop, per CLAUDE.md's rule that nothing but an
+    // AppError subclass may leak out of a service.
+    if (error instanceof Error && (error.cause as { code?: string } | undefined)?.code === '23505') {
+      throw new ConflictError('This question is already attached to this section');
+    }
+    throw error;
+  }
 }
 
 export interface UpdateAssessmentQuestionData {
