@@ -1,13 +1,21 @@
 // TanStack Query hooks for the "question-bank" feature, calling the shared api/ client.
 // This is the only file in this feature allowed to import from api/.
-import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type {
+  CreateQuestionInput,
+  ListQuestionCategoriesParams,
+  ListQuestionCategoriesResponse,
   ListQuestionPoolsParams,
   ListQuestionPoolsResponse,
   ListQuestionsParams,
   ListQuestionsResponse,
+  ListQuestionTagsParams,
+  ListQuestionTagsResponse,
+  ListQuestionTopicsParams,
+  ListQuestionTopicsResponse,
   QuestionWithCurrentVersion,
+  QuestionWithText,
 } from './types'
 
 function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsResponse> {
@@ -103,5 +111,100 @@ export function useQuestionPools(params: ListQuestionPoolsParams) {
     queryKey: ['question-bank', 'question-pools', 'list', params],
     queryFn: () => listQuestionPools(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+// Same enrichment shape as useQuestionsForPicker above (list has no text,
+// GET /questions/:id does) but returns full rows for QuestionListPage's
+// columns instead of one flattened combobox label.
+export function useQuestionsWithText(params: ListQuestionsParams) {
+  const list = useQuestions(params)
+  const ids = list.data?.items.map((q) => q.id) ?? []
+
+  const details = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ['question-bank', 'questions', 'detail', id] as const,
+      queryFn: () => getQuestionDetail(id),
+      enabled: list.isSuccess,
+    })),
+  })
+
+  const items: QuestionWithText[] = (list.data?.items ?? []).map((question, index) => ({
+    id: question.id,
+    type: question.type,
+    difficulty: question.difficulty,
+    status: question.status,
+    questionText: details[index]?.data?.currentVersion?.questionText ?? null,
+    createdAt: question.createdAt,
+  }))
+
+  return {
+    items,
+    total: list.data?.total ?? 0,
+    page: list.data?.page ?? params.page ?? 1,
+    pageSize: list.data?.pageSize ?? params.pageSize ?? 20,
+    isPending: list.isPending,
+    isError: list.isError,
+    isFetching: list.isFetching || details.some((d) => d.isFetching),
+  }
+}
+
+// --- Question categories / topics / tags — confirmed as real, existing
+// backend endpoints (GET /question-categories, /question-topics,
+// /question-tags, all gated by the same QUESTION_BANK_MANAGE permission
+// as /questions itself — schema.sql seeds no dedicated questions.view key
+// at all, so read and write share one permission tier here), not assumed.
+
+function listCategories(
+  params: ListQuestionCategoriesParams,
+): Promise<ListQuestionCategoriesResponse> {
+  return api.get<ListQuestionCategoriesResponse>('/question-categories', { params })
+}
+
+export function useCategories(params: ListQuestionCategoriesParams) {
+  return useQuery({
+    queryKey: ['question-bank', 'categories', 'list', params],
+    queryFn: () => listCategories(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+function listTopics(params: ListQuestionTopicsParams): Promise<ListQuestionTopicsResponse> {
+  return api.get<ListQuestionTopicsResponse>('/question-topics', { params })
+}
+
+export function useTopics(params: ListQuestionTopicsParams) {
+  return useQuery({
+    queryKey: ['question-bank', 'topics', 'list', params],
+    queryFn: () => listTopics(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+function listTags(params: ListQuestionTagsParams): Promise<ListQuestionTagsResponse> {
+  return api.get<ListQuestionTagsResponse>('/question-tags', { params })
+}
+
+export function useTags(params: ListQuestionTagsParams) {
+  return useQuery({
+    queryKey: ['question-bank', 'tags', 'list', params],
+    queryFn: () => listTags(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+// --- Question creation (this phase) ---
+
+function createQuestion(input: CreateQuestionInput): Promise<QuestionWithCurrentVersion> {
+  return api.post<QuestionWithCurrentVersion>('/questions', input)
+}
+
+export function useCreateQuestion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createQuestion,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
   })
 }

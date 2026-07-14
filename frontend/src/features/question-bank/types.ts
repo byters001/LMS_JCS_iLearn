@@ -95,3 +95,164 @@ export interface ListQuestionPoolsResponse {
   page: number
   pageSize: number
 }
+
+// --- Question categories / topics / tags (creation-form pickers) ---
+
+export interface QuestionCategory {
+  id: string
+  name: string
+  parentCategoryId: string | null
+  createdAt: string
+}
+
+export interface ListQuestionCategoriesParams {
+  page?: number
+  pageSize?: number
+  parentCategoryId?: string
+}
+
+export interface ListQuestionCategoriesResponse {
+  items: QuestionCategory[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface QuestionTopic {
+  id: string
+  name: string
+  categoryId: string | null
+  createdAt: string
+}
+
+export interface ListQuestionTopicsParams {
+  page?: number
+  pageSize?: number
+  categoryId?: string
+}
+
+export interface ListQuestionTopicsResponse {
+  items: QuestionTopic[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+// question_tags has no createdAt column at all (checked against the real
+// table — the most minimal table in this schema, just id + a unique name).
+export interface QuestionTag {
+  id: string
+  name: string
+}
+
+export interface ListQuestionTagsParams {
+  page?: number
+  pageSize?: number
+}
+
+export interface ListQuestionTagsResponse {
+  items: QuestionTag[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+// --- Question creation (this phase) ---
+
+// Matches backend/src/integrations/judge0/judge0.constants.ts's
+// JUDGE0_LANGUAGE_ID keys exactly — question-bank.schema.ts's
+// codingLanguageSchema validates supportedLanguages against these same
+// keys, confirmed by reading both files directly.
+export type CodingLanguageKey = 'C' | 'CPP' | 'JAVA' | 'JAVASCRIPT' | 'PYTHON3'
+
+export const CODING_LANGUAGE_LABELS: Record<CodingLanguageKey, string> = {
+  C: 'C',
+  CPP: 'C++',
+  JAVA: 'Java',
+  JAVASCRIPT: 'JavaScript',
+  PYTHON3: 'Python 3',
+}
+
+export interface QuestionOptionInput {
+  optionText: string
+  imageUrl?: string
+  isCorrect?: boolean
+  sortOrder?: number
+}
+
+export interface CodingQuestionDetailsInput {
+  problemStatement: string
+  inputFormat?: string
+  outputFormat?: string
+  constraints?: string
+  timeLimitMs?: number
+  memoryLimitKb?: number
+  supportedLanguages?: CodingLanguageKey[]
+}
+
+export interface CodingTestCaseInput {
+  input?: string
+  expectedOutput?: string
+  isHidden?: boolean
+  points?: number
+  sortOrder?: number
+}
+
+// scaleType/traitCategory are both optional relabeling metadata, not
+// something an attempt requires to be answerable — see
+// features/attempts/components/PsychometricQuestion.tsx's own comment:
+// the attempt-taking UI always renders a fixed 1-5 scale; psychometric
+// options (when present) only relabel each point, they are never the
+// selectable choices themselves.
+export interface PsychometricDetailsInput {
+  traitCategory?: string
+  scaleType?: 'likert' | 'scenario'
+}
+
+export interface PsychometricOptionInput {
+  optionText: string
+  traitWeight?: number
+  sortOrder?: number
+}
+
+// Matches backend/src/modules/question-bank/question-bank.schema.ts's
+// createQuestionSchema exactly (.strict(), confirmed by reading the real
+// schema field-for-field, not assumed). codingDetails/testCases and
+// psychometricDetails/psychometricOptions are ALL optional here regardless
+// of `type` at the schema level — question-bank.service.ts's
+// assertTypeSpecificPayloadsMatch only FORBIDS the mismatched pair (a
+// coding payload on a non-coding type, etc.), it never REQUIRES the
+// matching payload for its own type. The frontend form still requires the
+// sensible fields per type client-side (an MCQ with zero options, or a
+// coding question with no problem statement, would create technically but
+// be useless) — that's a UX choice layered on top of a schema that is
+// genuinely this permissive, not a misreading of it.
+export interface CreateQuestionInput {
+  categoryId?: string
+  type: QuestionType
+  difficulty: QuestionDifficulty
+  collegeId?: string
+  questionText: string
+  marks?: number
+  options?: QuestionOptionInput[]
+  codingDetails?: CodingQuestionDetailsInput
+  testCases?: CodingTestCaseInput[]
+  psychometricDetails?: PsychometricDetailsInput
+  psychometricOptions?: PsychometricOptionInput[]
+  topicIds?: string[]
+  tagIds?: string[]
+}
+
+// Enriched row for QuestionListPage — same two-step "list then fetch each
+// row's text" shape as api.ts's useQuestionsForPicker (GET /questions has
+// no question text and no search param; see that hook's comment for the
+// full reasoning), but returns the fields a list page's columns need
+// instead of one flattened combobox label string.
+export interface QuestionWithText {
+  id: string
+  type: QuestionType
+  difficulty: QuestionDifficulty
+  status: QuestionStatus
+  questionText: string | null
+  createdAt: string
+}

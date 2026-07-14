@@ -9,6 +9,8 @@ import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
 import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
+import CreateQuestionPage from '@/features/question-bank/pages/CreateQuestionPage'
+import QuestionListPage from '@/features/question-bank/pages/QuestionListPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
@@ -99,6 +101,10 @@ export function AppRoutes() {
               <Route path="new" element={<CreateAssessmentPage />} />
               <Route path=":id/edit" element={<AssessmentEditPage />} />
             </Route>
+            <Route path="questions">
+              <Route index element={<QuestionListPage />} />
+              <Route path="new" element={<CreateQuestionPage />} />
+            </Route>
             <Route path="analytics" element={<BatchPerformancePage />} />
           </Route>
         </Route>
@@ -110,6 +116,10 @@ export function AppRoutes() {
               <Route index element={<AssessmentListPage />} />
               <Route path="new" element={<CreateAssessmentPage />} />
               <Route path=":id/edit" element={<AssessmentEditPage />} />
+            </Route>
+            <Route path="questions">
+              <Route index element={<QuestionListPage />} />
+              <Route path="new" element={<CreateQuestionPage />} />
             </Route>
             <Route path="analytics" element={<BatchPerformancePage />} />
           </Route>
