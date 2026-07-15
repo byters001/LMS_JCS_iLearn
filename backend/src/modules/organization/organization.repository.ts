@@ -8,6 +8,14 @@ import {
   trainingProgramTrainers,
   trainingPrograms,
 } from '../../db/schema/organization.schema';
+// trainingProgramStudents lives in students.schema.ts, not this module's own
+// schema file — imported directly for a plain SQL join (student count per
+// batch), same as students.repository.ts already imports users/departments/
+// colleges directly for its own name-joins. CLAUDE.md's boundary rule is
+// about not calling another module's SERVICE/REPOSITORY functions, not about
+// sharing a raw table definition for a join — this isn't a boundary
+// violation.
+import { trainingProgramStudents } from '../../db/schema/students.schema';
 import type {
   AcademicYear,
   Batch,
@@ -488,37 +496,102 @@ async function deleteTrainingProgramTrainer(
 // --- Batches ---
 // Soft delete (deleted_at): schema.sql gives batches a deleted_at column,
 // same mechanism as colleges/departments/training_programs. Note: batches
-// has NO academic_year_id column at all (checked schema.sql directly,
-// didn't assume) — only training_program_id.
+// has NO academic_year_id column, and no direct college_id/department_id
+// either (checked schema.sql directly, didn't assume) — only
+// training_program_id. collegeId/departmentId/studentCount below all come
+// from joins, not columns on this table.
 
 export interface ListBatchesParams {
+  collegeId: string;
   trainingProgramId?: string;
   page: number;
   pageSize: number;
 }
 
+// Enriched read shape for listBatches — same "explicit named-column select
+// alongside joins" pattern as students.repository.ts's
+// StudentProfileWithNames, for the same reason: BatchListPage's card grid
+// needs collegeName/departmentName/studentCount displayed per batch, not
+// just the raw batches row.
+export interface BatchWithDetails extends Batch {
+  collegeName: string;
+  departmentName: string;
+  studentCount: number;
+}
+
 export interface ListBatchesResult {
-  items: Batch[];
+  items: BatchWithDetails[];
   total: number;
 }
 
-function buildBatchesWhere(trainingProgramId?: string) {
-  const conditions = [isNull(batches.deletedAt)];
+function buildBatchesWhere(collegeId: string, trainingProgramId?: string) {
+  const conditions = [isNull(batches.deletedAt), eq(trainingPrograms.collegeId, collegeId)];
   if (trainingProgramId) conditions.push(eq(batches.trainingProgramId, trainingProgramId));
   return and(...conditions);
 }
 
+// trainingPrograms/colleges/departments are all INNER JOINs, not LEFT —
+// unlike students.repository.ts's name-joins (which guard against a
+// nullable FK), batches.trainingProgramId and training_programs'
+// collegeId/departmentId are all NOT NULL, so a batch can never actually be
+// missing this chain; no risk of silently dropping a row.
 async function listBatches(params: ListBatchesParams): Promise<ListBatchesResult> {
-  const { trainingProgramId, page, pageSize } = params;
+  const { collegeId, trainingProgramId, page, pageSize } = params;
   const offset = (page - 1) * pageSize;
-  const where = buildBatchesWhere(trainingProgramId);
+  const where = buildBatchesWhere(collegeId, trainingProgramId);
 
   const [items, totalRows] = await Promise.all([
-    db.select().from(batches).where(where).orderBy(asc(batches.name)).limit(pageSize).offset(offset),
-    db.select({ count: sql<number>`count(*)` }).from(batches).where(where),
+    db
+      .select({
+        id: batches.id,
+        trainingProgramId: batches.trainingProgramId,
+        name: batches.name,
+        maxStudents: batches.maxStudents,
+        status: batches.status,
+        commonPasswordHash: batches.commonPasswordHash,
+        createdAt: batches.createdAt,
+        updatedAt: batches.updatedAt,
+        createdBy: batches.createdBy,
+        updatedBy: batches.updatedBy,
+        deletedAt: batches.deletedAt,
+        collegeName: colleges.name,
+        departmentName: departments.name,
+        // Active enrollments only — a dropped/transferred/completed
+        // enrollment shouldn't inflate the displayed headcount, same
+        // 'active'-only filtering precedent as students.repository.ts's
+        // listActiveBatchIdsForStudent.
+        studentCount: sql<number>`count(${trainingProgramStudents.id}) filter (where ${trainingProgramStudents.status} = 'active')`,
+      })
+      .from(batches)
+      .innerJoin(trainingPrograms, eq(trainingPrograms.id, batches.trainingProgramId))
+      .innerJoin(colleges, eq(colleges.id, trainingPrograms.collegeId))
+      .innerJoin(departments, eq(departments.id, trainingPrograms.departmentId))
+      .leftJoin(trainingProgramStudents, eq(trainingProgramStudents.batchId, batches.id))
+      .where(where)
+      .groupBy(batches.id, colleges.name, departments.name)
+      .orderBy(asc(batches.name))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(distinct ${batches.id})` })
+      .from(batches)
+      .innerJoin(trainingPrograms, eq(trainingPrograms.id, batches.trainingProgramId))
+      .where(where),
   ]);
 
-  return { items, total: Number(totalRows[0]?.count ?? 0) };
+  // count(...) is a Postgres bigint — the driver returns it as a STRING, not
+  // a genuine JS number (confirmed live: the raw response had
+  // "studentCount": "28", not 28), same reason every OTHER list function in
+  // this codebase already wraps its `total` in Number(...). The `sql<number>`
+  // type annotation above is a compile-time hint only; it doesn't coerce
+  // anything at runtime, so this per-row field needs the same explicit
+  // conversion the pagination total already gets.
+  const itemsWithNumericCount = items.map((item) => ({
+    ...item,
+    studentCount: Number(item.studentCount),
+  }));
+
+  return { items: itemsWithNumericCount, total: Number(totalRows[0]?.count ?? 0) };
 }
 
 async function findBatchById(id: string): Promise<Batch | undefined> {
@@ -534,6 +607,7 @@ export interface CreateBatchData {
   trainingProgramId: string;
   name: string;
   maxStudents?: number | null;
+  commonPasswordHash: string;
   createdBy: string | null;
 }
 

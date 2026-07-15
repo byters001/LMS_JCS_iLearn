@@ -1,4 +1,4 @@
-import { BarChart3, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Search, Users } from 'lucide-react'
+import { BarChart3, BookOpen, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Search, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/authStore'
 // /admin/pools are real, already-built routes, not placeholders.
 const NAV_ITEMS = [
   { type: 'link' as const, to: '/admin', label: 'Students', end: true, icon: Users },
+  { type: 'link' as const, to: '/admin/batches', label: 'Batches', end: true, icon: BookOpen },
   {
     type: 'group' as const,
     label: 'Question Bank',

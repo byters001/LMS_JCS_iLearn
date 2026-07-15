@@ -168,6 +168,12 @@ export const batches = pgTable(
     name: text('name').notNull(),
     maxStudents: integer('max_students'),
     status: batchStatusEnum('status').notNull().default('active'),
+    // Nullable: existing batches have none until set. Hashed with argon2
+    // (matching the exact call pattern used everywhere else in this
+    // codebase — see organization.service.ts's createBatch) — never the
+    // plaintext. Consumed starting Phase 3 (bulk student creation against a
+    // batch); not read or written by anything in this phase beyond create.
+    commonPasswordHash: text('common_password_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),

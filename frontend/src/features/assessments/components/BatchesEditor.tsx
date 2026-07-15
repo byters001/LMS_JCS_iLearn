@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/Combobox'
-import { useBatches } from '@/features/organization/api'
+import { useBatches, useColleges } from '@/features/organization/api'
+import { useAuthStore } from '@/store/authStore'
 import { useUpdateAssessmentBatches } from '../api'
 import type { AssessmentStatus } from '../types'
 
@@ -12,10 +13,11 @@ const BATCH_LOCKED_STATUSES: AssessmentStatus[] = ['live', 'completed', 'archive
 // but resolving "the training program this assessment's training session
 // belongs to" would need a single-session lookup the trainers module
 // doesn't expose (GET /training-sessions is list-only, no /:id route this
-// phase — see trainers.routes.ts). Listing all batches, paginated, mirrors
-// the same unscoped-discovery precedent CreateAssessmentPage's
-// trainingSessionId dropdown already established.
+// phase — see trainers.routes.ts). Listing all batches for the resolved
+// college, paginated, mirrors the same unscoped-discovery precedent
+// CreateAssessmentPage's trainingSessionId dropdown already established.
 const BATCH_PICKER_PAGE_SIZE = 100
+const COLLEGE_PICKER_PAGE_SIZE = 100
 
 interface BatchesEditorProps {
   assessmentId: string
@@ -26,7 +28,33 @@ interface BatchesEditorProps {
 export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorProps) {
   const updateBatches = useUpdateAssessmentBatches(assessmentId)
   const isLocked = BATCH_LOCKED_STATUSES.includes(status)
-  const batches = useBatches({ page: 1, pageSize: BATCH_PICKER_PAGE_SIZE })
+
+  // GET /batches now requires collegeId, enforced server-side (Phase 2 of
+  // the batches work) — a Faculty caller's own activeCollegeId already
+  // resolves this with no extra step (they're scoped to one college), but
+  // Super Admin's activeCollegeId is null (a global grant, per
+  // auth.service.ts's resolveActiveCollegeId), so there's no single default
+  // college to fall back to. For that case only, this shows a college
+  // picker first — same temporary-stand-in reasoning as
+  // BatchListPage.tsx's own picker (no top-bar college switcher exists yet).
+  const user = useAuthStore((state) => state.user)
+  const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
+  const collegeId = user?.activeCollegeId ?? pickedCollegeId
+
+  const colleges = useColleges(
+    { page: 1, pageSize: COLLEGE_PICKER_PAGE_SIZE },
+    // Only fetched when actually needed (no activeCollegeId to fall back
+    // on) — a Faculty caller never triggers this extra request.
+  )
+  const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
+    value: college.id,
+    label: college.name,
+  }))
+
+  const batches = useBatches(
+    { collegeId: collegeId ?? '', page: 1, pageSize: BATCH_PICKER_PAGE_SIZE },
+    { enabled: collegeId !== null },
+  )
 
   // Initialized once from the incoming prop, same convention as every other
   // form on this page (e.g. CreateAssessmentPage's useForm defaultValues) —
@@ -78,21 +106,39 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
             </ul>
           )}
 
+          {/* Only Super Admin ever sees this — Faculty's own activeCollegeId
+              already resolves `collegeId` above with no picker needed. */}
+          {user?.activeCollegeId == null && (
+            <Combobox
+              id="batchesEditorCollegePicker"
+              options={collegeOptions}
+              value={pickedCollegeId}
+              onSelect={setPickedCollegeId}
+              placeholder="Select a college to browse its batches…"
+              isLoading={colleges.isPending}
+              isError={colleges.isError}
+              errorMessage="Failed to load colleges."
+            />
+          )}
+
           <Combobox
             id="batchPicker"
             options={addOptions}
             value={null}
             onSelect={(value) => setSelectedIds((prev) => [...prev, value])}
-            placeholder="Search batches by name to add…"
+            placeholder={collegeId ? 'Search batches by name to add…' : 'Select a college first'}
+            disabled={collegeId === null}
             isLoading={batches.isPending}
             isError={batches.isError}
             errorMessage="Failed to load batches."
             emptyMessage={
-              batches.isPending
-                ? 'Loading…'
-                : addOptions.length === 0 && (batches.data?.items.length ?? 0) > 0
-                  ? 'All available batches are already added.'
-                  : 'No batches found.'
+              collegeId === null
+                ? 'Select a college first.'
+                : batches.isPending
+                  ? 'Loading…'
+                  : addOptions.length === 0 && (batches.data?.items.length ?? 0) > 0
+                    ? 'All available batches are already added.'
+                    : 'No batches found.'
             }
           />
 

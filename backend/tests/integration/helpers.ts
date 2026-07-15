@@ -129,8 +129,16 @@ export async function makeTrainingProgram(
 }
 
 export async function makeBatch(registry: FixtureRegistry, trainingProgramId: string, createdBy: string) {
+  // commonPassword is required as of organization.schema.ts's createBatchSchema
+  // (Phase 2 of the batches work) — same placeholder password convention as
+  // makeUser's passwordHash above, hashed the same way (argon2.hash(), no
+  // explicit options, this package version already defaults to argon2id).
   const batch = await organizationService.createBatch(
-    { trainingProgramId, name: `Test Batch ${randomUUID().slice(0, 8)}` },
+    {
+      trainingProgramId,
+      name: `Test Batch ${randomUUID().slice(0, 8)}`,
+      commonPassword: 'Test-Password-1234!',
+    },
     createdBy,
   );
   registry.batchIds.add(batch.id);

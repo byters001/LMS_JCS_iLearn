@@ -198,8 +198,17 @@ export const trainingProgramTrainerParamsSchema = z
 
 // --- Batches ---
 
+// collegeId is REQUIRED (not optional) — enforced here at the schema layer
+// (a request with none is rejected by validation before it ever reaches the
+// service) and again at the service layer against the caller's own
+// activeCollegeId (see organization.service.ts's listBatches) — scoping by
+// real access at the query layer, never just hidden in the UI. batches has
+// no direct college_id column (only training_program_id — see
+// organization.repository.ts's module comment), so this filters via a join
+// through training_programs.college_id.
 export const listBatchesQuerySchema = z
   .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID'),
     trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID').optional(),
     ...paginationFields,
   })
@@ -210,6 +219,14 @@ export const createBatchSchema = z
     trainingProgramId: z.string().uuid('trainingProgramId must be a valid UUID'),
     name: z.string().min(1, 'name is required'),
     maxStudents: z.coerce.number().int().positive().optional(),
+    // Hashed with argon2 (matching the exact call already used for user
+    // passwords — see tests/integration/helpers.ts's makeUser, argon2.hash()
+    // with no explicit type option, since this argon2 package version
+    // already defaults to argon2id) before being stored in the new
+    // common_password_hash column — never persisted as plaintext. Required,
+    // not optional: unlike maxStudents, a batch created without one would
+    // block Phase 3's bulk student creation later.
+    commonPassword: z.string().min(8, 'commonPassword must be at least 8 characters'),
   })
   .strict();
 

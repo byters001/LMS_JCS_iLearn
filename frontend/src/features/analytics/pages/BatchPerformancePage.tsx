@@ -12,8 +12,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAssessments } from '@/features/assessments/api'
-import { useBatches } from '@/features/organization/api'
+import { useBatches, useColleges } from '@/features/organization/api'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 import { useBatchPerformance } from '../api'
 import type { PerStudentStatus } from '../types'
 
@@ -76,7 +77,26 @@ export default function BatchPerformancePage() {
   const [assessmentId, setAssessmentId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
-  const batches = useBatches({ page: 1, pageSize: PICKER_PAGE_SIZE })
+  // GET /batches now requires collegeId, enforced server-side (Phase 2 of
+  // the batches work) — same fix as BatchesEditor.tsx: Faculty's own
+  // activeCollegeId already resolves this with no extra step, Super Admin
+  // (activeCollegeId null, a global grant) gets a college picker instead,
+  // since there's no single default college to fall back to and no top-bar
+  // college switcher yet.
+  const user = useAuthStore((state) => state.user)
+  const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
+  const collegeId = user?.activeCollegeId ?? pickedCollegeId
+
+  const colleges = useColleges({ page: 1, pageSize: PICKER_PAGE_SIZE })
+  const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
+    value: college.id,
+    label: college.name,
+  }))
+
+  const batches = useBatches(
+    { collegeId: collegeId ?? '', page: 1, pageSize: PICKER_PAGE_SIZE },
+    { enabled: collegeId !== null },
+  )
   // Unfiltered, same "unscoped discovery" precedent as the trainingSessionId
   // dropdown and the question/pool/batch pickers — GET /assessments has no
   // batchId filter to narrow this by (confirmed against the real schema).
@@ -129,6 +149,28 @@ export default function BatchPerformancePage() {
 
       <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Only Super Admin ever sees this — Faculty's own activeCollegeId
+              already resolves `collegeId` above with no picker needed. */}
+          {user?.activeCollegeId == null && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-xs font-medium text-brand-primary" htmlFor="collegePicker">
+                College
+              </label>
+              <Combobox
+                id="collegePicker"
+                options={collegeOptions}
+                value={pickedCollegeId}
+                onSelect={(value) => {
+                  setPickedCollegeId(value)
+                  setBatchId(null)
+                }}
+                placeholder="Select a college to browse its batches…"
+                isLoading={colleges.isPending}
+                isError={colleges.isError}
+                errorMessage="Failed to load colleges."
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-brand-primary" htmlFor="batchPicker">
               Batch
@@ -141,11 +183,18 @@ export default function BatchPerformancePage() {
                 setBatchId(value)
                 setPage(1)
               }}
-              placeholder="Search batches by name…"
+              placeholder={collegeId ? 'Search batches by name…' : 'Select a college first'}
+              disabled={collegeId === null}
               isLoading={batches.isPending}
               isError={batches.isError}
               errorMessage="Failed to load batches."
-              emptyMessage={batches.isPending ? 'Loading…' : 'No batches found.'}
+              emptyMessage={
+                collegeId === null
+                  ? 'Select a college first.'
+                  : batches.isPending
+                    ? 'Loading…'
+                    : 'No batches found.'
+              }
             />
           </div>
           <div className="space-y-1.5">

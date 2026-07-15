@@ -35,6 +35,18 @@ function requireUserId(request: FastifyRequest): string {
   return request.user.id;
 }
 
+// Same helper as analytics.controller.ts's own requireActiveCollegeId —
+// null means a global (Super Admin) grant, non-null means a college-scoped
+// caller (Faculty). Threaded into organizationService.listBatches so it can
+// enforce "collegeId the caller doesn't have access to must be rejected",
+// not just requireUserId's plain authentication check.
+function requireActiveCollegeId(request: FastifyRequest): string | null {
+  if (!request.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+  return request.user.activeCollegeId ?? null;
+}
+
 // --- Colleges ---
 
 async function listColleges(
@@ -296,7 +308,8 @@ async function listBatches(
   request: FastifyRequest<{ Querystring: ListBatchesQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const result = await organizationService.listBatches(request.query);
+  const activeCollegeId = requireActiveCollegeId(request);
+  const result = await organizationService.listBatches(request.query, activeCollegeId);
   const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
   reply.status(200).send(response);
 }
@@ -338,6 +351,16 @@ async function deleteBatch(
   reply.status(204).send();
 }
 
+async function toggleBatchActive(
+  request: FastifyRequest<{ Params: BatchIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const updatedBy = requireUserId(request);
+  const batch = await organizationService.toggleBatchActive(request.params.id, updatedBy);
+  const response: ApiSuccessResponse<typeof batch> = { success: true, data: batch };
+  reply.status(200).send(response);
+}
+
 export const organizationController = {
   listColleges,
   getCollegeById,
@@ -366,4 +389,5 @@ export const organizationController = {
   createBatch,
   updateBatch,
   deleteBatch,
+  toggleBatchActive,
 };

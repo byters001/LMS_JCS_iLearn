@@ -120,6 +120,20 @@
       "when": 1783930818089,
       "tag": "0016_grant-faculty-students-view",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784126254741,
+      "tag": "0017_brief_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784126271660,
+      "tag": "0018_add-batches-toggle-active-permission",
+      "breakpoints": true
     }
   ]
 }

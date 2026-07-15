@@ -394,6 +394,24 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
     },
     organizationController.deleteBatch,
   );
+
+  // Deliberately gated by a DIFFERENT, narrower key than every other
+  // batches.* route above: 'batches.manage' is held by both super_admin AND
+  // faculty (see schema.sql's seed), but this action is meant to be
+  // super_admin only. This codebase has no role-slug-based guard at all
+  // (checked rbac/require-permission.ts — only permission-key checks exist,
+  // and request.user carries no `roles` array), so "super_admin only" is
+  // expressed the same way every other such restriction already is in this
+  // codebase: a dedicated permission key granted to just one role — see
+  // drizzle/migrations/0018_add-batches-toggle-active-permission.sql.
+  fastify.patch<{ Params: BatchIdParams }>(
+    '/batches/:id/toggle-active',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.toggle_active')],
+      preValidation: validateParams(batchIdParamsSchema),
+    },
+    organizationController.toggleBatchActive,
+  );
 }
 
 export default organizationRoutes;

@@ -1,6 +1,7 @@
+import argon2 from 'argon2';
 import type { AcademicYear, Batch, College, Department, TrainingProgram, TrainingProgramTrainer } from '../../db/types';
 import { usersService } from '../users/users.service';
-import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { organizationRepository } from './organization.repository';
 import type {
   AssignTrainingProgramTrainerInput,
@@ -350,8 +351,26 @@ async function removeTrainingProgramTrainer(
 
 // --- Batches ---
 
-async function listBatches(query: ListBatchesQuery): Promise<ListBatchesResult> {
+// activeCollegeId semantics confirmed against auth.service.ts's
+// resolveActiveCollegeId, same precedent analytics.service.ts's
+// assertCanAccessBatch already established: null reliably means "this
+// caller holds a GLOBAL grant" (only Super Admin's role assignment has a
+// NULL college_id per schema.sql), so a non-null activeCollegeId that
+// doesn't match the requested collegeId means a college-scoped caller
+// (Faculty) is trying to read a college they hold no grant over — rejected
+// here, not just hidden in the UI, per the brief's own stated principle.
+// collegeId itself being present at all is already enforced one layer up,
+// at the zod schema (listBatchesQuerySchema.collegeId has no .optional()).
+async function listBatches(
+  query: ListBatchesQuery,
+  activeCollegeId: string | null,
+): Promise<ListBatchesResult> {
+  if (activeCollegeId !== null && query.collegeId !== activeCollegeId) {
+    throw new ForbiddenError('You are not authorized to view batches for this college');
+  }
+
   const { items, total } = await organizationRepository.listBatches({
+    collegeId: query.collegeId,
     trainingProgramId: query.trainingProgramId,
     page: query.page,
     pageSize: query.pageSize,
@@ -377,7 +396,16 @@ async function createBatch(input: CreateBatchInput, createdBy: string): Promise<
     throw new NotFoundError('Training program not found');
   }
 
-  return organizationRepository.createBatch({ ...input, createdBy });
+  // argon2.hash() with no explicit options — this package version already
+  // defaults to argon2id, matching the exact call already used for user
+  // passwords (tests/integration/helpers.ts's makeUser; there is no
+  // dedicated reusable hashing helper anywhere in src to import instead —
+  // confirmed by grep, that call is the only real precedent). Never store
+  // the plaintext.
+  const { commonPassword, ...rest } = input;
+  const commonPasswordHash = await argon2.hash(commonPassword);
+
+  return organizationRepository.createBatch({ ...rest, commonPasswordHash, createdBy });
 }
 
 async function updateBatch(
@@ -403,6 +431,33 @@ async function deleteBatch(id: string): Promise<void> {
     throw new NotFoundError('Batch not found');
   }
   await organizationRepository.deleteBatch(id);
+}
+
+// Toggles between 'active' and 'archived' only — batch_status_enum has a
+// third state ('completed') that this deliberately does not touch: a
+// completed batch is a permanent lifecycle end-state (a training program
+// that's finished running), not something a simple active/inactive switch
+// should silently reopen. Rejects rather than guessing what the caller
+// meant. Reuses the existing updateBatch repository call rather than a new
+// one — this is a thin business-rule wrapper around the same write.
+async function toggleBatchActive(id: string, updatedBy: string): Promise<Batch> {
+  const existing = await organizationRepository.findBatchById(id);
+  if (!existing) {
+    throw new NotFoundError('Batch not found');
+  }
+  if (existing.status === 'completed') {
+    throw new ConflictError('Cannot toggle a completed batch');
+  }
+
+  const nextStatus = existing.status === 'active' ? 'archived' : 'active';
+  const updated = await organizationRepository.updateBatch(id, {
+    status: nextStatus,
+    updatedBy,
+  });
+  if (!updated) {
+    throw new NotFoundError('Batch not found');
+  }
+  return updated;
 }
 
 export const organizationService = {
@@ -433,4 +488,5 @@ export const organizationService = {
   createBatch,
   updateBatch,
   deleteBatch,
+  toggleBatchActive,
 };

@@ -1,11 +1,11 @@
 import type {
   AcademicYear,
-  Batch,
   College,
   Department,
   TrainingProgram,
   TrainingProgramTrainer,
 } from '../../db/types';
+import type { BatchWithDetails } from './organization.repository';
 
 export interface ListCollegesResult {
   items: College[];
@@ -43,7 +43,7 @@ export interface ListTrainingProgramTrainersResult {
 }
 
 export interface ListBatchesResult {
-  items: Batch[];
+  items: BatchWithDetails[];
   total: number;
   page: number;
   pageSize: number;

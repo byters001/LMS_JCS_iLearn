@@ -16,6 +16,8 @@ import PoolListPage from '@/features/question-bank/pages/PoolListPage'
 import QuestionDetailPage from '@/features/question-bank/pages/QuestionDetailPage'
 import QuestionListPage from '@/features/question-bank/pages/QuestionListPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
+import BatchListPage from '@/features/organization/pages/BatchListPage'
+import CreateBatchPage from '@/features/organization/pages/CreateBatchPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import AdminLayout from '@/layouts/AdminLayout'
@@ -126,6 +128,14 @@ export function AppRoutes() {
         <Route element={<RequireRole roles={['super_admin']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<StudentListPage />} />
+            {/* Admin only this phase — the brief's Trainer "My Batches" view
+                depends on Phase 4's per-trainer assignment scoping, which
+                doesn't exist yet (see BatchListPage.tsx's own module
+                comment on collegeId enforcement). */}
+            <Route path="batches">
+              <Route index element={<BatchListPage />} />
+              <Route path="new" element={<CreateBatchPage />} />
+            </Route>
             <Route path="assessments">
               <Route index element={<AssessmentListPage />} />
               <Route path="new" element={<CreateAssessmentPage />} />
