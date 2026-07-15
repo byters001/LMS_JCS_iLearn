@@ -4,6 +4,8 @@ import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } f
 import { api } from '@/api'
 import type {
   ApprovalActionInput,
+  CreatePoolCriterionInput,
+  CreatePoolInput,
   CreateQuestionInput,
   ListQuestionCategoriesParams,
   ListQuestionCategoriesResponse,
@@ -16,8 +18,11 @@ import type {
   ListQuestionTopicsParams,
   ListQuestionTopicsResponse,
   Question,
+  QuestionPool,
+  QuestionPoolCriterion,
   QuestionWithCurrentVersion,
   QuestionWithText,
+  ResolvedQuestionPool,
 } from './types'
 
 function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsResponse> {
@@ -269,5 +274,95 @@ export function useRejectQuestion(id: string) {
       queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'detail', id] })
       queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
     },
+  })
+}
+
+// --- Question pool creation + criteria (this phase) ---
+
+function createPool(input: CreatePoolInput): Promise<QuestionPool> {
+  return api.post<QuestionPool>('/question-pools', input)
+}
+
+export function useCreatePool() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createPool,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'question-pools', 'list'] })
+    },
+  })
+}
+
+// GET /question-pools/:id — the bare pool row (name/description/type/
+// category), same shape/naming convention as useQuestionDetail above. Kept
+// separate from useResolvePool below: this is a cheap, safe-to-auto-fetch
+// metadata read, not the live randomized draw.
+function getPoolDetail(id: string): Promise<QuestionPool> {
+  return api.get<QuestionPool>(`/question-pools/${id}`)
+}
+
+export function usePoolDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: ['question-bank', 'question-pools', 'detail', id],
+    queryFn: () => getPoolDetail(id as string),
+    enabled: Boolean(id),
+  })
+}
+
+function listPoolCriteria(poolId: string): Promise<QuestionPoolCriterion[]> {
+  return api.get<QuestionPoolCriterion[]>(`/question-pools/${poolId}/criteria`)
+}
+
+export function usePoolCriteria(poolId: string | undefined) {
+  return useQuery({
+    queryKey: ['question-bank', 'question-pools', 'criteria', poolId],
+    queryFn: () => listPoolCriteria(poolId as string),
+    enabled: Boolean(poolId),
+  })
+}
+
+function addCriterion(
+  poolId: string,
+  input: CreatePoolCriterionInput,
+): Promise<QuestionPoolCriterion> {
+  return api.post<QuestionPoolCriterion>(`/question-pools/${poolId}/criteria`, input)
+}
+
+export function useAddCriterion(poolId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreatePoolCriterionInput) => addCriterion(poolId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['question-bank', 'question-pools', 'criteria', poolId],
+      })
+      // A resolution preview taken before this criterion existed is now
+      // stale (missing a whole slice of the pool) — drop any cached result
+      // rather than let PoolDetailPage show a preview that predates the
+      // pool's current criteria set.
+      queryClient.removeQueries({
+        queryKey: ['question-bank', 'question-pools', 'resolve', poolId],
+      })
+    },
+  })
+}
+
+// GET /question-pools/:id/resolve — a deliberate live dry run: every call
+// re-runs a real randomized draw against currently-approved questions
+// (question-bank.service.ts's resolveQuestionPool), so this is NOT
+// auto-fetched on page load like usePoolDetail/usePoolCriteria above.
+// enabled: false + PoolDetailPage calling refetch() from an explicit
+// "Preview Resolution" button keeps the re-roll opt-in and visible to the
+// curator, instead of silently re-rolling on every unrelated re-render.
+function resolvePool(id: string): Promise<ResolvedQuestionPool> {
+  return api.get<ResolvedQuestionPool>(`/question-pools/${id}/resolve`)
+}
+
+export function useResolvePool(id: string) {
+  return useQuery({
+    queryKey: ['question-bank', 'question-pools', 'resolve', id],
+    queryFn: () => resolvePool(id),
+    enabled: false,
+    retry: false,
   })
 }

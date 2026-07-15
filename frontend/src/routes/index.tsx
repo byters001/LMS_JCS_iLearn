@@ -9,7 +9,10 @@ import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
 import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
+import CreatePoolPage from '@/features/question-bank/pages/CreatePoolPage'
 import CreateQuestionPage from '@/features/question-bank/pages/CreateQuestionPage'
+import PoolDetailPage from '@/features/question-bank/pages/PoolDetailPage'
+import PoolListPage from '@/features/question-bank/pages/PoolListPage'
 import QuestionDetailPage from '@/features/question-bank/pages/QuestionDetailPage'
 import QuestionListPage from '@/features/question-bank/pages/QuestionListPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
@@ -107,6 +110,11 @@ export function AppRoutes() {
               <Route path="new" element={<CreateQuestionPage />} />
               <Route path=":id" element={<QuestionDetailPage />} />
             </Route>
+            <Route path="pools">
+              <Route index element={<PoolListPage />} />
+              <Route path="new" element={<CreatePoolPage />} />
+              <Route path=":id" element={<PoolDetailPage />} />
+            </Route>
             <Route path="analytics" element={<BatchPerformancePage />} />
           </Route>
         </Route>
@@ -123,6 +131,11 @@ export function AppRoutes() {
               <Route index element={<QuestionListPage />} />
               <Route path="new" element={<CreateQuestionPage />} />
               <Route path=":id" element={<QuestionDetailPage />} />
+            </Route>
+            <Route path="pools">
+              <Route index element={<PoolListPage />} />
+              <Route path="new" element={<CreatePoolPage />} />
+              <Route path=":id" element={<PoolDetailPage />} />
             </Route>
             <Route path="analytics" element={<BatchPerformancePage />} />
           </Route>

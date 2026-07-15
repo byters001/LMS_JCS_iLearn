@@ -264,3 +264,78 @@ export interface QuestionWithText {
 export interface ApprovalActionInput {
   notes?: string
 }
+
+// --- Question pool creation + criteria (this phase) ---
+
+// Matches backend's createQuestionPoolSchema exactly (.strict()): name,
+// description, collegeId, categoryId, type. collegeId is deliberately not
+// exposed by CreatePoolPage's form — same precedent CreateQuestionInput
+// set for questions: omitted => global reusable pool (question_pools.
+// college_id NULL, per question-bank.schema.ts's own comment).
+export interface CreatePoolInput {
+  name: string
+  description?: string
+  collegeId?: string
+  categoryId?: string
+  type: QuestionType
+}
+
+// Matches the raw `question_pool_criteria` row shape (db/schema/
+// question-bank.schema.ts): id, questionPoolId, difficulty, topicId,
+// tagFilter (jsonb string[], nullable), countRequired, createdAt. No
+// updatedAt/deletedAt — criteria rows are add/delete only in this UI, no
+// dedicated single-item GET (see backend routes' comment on this).
+export interface QuestionPoolCriterion {
+  id: string
+  questionPoolId: string
+  difficulty: QuestionDifficulty
+  topicId: string | null
+  tagFilter: string[] | null
+  countRequired: number
+  createdAt: string
+}
+
+// Matches createQuestionPoolCriteriaSchema exactly (.strict()).
+// tagFilter is ANY-match: a question qualifies if it has at least one
+// listed tag (see backend schema's own comment on this).
+export interface CreatePoolCriterionInput {
+  difficulty: QuestionDifficulty
+  topicId?: string
+  tagFilter?: string[]
+  countRequired?: number
+}
+
+// --- Pool resolution ("Preview Resolution") ---
+
+// One resolved question a criterion currently draws — enough to
+// sanity-check the preview (question text, difficulty, marks) without a
+// follow-up lookup per question. Matches backend's ResolvedPoolQuestion.
+export interface ResolvedPoolQuestion {
+  questionId: string
+  questionVersionId: string
+  questionText: string
+  difficulty: QuestionDifficulty
+  marks: string
+}
+
+// eligibleTotal: how many approved questions satisfy this criterion's OWN
+// filters, regardless of countRequired — a stable "is this well-supplied"
+// signal. selected: the (randomly-ordered) subset actually drawn this
+// call, capped at countRequired. selected.length < countRequired is the
+// real "under-supplied" signal a curator needs before an assessment
+// section can safely depend on this pool. Matches backend's
+// ResolvedPoolCriterion exactly.
+export interface ResolvedPoolCriterion extends QuestionPoolCriterion {
+  eligibleTotal: number
+  selected: ResolvedPoolQuestion[]
+}
+
+// Matches backend's ResolvedQuestionPool exactly — the full GET
+// /question-pools/:id/resolve response shape.
+export interface ResolvedQuestionPool {
+  pool: QuestionPool
+  criteria: ResolvedPoolCriterion[]
+  totalRequired: number
+  totalSelected: number
+  isFullySatisfied: boolean
+}

@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { to: '/trainer', label: 'Students', end: true },
   { to: '/trainer/assessments', label: 'Assessments', end: true },
   { to: '/trainer/questions', label: 'Questions', end: true },
+  { to: '/trainer/pools', label: 'Pools', end: true },
   { to: '/trainer/analytics', label: 'Analytics', end: true },
 ]
 
