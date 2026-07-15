@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, HelpCircle, Layers, Search, Users } from 'lucide-react'
+import { BarChart3, ClipboardList, HelpCircle, Search, Users } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -9,11 +9,27 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
 // Backend role slug for this layout is 'faculty' (see routes/roles.ts).
+//
+// No "Question Bank" group here despite Admin having one: Pools is
+// deliberately omitted (see this task's DECISION — faculty holds neither
+// question_pools.manage nor question_pools.manage_global; confirmed
+// directly against backend/drizzle/migrations/0009_add-question-pools-
+// permissions.sql, which grants both keys to super_admin only). With only
+// Questions left, nesting it under a one-item collapsible group would be
+// pure UI overhead with nothing to actually group it with — a flat link is
+// the honest structure here, not a smaller copy of Admin's group.
+//
+// Also deliberately NOT included: Trainers. The brief listed 'trainers.view'
+// as a permission faculty holds, but that's incorrect — confirmed directly
+// against backend/drizzle/migrations/0003_add-trainers-permissions.sql,
+// which grants trainers.view/trainers.manage to super_admin only. Moot for
+// nav purposes either way since a Trainers *page* doesn't exist yet (later
+// phase), but flagging the permission fact since the brief assumed
+// otherwise.
 const NAV_LINKS = [
   { to: '/trainer', label: 'Students', end: true, icon: Users },
-  { to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },
   { to: '/trainer/questions', label: 'Questions', end: true, icon: HelpCircle },
-  { to: '/trainer/pools', label: 'Pools', end: true, icon: Layers },
+  { to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },
   { to: '/trainer/analytics', label: 'Analytics', end: true, icon: BarChart3 },
 ]
 
@@ -66,15 +82,7 @@ function TrainerLayout() {
         </nav>
 
         {/* User block pinned to the bottom — also where the "Welcome back"
-            greeting now lives (see UserMenu.tsx's `greeting` prop). Moved
-            here instead of staying in the top bar: the top bar previously
-            had to fit nav + greeting + search + bell + name/email + logout
-            in one row, and a long real name ("Super Administrator Updated")
-            wrapped the whole row across 3 lines. Consolidating all
-            identity-related content (greeting, avatar, name, email, logout)
-            into one place — the sidebar's bottom block — means the top bar
-            no longer contains anything whose width depends on the user's
-            name length, so it can't wrap regardless of name length. */}
+            greeting lives (see UserMenu.tsx's `greeting` prop). */}
         <div className="shrink-0 border-t border-border p-4">
           <UserMenu
             name={user?.fullName ?? ''}

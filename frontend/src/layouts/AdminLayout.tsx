@@ -1,22 +1,86 @@
-import { BarChart3, ClipboardList, HelpCircle, Layers, Search, Users } from 'lucide-react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { BarChart3, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Search, Users } from 'lucide-react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { useLogout } from '@/features/auth/api'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
-// "Assessments" added alongside the existing "Students" link — first real
-// nav here, mirroring StudentLayout.tsx's pattern exactly.
-const NAV_LINKS = [
-  { to: '/admin', label: 'Students', end: true, icon: Users },
-  { to: '/admin/assessments', label: 'Assessments', end: true, icon: ClipboardList },
-  { to: '/admin/questions', label: 'Questions', end: true, icon: HelpCircle },
-  { to: '/admin/pools', label: 'Pools', end: true, icon: Layers },
-  { to: '/admin/analytics', label: 'Analytics', end: true, icon: BarChart3 },
+// super_admin holds question_pools.manage/manage_global (granted directly —
+// see backend/drizzle/migrations/0009_add-question-pools-permissions.sql),
+// so Pools is nested here alongside Questions under one "Question Bank"
+// group — confirmed against routes/index.tsx that both /admin/questions and
+// /admin/pools are real, already-built routes, not placeholders.
+const NAV_ITEMS = [
+  { type: 'link' as const, to: '/admin', label: 'Students', end: true, icon: Users },
+  {
+    type: 'group' as const,
+    label: 'Question Bank',
+    icon: Library,
+    children: [
+      { to: '/admin/questions', label: 'Questions', end: true, icon: HelpCircle },
+      { to: '/admin/pools', label: 'Pools', end: true, icon: Layers },
+    ],
+  },
+  { type: 'link' as const, to: '/admin/assessments', label: 'Assessments', end: true, icon: ClipboardList },
+  { type: 'link' as const, to: '/admin/analytics', label: 'Analytics', end: true, icon: BarChart3 },
 ]
+
+const NAV_LINK_CLASSNAME = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'flex items-center gap-2.5 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors',
+    isActive
+      ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+      : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
+  )
+
+function SidebarNav() {
+  const location = useLocation()
+
+  return (
+    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      {NAV_ITEMS.map((item) => {
+        if (item.type === 'link') {
+          return (
+            <NavLink key={item.to} to={item.to} end={item.end} className={NAV_LINK_CLASSNAME}>
+              <item.icon className="size-4 shrink-0" />
+              {item.label}
+            </NavLink>
+          )
+        }
+
+        const isChildActive = item.children.some((child) => location.pathname.startsWith(child.to))
+        return (
+          <Collapsible key={item.label} defaultOpen={isChildActive}>
+            <CollapsibleTrigger
+              className={cn(
+                'group flex w-full items-center gap-2.5 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors',
+                isChildActive
+                  ? 'border-transparent text-brand-primary'
+                  : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
+              )}
+            >
+              <item.icon className="size-4 shrink-0" />
+              <span className="flex-1 text-left">{item.label}</span>
+              <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1 pt-1 pl-4">
+              {item.children.map((child) => (
+                <NavLink key={child.to} to={child.to} end={child.end} className={NAV_LINK_CLASSNAME}>
+                  <child.icon className="size-4 shrink-0" />
+                  {child.label}
+                </NavLink>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        )
+      })}
+    </nav>
+  )
+}
 
 function AdminLayout() {
   const user = useAuthStore((state) => state.user)
@@ -45,37 +109,10 @@ function AdminLayout() {
           <img src={logo} alt="JCS iLearn" className="h-10 w-44 object-cover" />
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2.5 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-                    : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
-                )
-              }
-            >
-              <link.icon className="size-4 shrink-0" />
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
+        <SidebarNav />
 
         {/* User block pinned to the bottom — also where the "Welcome back"
-            greeting now lives (see UserMenu.tsx's `greeting` prop). Moved
-            here instead of staying in the top bar: the top bar previously
-            had to fit nav + greeting + search + bell + name/email + logout
-            in one row, and a long real name ("Super Administrator Updated")
-            wrapped the whole row across 3 lines. Consolidating all
-            identity-related content (greeting, avatar, name, email, logout)
-            into one place — the sidebar's bottom block — means the top bar
-            no longer contains anything whose width depends on the user's
-            name length, so it can't wrap regardless of name length. */}
+            greeting lives (see UserMenu.tsx's `greeting` prop). */}
         <div className="shrink-0 border-t border-border p-4">
           <UserMenu
             name={user?.fullName ?? ''}
