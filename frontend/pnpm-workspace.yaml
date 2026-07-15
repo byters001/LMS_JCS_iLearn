@@ -1,6 +1,9 @@
 packages:
   - .
 
+allowBuilds:
+  argon2: true
+
 # Forces a single zod resolution across the tree — shadcn's CLI pulls in
 # @modelcontextprotocol/sdk, which depends on zod@3, alongside the app's own
 # zod@4 (used by Zod-resolver React Hook Form validation). Two zod installs

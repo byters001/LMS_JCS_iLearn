@@ -31,7 +31,11 @@ import { getRoleHomePath } from './roles'
 const EMPTY_ROLES: string[] = []
 
 // Unauthenticated users hitting a protected route are sent to /login.
-function RequireAuth() {
+// Exported for direct unit testing (routes/RequireAuth.test.tsx) — the
+// alternative would be rendering the full AppRoutes tree in tests, which
+// drags in every feature page's own data-fetching just to exercise this
+// guard's redirect logic.
+export function RequireAuth() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />
 }
@@ -42,7 +46,7 @@ function RequireAuth() {
 // you're already authenticated, just not authorized for this route — a
 // different redirect target than RequireAuth's, so it stays a separate
 // component rather than an optional `roles` prop bolted onto RequireAuth).
-function RequireRole({ roles }: { roles: string[] }) {
+export function RequireRole({ roles }: { roles: string[] }) {
   const userRoles = useAuthStore((state) => state.user?.roles ?? EMPTY_ROLES)
   const isAllowed = userRoles.some((role) => roles.includes(role))
   return isAllowed ? <Outlet /> : <Navigate to={getRoleHomePath(userRoles)} replace />

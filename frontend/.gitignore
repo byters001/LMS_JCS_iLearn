@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Playwright's own artifact output (traces/screenshots on failure)
+test-results
+playwright-report
+blob-report
+
 # Environment variables
 .env
 .env.local
