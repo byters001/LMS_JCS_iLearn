@@ -205,6 +205,7 @@ async function listAssessments(query: ListAssessmentsQuery): Promise<ListAssessm
     trainingSessionId: query.trainingSessionId,
     status: query.status,
     testCategory: query.testCategory,
+    search: query.search,
     page: query.page,
     pageSize: query.pageSize,
   });

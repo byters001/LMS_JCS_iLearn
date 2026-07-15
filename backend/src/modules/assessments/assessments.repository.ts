@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import {
   assessmentApprovalHistory,
@@ -26,6 +26,7 @@ export interface ListAssessmentsParams {
   trainingSessionId?: string;
   status?: 'draft' | 'review' | 'approved' | 'scheduled' | 'live' | 'completed' | 'archived';
   testCategory?: 'mcq' | 'coding' | 'psychometric' | 'mixed';
+  search?: string;
   page: number;
   pageSize: number;
 }
@@ -42,6 +43,9 @@ function buildAssessmentsWhere(params: Omit<ListAssessmentsParams, 'page' | 'pag
   }
   if (params.status) conditions.push(eq(assessments.status, params.status));
   if (params.testCategory) conditions.push(eq(assessments.testCategory, params.testCategory));
+  // title is a direct column on assessments — no join needed, unlike
+  // students/questions' search fields.
+  if (params.search) conditions.push(ilike(assessments.title, `%${params.search}%`));
   return and(...conditions);
 }
 

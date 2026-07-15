@@ -18,6 +18,7 @@ async function listStudentProfiles(
     departmentId: query.departmentId,
     batchId: query.batchId,
     includeArchived: query.includeArchived,
+    search: query.search,
     page: query.page,
     pageSize: query.pageSize,
   });

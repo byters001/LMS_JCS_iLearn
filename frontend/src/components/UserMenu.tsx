@@ -5,6 +5,10 @@ interface UserMenuProps {
   email: string
   onLogout: () => void
   isLoggingOut: boolean
+  // Optional "Welcome back, X" line — lives here now instead of the top bar
+  // (see layouts/*.tsx's sidebar user-block comment for why: consolidating
+  // it here means nothing in the top bar depends on the user's name length).
+  greeting?: string
 }
 
 function getInitials(name: string): string {
@@ -22,17 +26,28 @@ function getInitials(name: string): string {
 // hands this component a plain onLogout callback + isLoggingOut flag,
 // exactly the "feature-specific data comes in as props" pattern the same
 // rule prescribes.
-export function UserMenu({ name, email, onLogout, isLoggingOut }: UserMenuProps) {
+//
+// Stacked (not horizontal-row) layout: this now renders in the sidebar's
+// fixed-width bottom block (~240px), not a wide top-bar row, so avatar +
+// name/email + logout need to fit a narrow column instead of a single line.
+// `truncate` + the parent's `min-w-0` are the actual fix for the "long name
+// wraps across 3 lines" bug — a fixed max-width alone would still let an
+// unusually long name overflow; truncate forces single-line + ellipsis
+// regardless of how long the name is.
+export function UserMenu({ name, email, onLogout, isLoggingOut, greeting }: UserMenuProps) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-semibold text-white">
-        {getInitials(name)}
+    <div className="flex flex-col gap-3">
+      {greeting && <p className="truncate text-xs font-medium text-muted-foreground">{greeting}</p>}
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-semibold text-white">
+          {getInitials(name)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-brand-primary">{name}</p>
+          <p className="truncate text-xs text-muted-foreground">{email}</p>
+        </div>
       </div>
-      <div className="hidden text-right sm:block">
-        <p className="text-sm font-medium text-brand-primary">{name}</p>
-        <p className="text-xs text-muted-foreground">{email}</p>
-      </div>
-      <Button variant="outline" size="sm" disabled={isLoggingOut} onClick={onLogout}>
+      <Button variant="outline" size="sm" disabled={isLoggingOut} onClick={onLogout} className="w-full">
         {isLoggingOut ? 'Logging out…' : 'Logout'}
       </Button>
     </div>

@@ -234,6 +234,7 @@ async function listQuestions(query: ListQuestionsQuery): Promise<ListQuestionsRe
     difficulty: query.difficulty,
     collegeId: query.collegeId,
     status: query.status,
+    search: query.search,
     page: query.page,
     pageSize: query.pageSize,
   });
@@ -825,6 +826,7 @@ async function listQuestionPools(query: ListQuestionPoolsQuery): Promise<ListQue
     collegeId: query.collegeId,
     categoryId: query.categoryId,
     type: query.type,
+    search: query.search,
     page: query.page,
     pageSize: query.pageSize,
   });

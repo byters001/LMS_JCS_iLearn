@@ -15,6 +15,7 @@ export const listAssessmentsQuerySchema = z
       .enum(['draft', 'review', 'approved', 'scheduled', 'live', 'completed', 'archived'])
       .optional(),
     testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']).optional(),
+    search: z.string().min(1).optional(),
     ...paginationFields,
   })
   .strict();

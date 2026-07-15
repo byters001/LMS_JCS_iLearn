@@ -198,6 +198,10 @@ export const listQuestionsQuerySchema = z
     difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
     collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
     status: z.enum(['draft', 'pending_review', 'approved', 'rejected', 'archived']).optional(),
+    // Matches against the current version's questionText — see
+    // question-bank.repository.ts's listQuestions for the join this requires
+    // (question_text lives on question_versions, not questions itself).
+    search: z.string().min(1).optional(),
     ...paginationFields,
   })
   .strict();
@@ -424,6 +428,7 @@ export const listQuestionPoolsQuerySchema = z
     collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
     categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
     type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
+    search: z.string().min(1).optional(),
     ...paginationFields,
   })
   .strict();

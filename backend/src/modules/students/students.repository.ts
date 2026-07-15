@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { users } from '../../db/schema/identity.schema';
 import { colleges, departments } from '../../db/schema/organization.schema';
@@ -20,6 +20,7 @@ export interface ListStudentProfilesParams {
   departmentId?: string;
   batchId?: string;
   includeArchived?: boolean;
+  search?: string;
   page: number;
   pageSize: number;
 }
@@ -79,11 +80,22 @@ function buildDirectConditions(
   collegeId?: string,
   departmentId?: string,
   includeArchived?: boolean,
+  search?: string,
 ) {
   const conditions = [];
   if (collegeId) conditions.push(eq(studentProfiles.collegeId, collegeId));
   if (departmentId) conditions.push(eq(studentProfiles.departmentId, departmentId));
   if (!includeArchived) conditions.push(eq(studentProfiles.status, 'active'));
+  // Matches the joined users.fullName or the student's own rollNumber — the
+  // two fields an admin would realistically type into a search box. Both
+  // callers below already LEFT JOIN users for the name-joined read shape, so
+  // referencing users.fullName here doesn't need an extra join of its own —
+  // except the two COUNT(*) queries, which previously didn't join users at
+  // all (see listStudentProfiles' two branches below).
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(or(ilike(users.fullName, pattern), ilike(studentProfiles.rollNumber, pattern)));
+  }
   return conditions;
 }
 
@@ -96,11 +108,11 @@ function buildDirectConditions(
 async function listStudentProfiles(
   params: ListStudentProfilesParams,
 ): Promise<ListStudentProfilesResult> {
-  const { collegeId, departmentId, batchId, includeArchived, page, pageSize } = params;
+  const { collegeId, departmentId, batchId, includeArchived, search, page, pageSize } = params;
   const offset = (page - 1) * pageSize;
 
   if (!batchId) {
-    const conditions = buildDirectConditions(collegeId, departmentId, includeArchived);
+    const conditions = buildDirectConditions(collegeId, departmentId, includeArchived, search);
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [items, totalRows] = await Promise.all([
@@ -114,14 +126,22 @@ async function listStudentProfiles(
         .orderBy(asc(studentProfiles.createdAt))
         .limit(pageSize)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)` }).from(studentProfiles).where(where),
+      // Must LEFT JOIN users here too now: the `where` clause can reference
+      // users.fullName (via the search condition above), and that column
+      // isn't visible to this query's WHERE unless users is in its FROM/JOIN
+      // list, even though this query never selects a users column itself.
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(studentProfiles)
+        .leftJoin(users, eq(users.id, studentProfiles.userId))
+        .where(where),
     ]);
     return { items, total: Number(totalRows[0]?.count ?? 0) };
   }
 
   const conditions = [
     eq(trainingProgramStudents.batchId, batchId),
-    ...buildDirectConditions(collegeId, departmentId, includeArchived),
+    ...buildDirectConditions(collegeId, departmentId, includeArchived, search),
   ];
   const where = and(...conditions);
 
@@ -145,10 +165,13 @@ async function listStudentProfiles(
       .orderBy(asc(studentProfiles.createdAt))
       .limit(pageSize)
       .offset(offset),
+    // Same reasoning as the no-batchId branch above: users must be joined
+    // here too so `where`'s search condition on users.fullName resolves.
     db
       .select({ count: sql<number>`count(distinct ${studentProfiles.id})` })
       .from(studentProfiles)
       .innerJoin(trainingProgramStudents, eq(trainingProgramStudents.studentId, studentProfiles.id))
+      .leftJoin(users, eq(users.id, studentProfiles.userId))
       .where(where),
   ]);
 

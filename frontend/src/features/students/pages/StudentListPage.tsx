@@ -1,3 +1,4 @@
+import { UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { useStudentProfiles } from '../api'
 
 const PAGE_SIZE = 20
@@ -28,6 +30,42 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// Reuses the exact accent colors StatusBadge above already uses for
+// 'active'/'archived' (brand-accent / muted) — no new colors invented, per
+// CLAUDE1.md's "never invent brand colors" rule. Total gets brand-primary,
+// matching its role as the headline number.
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  iconClassName,
+}: {
+  label: string
+  value: number | undefined
+  icon: typeof Users
+  iconClassName: string
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-full', iconClassName)}>
+          <Icon className="size-5" />
+        </div>
+        <div>
+          <p className="text-2xl font-semibold text-brand-primary">
+            {value === undefined ? (
+              <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
+            ) : (
+              value
+            )}
+          </p>
+          <p className="text-sm text-muted-foreground">{label}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function StudentListPage() {
   const [page, setPage] = useState(1)
   const { data, isPending, isError, error, isFetching } = useStudentProfiles({
@@ -35,15 +73,51 @@ export default function StudentListPage() {
     pageSize: PAGE_SIZE,
   })
 
+  // Two lightweight pageSize=1 queries purely for their `total` counts — same
+  // "separate small query just for a count" pattern as NotificationBell's
+  // unread-count query. `activeOnly` omits includeArchived (server default
+  // is false, i.e. status='active' only); `all` sets includeArchived=true,
+  // which removes the status filter entirely per students.repository.ts's
+  // buildDirectConditions — so its total is EVERY student regardless of
+  // status, not just archived ones. Archived count is derived as the
+  // difference rather than a third query.
+  const activeCountQuery = useStudentProfiles({ page: 1, pageSize: 1 })
+  const allCountQuery = useStudentProfiles({ page: 1, pageSize: 1, includeArchived: true })
+  const activeCount = activeCountQuery.data?.total
+  const totalCount = allCountQuery.data?.total
+  const archivedCount =
+    totalCount !== undefined && activeCount !== undefined ? totalCount - activeCount : undefined
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="space-y-6 p-6">
+      <div>
         <h1 className="text-xl font-semibold text-brand-primary">Students</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Every student profile across your college, at a glance.
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Total students"
+          value={totalCount}
+          icon={Users}
+          iconClassName="bg-brand-primary/10 text-brand-primary"
+        />
+        <StatCard
+          label="Active"
+          value={activeCount}
+          icon={UserCheck}
+          iconClassName="bg-brand-accent/10 text-brand-accent"
+        />
+        <StatCard
+          label="Archived"
+          value={archivedCount}
+          icon={UserX}
+          iconClassName="bg-muted text-muted-foreground"
+        />
       </div>
 
       {isPending && (

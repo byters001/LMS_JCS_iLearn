@@ -26,6 +26,10 @@ export const listStudentProfilesQuerySchema = z
     // follows. Gated behind the same 'students.view' permission as the rest
     // of this endpoint — no separate key (see students.routes.ts).
     includeArchived: includeArchivedQueryParam.optional().default(false),
+    // Matches against the joined users.fullName or the student's own
+    // rollNumber (see students.repository.ts's buildDirectConditions) —
+    // the two fields an admin would actually type into a search box.
+    search: z.string().min(1).optional(),
     ...paginationFields,
   })
   .strict();

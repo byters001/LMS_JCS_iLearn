@@ -1,4 +1,17 @@
-import { and, asc, desc, eq, exists, inArray, isNotNull, isNull, notInArray, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  notInArray,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { db } from '../../db/client';
 import {
   codingQuestionDetails,
@@ -272,6 +285,7 @@ export interface ListQuestionsParams {
   difficulty?: 'easy' | 'medium' | 'hard';
   collegeId?: string;
   status?: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'archived';
+  search?: string;
   page: number;
   pageSize: number;
 }
@@ -281,6 +295,29 @@ export interface ListQuestionsResult {
   total: number;
 }
 
+// Explicit column list, not a bare `.select()`: search needs question_text,
+// which lives on question_versions (questions itself has no text column —
+// see the schema comment on questions.currentVersionId), so listQuestions
+// below has to LEFT JOIN questionVersions. A bare `.select()` alongside a
+// join returns a nested `{ questions, question_versions }` shape in
+// drizzle-orm, which would break this function's `Question[]` return type;
+// this explicit column list (mirroring questions' own columns 1:1) keeps the
+// flat shape regardless of what's joined in for the WHERE clause alone.
+const QUESTIONS_COLUMNS = {
+  id: questions.id,
+  categoryId: questions.categoryId,
+  type: questions.type,
+  difficulty: questions.difficulty,
+  collegeId: questions.collegeId,
+  status: questions.status,
+  currentVersionId: questions.currentVersionId,
+  createdAt: questions.createdAt,
+  updatedAt: questions.updatedAt,
+  createdBy: questions.createdBy,
+  updatedBy: questions.updatedBy,
+  deletedAt: questions.deletedAt,
+} as const;
+
 function buildQuestionsWhere(params: Omit<ListQuestionsParams, 'page' | 'pageSize'>) {
   const conditions = [isNull(questions.deletedAt)];
   if (params.categoryId) conditions.push(eq(questions.categoryId, params.categoryId));
@@ -288,9 +325,15 @@ function buildQuestionsWhere(params: Omit<ListQuestionsParams, 'page' | 'pageSiz
   if (params.difficulty) conditions.push(eq(questions.difficulty, params.difficulty));
   if (params.collegeId) conditions.push(eq(questions.collegeId, params.collegeId));
   if (params.status) conditions.push(eq(questions.status, params.status));
+  if (params.search) conditions.push(ilike(questionVersions.questionText, `%${params.search}%`));
   return and(...conditions);
 }
 
+// currentVersionId is nullable (schema.sql allows NULL, e.g. before a first
+// version exists), so this is a LEFT JOIN — same "don't silently drop an
+// orphaned/edge-case row" precedent as students.repository.ts's own
+// name-joins — not an INNER JOIN, which would hide any question missing a
+// current version from every list call, search or not.
 async function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsResult> {
   const { page, pageSize, ...filters } = params;
   const offset = (page - 1) * pageSize;
@@ -298,13 +341,18 @@ async function listQuestions(params: ListQuestionsParams): Promise<ListQuestions
 
   const [items, totalRows] = await Promise.all([
     db
-      .select()
+      .select(QUESTIONS_COLUMNS)
       .from(questions)
+      .leftJoin(questionVersions, eq(questionVersions.id, questions.currentVersionId))
       .where(where)
       .orderBy(desc(questions.createdAt))
       .limit(pageSize)
       .offset(offset),
-    db.select({ count: sql<number>`count(*)` }).from(questions).where(where),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(questions)
+      .leftJoin(questionVersions, eq(questionVersions.id, questions.currentVersionId))
+      .where(where),
   ]);
 
   return { items, total: Number(totalRows[0]?.count ?? 0) };
@@ -1111,6 +1159,7 @@ export interface ListQuestionPoolsParams {
   collegeId?: string;
   categoryId?: string;
   type?: 'mcq' | 'coding' | 'psychometric';
+  search?: string;
   page: number;
   pageSize: number;
 }
@@ -1125,6 +1174,9 @@ function buildQuestionPoolsWhere(params: Omit<ListQuestionPoolsParams, 'page' | 
   if (params.collegeId) conditions.push(eq(questionPools.collegeId, params.collegeId));
   if (params.categoryId) conditions.push(eq(questionPools.categoryId, params.categoryId));
   if (params.type) conditions.push(eq(questionPools.type, params.type));
+  // name is a direct column on question_pools — no join needed, unlike
+  // questions' search (which needs question_versions).
+  if (params.search) conditions.push(ilike(questionPools.name, `%${params.search}%`));
   return and(...conditions);
 }
 
