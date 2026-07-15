@@ -152,7 +152,13 @@ rawApi.interceptors.response.use(
       try {
         const newToken = await refreshAccessToken()
         config.headers.set('Authorization', `Bearer ${newToken}`)
-        return rawApi(config)
+        // Must be awaited, not `return rawApi(config)`: a returned-but-unawaited
+        // promise that later rejects propagates straight to the original
+        // caller, bypassing this catch entirely (the try block has already
+        // finished executing by the time that rejection happens). Awaiting it
+        // here means a retry failure is caught by the SAME catch as a
+        // refresh failure, triggering the same clearAuth() + redirect below.
+        return await rawApi(config)
       } catch {
         useAuthStore.getState().clearAuth()
         window.location.href = '/login'

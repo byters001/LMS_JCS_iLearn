@@ -80,31 +80,43 @@ describe('refresh-retry interceptor', () => {
     expect(refreshCalls).toBe(1)
   })
 
-  // Real behavior, confirmed by first writing this test with the opposite
-  // assumption (auth gets cleared here) and watching it fail: the retry is
-  // issued as `return rawApi(config)` — NOT awaited — from inside the
-  // `try` block that wraps `refreshAccessToken()`. A `return <promise>`
-  // that isn't awaited hands the promise straight to the caller; if it
-  // rejects LATER, that rejection never re-enters this function's own
-  // `catch`, because the try block already finished executing when the
-  // `return` statement ran. So `catch` here only ever fires for a failure
-  // of `refreshAccessToken()` itself (see the next test) — not for "the
-  // refresh succeeded but the retried request failed anyway." No looping
-  // either way (config._retry already true stops a second refresh
-  // attempt), but the user is left with a rejected request and NO
-  // forced-logout/redirect in this specific case. Flagging this as a real
-  // behavior discovered while writing this suite, not something this task
-  // asked to fix.
-  it('does not loop if the retried request 401s again (but does not clear auth in this case)', async () => {
-    mock.onGet('/protected').reply(401, errorBody('UNAUTHORIZED'))
-    mock.onPost('/auth/refresh').replyOnce(200, successBody({ accessToken: 'still-bad-token' }))
+  // Regression test for the fixed retry-rejection gap: the retry used to be
+  // issued as `return rawApi(config)` — NOT awaited — from inside the `try`
+  // block that wraps `refreshAccessToken()`. A `return <promise>` that isn't
+  // awaited hands the promise straight to the caller; if it rejects LATER,
+  // that rejection never re-entered this function's own `catch`, because the
+  // try block had already finished executing when the `return` statement
+  // ran. So `catch` only ever fired for a failure of `refreshAccessToken()`
+  // itself (see the next test) — not for "the refresh succeeded but the
+  // retried request failed anyway." Now that the retry is awaited, its
+  // rejection IS caught here, same as a refresh failure: clearAuth() fires
+  // and the user is redirected to /login. No looping either way
+  // (config._retry already true stops a second refresh attempt).
+  it('clears auth and redirects when refresh succeeds but the retried request 401s again', async () => {
+    const originalLocation = window.location
+    // Plain-object stub, not jsdom's real Location: assigning `.href` on the
+    // real one logs a jsdom "Not implemented: navigation" error, since jsdom
+    // refuses to actually navigate. Restored in `finally` below so no other
+    // test in this file (or run after it) sees the stubbed value.
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...originalLocation, href: originalLocation.href },
+    })
 
-    await expect(rawApi.get('/protected')).rejects.toBeInstanceOf(ApiError)
+    try {
+      mock.onGet('/protected').reply(401, errorBody('UNAUTHORIZED'))
+      mock.onPost('/auth/refresh').replyOnce(200, successBody({ accessToken: 'still-bad-token' }))
 
-    expect(mock.history.get).toHaveLength(2)
-    expect(mock.history.post.filter((r) => r.url === '/auth/refresh')).toHaveLength(1)
-    expect(useAuthStore.getState().isAuthenticated).toBe(true)
-    expect(useAuthStore.getState().accessToken).toBe('still-bad-token')
+      await expect(rawApi.get('/protected')).rejects.toBeInstanceOf(ApiError)
+
+      expect(mock.history.get).toHaveLength(2)
+      expect(mock.history.post.filter((r) => r.url === '/auth/refresh')).toHaveLength(1)
+      expect(useAuthStore.getState().isAuthenticated).toBe(false)
+      expect(useAuthStore.getState().accessToken).toBeNull()
+      expect(window.location.href).toBe('/login')
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation })
+    }
   })
 
   it('clears auth and stops retrying when the refresh call itself fails', async () => {
