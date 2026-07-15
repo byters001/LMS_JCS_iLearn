@@ -6,6 +6,16 @@ const paginationFields = {
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
 };
 
+// z.coerce.boolean() is wrong for a query-string field: it calls JS's
+// Boolean(str), and Boolean('false') is true (any non-empty string is
+// truthy) — so ?includeArchived=false was silently being treated as
+// includeArchived=true. Preprocess the literal query-string values instead.
+const includeArchivedQueryParam = z.preprocess((val) => {
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  return val;
+}, z.boolean());
+
 export const listStudentProfilesQuerySchema = z
   .object({
     collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
@@ -15,7 +25,7 @@ export const listStudentProfilesQuerySchema = z
     // IS NULL convention every other soft-delete-equivalent list endpoint
     // follows. Gated behind the same 'students.view' permission as the rest
     // of this endpoint — no separate key (see students.routes.ts).
-    includeArchived: z.coerce.boolean().optional().default(false),
+    includeArchived: includeArchivedQueryParam.optional().default(false),
     ...paginationFields,
   })
   .strict();

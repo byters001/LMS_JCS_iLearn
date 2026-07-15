@@ -9,9 +9,19 @@ const paginationFields = {
 // No create schema — no separate create endpoint exists (item 5). Rows
 // only ever get created internally by notifications.service.ts's trigger
 // functions, called from other modules' services, never via an HTTP body.
+// z.coerce.boolean() is wrong here: it calls JS's Boolean(str), and
+// Boolean('false') is true (any non-empty string is truthy) — so
+// ?isRead=false was silently being treated as isRead=true. Preprocess the
+// literal query-string values instead.
+const isReadQueryParam = z.preprocess((val) => {
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  return val;
+}, z.boolean());
+
 export const listNotificationsQuerySchema = z
   .object({
-    isRead: z.coerce.boolean().optional(),
+    isRead: isReadQueryParam.optional(),
     ...paginationFields,
   })
   .strict();

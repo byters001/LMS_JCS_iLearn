@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { UserMenu } from '@/components/UserMenu'
 import { useLogout } from '@/features/auth/api'
+import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
@@ -53,12 +54,15 @@ function AdminLayout() {
               ))}
             </nav>
           </div>
-          <UserMenu
-            name={user?.fullName ?? ''}
-            email={user?.email ?? ''}
-            onLogout={handleLogout}
-            isLoggingOut={logout.isPending}
-          />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <UserMenu
+              name={user?.fullName ?? ''}
+              email={user?.email ?? ''}
+              onLogout={handleLogout}
+              isLoggingOut={logout.isPending}
+            />
+          </div>
         </div>
       </header>
       <Outlet />
