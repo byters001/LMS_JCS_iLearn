@@ -61,8 +61,17 @@ async function withResilience<T>(operationName: string, operation: () => Promise
     }
   }
 
+  // lastError.message is folded into THIS error's own message (not just left
+  // inside `details`) for the same reason integrations/email/client.ts's
+  // withResilience does — a native Error's message/stack are non-enumerable
+  // own properties, so JSON.stringify({ cause: lastError }) (and pino's own
+  // serialization of nested, non-top-level error objects inside `details`)
+  // silently produces `{}`. Without this, the real NVIDIA failure reason
+  // (e.g. "401 Invalid API key" from rawChatCompletion below) never reaches
+  // the caller or the logs — only this generic wrapper message would.
+  const lastErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
   throw new ServiceUnavailableError(
-    `NVIDIA request "${operationName}" failed after ${MAX_RETRY_ATTEMPTS} attempts`,
+    `NVIDIA request "${operationName}" failed after ${MAX_RETRY_ATTEMPTS} attempts: ${lastErrorMessage}`,
     { cause: lastError },
   );
 }
@@ -147,10 +156,37 @@ async function rawChatCompletion(
   });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(
-      `NVIDIA request failed: ${response.status} ${extractNvidiaErrorMessage(body, response.statusText)}`,
+    // Read the body BEFORE throwing, same as integrations/email/client.ts's
+    // rawSendEmail — response.json().catch(() => null) (the previous version
+    // here) silently discards the raw body on a non-JSON response (e.g. a
+    // raw 5xx from an edge/proxy layer), losing the only place the real
+    // reason exists. response.text() first, then best-effort JSON.parse,
+    // keeping the raw text as a fallback.
+    const rawBody = await response.text();
+    let parsedBody: unknown = rawBody;
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      // Not JSON — parsedBody stays the raw text.
+    }
+
+    const nvidiaMessage = extractNvidiaErrorMessage(
+      parsedBody,
+      rawBody || response.statusText,
     );
+
+    // status/statusText/body assigned onto the Error AFTER construction —
+    // these ARE enumerable own properties (unlike the engine-built-in
+    // message/stack), so they survive once this propagates up through
+    // withResilience's `{ cause: lastError }` — see that function's own
+    // comment.
+    const error = new Error(
+      `NVIDIA request failed: ${response.status} ${response.statusText} — ${nvidiaMessage}`,
+    ) as Error & { status: number; statusText: string; body: unknown };
+    error.status = response.status;
+    error.statusText = response.statusText;
+    error.body = parsedBody;
+    throw error;
   }
 
   return (await response.json()) as NvidiaChatCompletionResponse;
