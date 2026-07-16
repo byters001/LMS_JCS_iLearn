@@ -862,6 +862,80 @@ async function deactivateBatchCascade(
   });
 }
 
+// --- Activation cascade (bugfix, symmetric to deactivateBatchCascade) ---
+//
+// Confirmed live bug: sanjay@gmail.com's batch ("Byters") had been
+// deactivated then reactivated. Its `status` column correctly read 'active'
+// again, but his `users.is_active` was STILL false — organization.
+// service.ts's toggleBatchActive originally treated archived -> active as
+// a plain status flip with no student-side reversal at all (a deliberate
+// Phase 4 design choice per that function's own comment, which turned out
+// to be wrong in practice: real students can never log back in once their
+// batch is reactivated). This function is the missing reverse cascade.
+//
+// Reactivation scope: only students with (a) a currently-active enrollment
+// in THIS batch (same 'active'-only filter as deactivateBatchCascade) AND
+// (b) a student_profiles.status of 'active'. That second condition is
+// deliberate and was checked against live data before deciding: sanjay's
+// own student_profiles.status stayed 'active' throughout (confirmed via a
+// direct SELECT) — it's a genuinely independent signal from users.is_active,
+// tracking whether the STUDENT PROFILE ITSELF has been archived for
+// unrelated reasons (withdrawal, transfer, etc.), not whether their login
+// was suspended by a batch toggle. Without this guard, reactivating a batch
+// would incorrectly resurrect the login of a student who was independently
+// archived through some other flow. Enrollment status alone isn't a
+// sufficient proxy for that — a profile can be archived while its
+// enrollment row is still nominally 'active' — so both are checked.
+//
+// Stated limitation, not solved here: users.is_active is a single boolean
+// with no history/reason field, so this cascade cannot distinguish "this
+// account was deactivated BY this batch's own prior deactivation" from
+// "this account was independently set inactive via PATCH /users/:id for an
+// unrelated reason, while its enrollment and profile both still read
+// 'active'". That second, narrower case would still get reactivated here.
+// Closing it fully would need an audit/reason column this schema doesn't
+// have — flagged rather than silently guessed around.
+//
+// No permissionCache action needed here (unlike the deactivate path, which
+// explicitly invalidates): a deactivated student's cache entry is already
+// missing/cleared from that deactivation, and login()/refresh() being
+// rejected all along means nothing repopulated it since. The first
+// successful login after reactivation calls resolvePermissionsForUser
+// itself (see auth.service.ts's login()), which populates the cache fresh
+// — there's nothing stale to proactively clear on this path.
+async function activateBatchCascade(
+  batchId: string,
+  updatedBy: string,
+): Promise<DeactivateBatchCascadeResult> {
+  return db.transaction(async (tx) => {
+    const [batch] = await tx
+      .update(batches)
+      .set({ status: 'active', updatedBy })
+      .where(eq(batches.id, batchId))
+      .returning();
+
+    const affectedStudents = await tx
+      .select({ userId: studentProfiles.userId, collegeId: studentProfiles.collegeId })
+      .from(trainingProgramStudents)
+      .innerJoin(studentProfiles, eq(studentProfiles.id, trainingProgramStudents.studentId))
+      .where(
+        and(
+          eq(trainingProgramStudents.batchId, batchId),
+          eq(trainingProgramStudents.status, 'active'),
+          eq(studentProfiles.status, 'active'),
+        ),
+      );
+
+    const affectedUserIds = affectedStudents.map((row) => row.userId);
+
+    if (affectedUserIds.length > 0) {
+      await tx.update(users).set({ isActive: true }).where(inArray(users.id, affectedUserIds));
+    }
+
+    return { batch, affectedUsers: affectedStudents };
+  });
+}
+
 export const organizationRepository = {
   listColleges,
   findCollegeById,
@@ -898,4 +972,5 @@ export const organizationRepository = {
   createBatchTrainer,
   deleteBatchTrainer,
   deactivateBatchCascade,
+  activateBatchCascade,
 };

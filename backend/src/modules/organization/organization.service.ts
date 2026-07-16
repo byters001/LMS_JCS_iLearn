@@ -445,15 +445,21 @@ async function deleteBatch(id: string): Promise<void> {
 // should silently reopen. Rejects rather than guessing what the caller
 // meant. Reuses the existing updateBatch repository call rather than a new
 // one — this is a thin business-rule wrapper around the same write.
-// Going active -> archived now runs the Phase 4 deactivation cascade
-// (organization.repository.ts's deactivateBatchCascade) instead of a plain
-// status update — see that function's own module comment for the full
-// session-invalidation finding this is built on. Going archived -> active
-// stays a plain status flip: reactivating a batch does NOT reactivate its
-// students' accounts, a much bigger, unasked-for behavior (silently
-// resurrecting accounts nobody explicitly asked to bring back) — a
-// batch's own status and its students' account status are related but
-// deliberately not symmetric here.
+//
+// BOTH directions now run a cascade, symmetrically: active -> archived runs
+// deactivateBatchCascade (Phase 4 — see that function's own module comment
+// for the full session-invalidation finding this is built on); archived ->
+// active runs activateBatchCascade. This was previously asymmetric — the
+// archived -> active branch was a plain status flip with NO student-side
+// reversal — on the stated reasoning that reactivating a batch shouldn't
+// silently resurrect accounts nobody asked to bring back. That turned out
+// to be a real bug, not just a conservative default: confirmed live via
+// sanjay@gmail.com, whose batch had been deactivated then reactivated —
+// the batch's own status correctly read 'active' again, but his
+// users.is_active was stuck false forever, since nothing ever reversed it.
+// See activateBatchCascade's own comment for exactly which students get
+// reactivated (not unconditionally all of them) and the one residual case
+// it still can't distinguish.
 async function toggleBatchActive(id: string, updatedBy: string): Promise<Batch> {
   const existing = await organizationRepository.findBatchById(id);
   if (!existing) {
@@ -483,14 +489,11 @@ async function toggleBatchActive(id: string, updatedBy: string): Promise<Batch> 
     return batch;
   }
 
-  const updated = await organizationRepository.updateBatch(id, {
-    status: 'active',
-    updatedBy,
-  });
-  if (!updated) {
-    throw new NotFoundError('Batch not found');
-  }
-  return updated;
+  // No permissionCache action needed on this path — see
+  // activateBatchCascade's own comment for why (nothing stale to clear;
+  // the next successful login populates the cache fresh regardless).
+  const { batch } = await organizationRepository.activateBatchCascade(id, updatedBy);
+  return batch;
 }
 
 // --- My Batches (Phase 4) ---
@@ -602,6 +605,19 @@ async function unassignTrainerFromBatch(
   }
 }
 
+// Exposed for other modules' real per-trainer authorization checks —
+// students.service.ts's createStudentsInBatch/exportStudentsCsv are the
+// first cross-module callers (replacing the former "Faculty rejected
+// unconditionally" placeholder that predated batch_trainers existing at
+// all). Calling through this service function rather than
+// organizationRepository.findBatchTrainer directly respects CLAUDE.md's
+// module-boundary rule (a module may call another module's SERVICE, never
+// its repository).
+async function isTrainerAssignedToBatch(batchId: string, trainerId: string): Promise<boolean> {
+  const assignment = await organizationRepository.findBatchTrainer(batchId, trainerId);
+  return assignment !== undefined;
+}
+
 export const organizationService = {
   listColleges,
   findCollegeById,
@@ -635,4 +651,5 @@ export const organizationService = {
   listBatchTrainers,
   assignTrainerToBatch,
   unassignTrainerFromBatch,
+  isTrainerAssignedToBatch,
 };

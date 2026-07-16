@@ -119,14 +119,21 @@ export async function studentsRoutes(fastify: FastifyInstance): Promise<void> {
   // the business logic — provisioning user accounts + student profiles +
   // enrollments — is squarely this module's concern, not batches'; Fastify
   // doesn't care which module file registers a given path). Gated by
-  // 'students.manage', already super_admin-only (see
-  // 0005_add-students-permissions.sql) — Faculty is also rejected again at
-  // the service layer, see students.service.ts's createStudentsInBatch for
-  // why both checks exist.
+  // 'batches.manage', NOT 'students.manage' (still super_admin-only,
+  // unchanged for the plain /student-profiles/:id CRUD routes above, which
+  // have no per-batch scoping check and would be uncontrolled for Faculty
+  // if opened up the same way). 'batches.manage' is already held by both
+  // super_admin and faculty (schema.sql's role_permissions seed) — same
+  // "route-level gate is the baseline, real restriction is server-side"
+  // convention already established for the Phase 4 trainer-assignment
+  // routes in organization.routes.ts. The real restriction here is
+  // students.service.ts's createStudentsInBatch checking
+  // organizationService.isTrainerAssignedToBatch — a Faculty caller must be
+  // personally assigned to THIS batch, not just hold the faculty role.
   fastify.post<{ Params: BatchStudentsParams; Body: CreateStudentsInBatchInput }>(
     '/batches/:id/students',
     {
-      preHandler: [fastify.authenticate, requirePermission('students.manage')],
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
       preValidation: [validateParams(batchStudentsParamsSchema), validateBody(createStudentsInBatchSchema)],
     },
     studentsController.createStudentsInBatch,
@@ -134,10 +141,11 @@ export async function studentsRoutes(fastify: FastifyInstance): Promise<void> {
 
   // --- CSV export (Phase 3) ---
   // Gated by 'students.view' (Super Admin + Faculty both hold it), not
-  // 'students.manage' — exporting a roster is read-only; see
-  // students.service.ts's exportStudentsCsv for why Faculty gets a genuine
-  // college-match check here rather than the stricter unconditional reject
-  // createStudentsInBatch uses.
+  // 'students.manage' — exporting a roster is read-only. See
+  // students.service.ts's exportStudentsCsv: Faculty additionally needs a
+  // college-match AND a personal batch_trainers assignment on this specific
+  // batch, same isTrainerAssignedToBatch check createStudentsInBatch uses —
+  // college membership alone isn't enough to export a batch's roster.
   fastify.get<{ Params: BatchStudentsParams; Querystring: ExportBatchStudentsQuery }>(
     '/batches/:id/students/export',
     {

@@ -1,11 +1,13 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { STORAGE_BUCKET, STORAGE_BUCKET_CONFIG } from '../../integrations/supabase';
+import { organizationService } from '../organization/organization.service';
 import { permissionCache } from '../../rbac/permission-cache';
 import { ForbiddenError, UnauthorizedError, ValidationError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { usersService } from './users.service';
 import type {
   AssignRoleInput,
+  CreateFacultyUserInput,
   ListUsersQuery,
   RevokeRoleQuery,
   UpdateUserInput,
@@ -72,6 +74,25 @@ async function update(
   const user = await usersService.update(request.params.id, request.body);
   const response: ApiSuccessResponse<typeof user> = { success: true, data: user };
   reply.status(200).send(response);
+}
+
+// Faculty account creation (Admin's Faculty management UI) — the real
+// POST /users gap. collegeId's existence is validated HERE, not in
+// usersService, specifically to avoid a circular import: organization.
+// service.ts already imports usersService, so usersService importing
+// organizationService back would create a cycle. A controller importing
+// both services has no such problem.
+async function createFacultyUser(
+  request: FastifyRequest<{ Body: CreateFacultyUserInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  if (!request.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+  await organizationService.findCollegeById(request.body.collegeId);
+  const user = await usersService.createFacultyUser(request.body, request.user.id);
+  const response: ApiSuccessResponse<typeof user> = { success: true, data: user };
+  reply.status(201).send(response);
 }
 
 // multipart/form-data, not JSON — nothing here for users.schema.ts's Zod
@@ -153,6 +174,7 @@ export const usersController = {
   list,
   getById,
   update,
+  createFacultyUser,
   uploadAvatar,
   removeAvatar,
   assignRole,

@@ -9,7 +9,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { downloadStudentsCsv } from '../api'
+import type { SpreadsheetFormat } from '@/lib/spreadsheet'
+import { cn } from '@/lib/utils'
+import { downloadStudentsExport } from '../api'
 import type { StudentStatus } from '../types'
 
 interface DownloadCsvDialogProps {
@@ -41,6 +43,7 @@ export function DownloadCsvDialog({
   const [limit, setLimit] = useState('')
   const [departmentId, setDepartmentId] = useState('')
   const [status, setStatus] = useState<StudentStatus | ''>('')
+  const [format, setFormat] = useState<SpreadsheetFormat>('csv')
   const [isDownloading, setIsDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,11 +51,16 @@ export function DownloadCsvDialog({
     setIsDownloading(true)
     setError(null)
     try {
-      await downloadStudentsCsv(batchId, batchName, {
-        limit: limit ? Number(limit) : undefined,
-        departmentId: departmentId || undefined,
-        status: status || undefined,
-      })
+      await downloadStudentsExport(
+        batchId,
+        batchName,
+        {
+          limit: limit ? Number(limit) : undefined,
+          departmentId: departmentId || undefined,
+          status: status || undefined,
+        },
+        format,
+      )
       onOpenChange(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to export students.')
@@ -123,6 +131,30 @@ export function DownloadCsvDialog({
             </select>
           </div>
 
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-brand-primary">Format</p>
+            {/* Two-button toggle, not a dropdown — only two options, and a
+                toggle makes the current selection visible at a glance
+                without an extra click to open it. */}
+            <div className="inline-flex rounded-md border border-input p-0.5">
+              {(['csv', 'xlsx'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setFormat(option)}
+                  className={cn(
+                    'rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                    format === option
+                      ? 'bg-brand-accent text-white'
+                      : 'text-muted-foreground hover:text-brand-primary',
+                  )}
+                >
+                  {option === 'csv' ? 'CSV' : 'Excel'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
 
@@ -131,7 +163,7 @@ export function DownloadCsvDialog({
             Cancel
           </Button>
           <Button type="button" disabled={isDownloading} onClick={handleDownload}>
-            {isDownloading ? 'Downloading…' : 'Download CSV'}
+            {isDownloading ? 'Downloading…' : `Download ${format === 'csv' ? 'CSV' : 'Excel'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

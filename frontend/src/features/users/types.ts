@@ -22,3 +22,19 @@ export interface ListUsersResponse {
   page: number
   pageSize: number
 }
+
+// Matches backend/src/modules/users/users.schema.ts's
+// createFacultyUserSchema — deliberately narrow (no roleSlug field): this
+// always creates a Faculty account specifically, not a generic any-role
+// user creator.
+export interface CreateFacultyUserInput {
+  email: string
+  fullName: string
+  password: string
+  collegeId: string
+}
+
+export interface UpdateUserInput {
+  fullName?: string
+  isActive?: boolean
+}

@@ -27,6 +27,28 @@ export const assignRoleSchema = z
   })
   .strict();
 
+// Deliberately narrow: this creates a Faculty account specifically (role is
+// fixed server-side in users.service.ts's createFacultyUser, not a
+// roleSlug field here) — not a generic "create any user with any role"
+// endpoint. A generic creator would need considerably more validation
+// (can't self-assign super_admin, students already have their own
+// specialized creation flow via createStudentsInBatch with batch/common-
+// password logic that doesn't apply here) that this Faculty-management UI
+// doesn't need. collegeId is required, not derived from the caller's own
+// activeCollegeId — the caller here is always Super Admin (activeCollegeId
+// null, global), so there's nothing to derive from; the admin explicitly
+// picks which college this faculty member belongs to.
+export const createFacultyUserSchema = z
+  .object({
+    email: z.string().email('email must be a valid email address'),
+    fullName: z.string().min(1, 'fullName is required'),
+    // Same min-length convention as organization.schema.ts's
+    // createBatchSchema commonPassword field.
+    password: z.string().min(8, 'password must be at least 8 characters'),
+    collegeId: z.string().uuid('collegeId must be a valid UUID'),
+  })
+  .strict();
+
 export const revokeRoleQuerySchema = z
   .object({
     collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
@@ -52,3 +74,4 @@ export type AssignRoleInput = z.infer<typeof assignRoleSchema>;
 export type RevokeRoleQuery = z.infer<typeof revokeRoleQuerySchema>;
 export type UserIdParams = z.infer<typeof userIdParamsSchema>;
 export type UserRoleParams = z.infer<typeof userRoleParamsSchema>;
+export type CreateFacultyUserInput = z.infer<typeof createFacultyUserSchema>;

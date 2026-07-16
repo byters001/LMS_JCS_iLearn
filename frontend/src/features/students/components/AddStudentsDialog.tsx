@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { csvTextToXlsxBlob, triggerBlobDownload, xlsxFileToCsvText } from '@/lib/spreadsheet'
 import { useCreateStudentsInBatch } from '../api'
 import type { StudentRowInput } from '../types'
 
@@ -115,15 +116,19 @@ function validateRows(rows: StudentRowInput[]): Map<number, string[]> {
 }
 
 function downloadCsvTemplate() {
-  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'student-upload-template.csv'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+  triggerBlobDownload(
+    new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' }),
+    'student-upload-template.csv',
+  )
+}
+
+// Same header row as the CSV template, converted via the same
+// CSV-text-to-xlsx helper the roster export uses — no separate template
+// content to keep in sync. Async because csvTextToXlsxBlob dynamically
+// imports xlsx on demand (see lib/spreadsheet.ts) rather than bundling it
+// into the main chunk.
+async function downloadExcelTemplate() {
+  triggerBlobDownload(await csvTextToXlsxBlob(CSV_TEMPLATE), 'student-upload-template.xlsx')
 }
 
 interface AddStudentsDialogProps {
@@ -158,15 +163,17 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
     onOpenChange(nextOpen)
   }
 
-  function handleCsvFile(file: File) {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const { rows: parsed, parseErrors: errors } = parseCsvText(String(reader.result ?? ''))
-      setRows(parsed)
-      setParseErrors(errors)
-      setStep('preview')
-    }
-    reader.readAsText(file)
+  // Accepts either a .csv or a .xlsx file. An .xlsx upload is converted to
+  // CSV text first (lib/spreadsheet.ts's xlsxFileToCsvText), then fed into
+  // the exact same parseCsvText used for a real .csv upload — one parsing/
+  // validation code path regardless of which format was uploaded.
+  async function handleUploadedFile(file: File) {
+    const isXlsx = file.name.toLowerCase().endsWith('.xlsx')
+    const text = isXlsx ? await xlsxFileToCsvText(file) : await file.text()
+    const { rows: parsed, parseErrors: errors } = parseCsvText(text)
+    setRows(parsed)
+    setParseErrors(errors)
+    setStep('preview')
   }
 
   function handlePasteContinue() {
@@ -196,7 +203,7 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
         <DialogHeader>
           <DialogTitle>Add Students to {batchName}</DialogTitle>
           <DialogDescription>
-            {step === 'input' && 'Upload a CSV, paste emails, or enter students manually.'}
+            {step === 'input' && 'Upload a CSV/Excel file, paste emails, or enter students manually.'}
             {step === 'preview' && 'Review parsed rows and fix any flagged errors before submitting.'}
             {step === 'done' && 'Students created — initial login uses this batch’s shared password.'}
           </DialogDescription>
@@ -205,29 +212,39 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
         {step === 'input' && (
           <Tabs defaultValue="csv">
             <TabsList>
-              <TabsTrigger value="csv">CSV Upload</TabsTrigger>
+              <TabsTrigger value="csv">CSV / Excel Upload</TabsTrigger>
               <TabsTrigger value="paste">Paste Emails</TabsTrigger>
               <TabsTrigger value="manual">Manual Entry</TabsTrigger>
             </TabsList>
 
             <TabsContent value="csv" className="space-y-3 pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={downloadCsvTemplate}>
-                Download Template
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={downloadCsvTemplate}>
+                  Download CSV Template
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void downloadExcelTemplate()}
+                >
+                  Download Excel Template
+                </Button>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="hidden"
                 onChange={(event) => {
                   const file = event.target.files?.[0]
-                  if (file) handleCsvFile(file)
+                  if (file) void handleUploadedFile(file)
                   event.target.value = ''
                 }}
               />
               <div>
                 <Button type="button" onClick={() => fileInputRef.current?.click()}>
-                  Choose CSV file…
+                  Choose CSV or Excel file…
                 </Button>
               </div>
             </TabsContent>

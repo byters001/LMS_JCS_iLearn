@@ -1,9 +1,15 @@
+import argon2 from 'argon2';
 import { STORAGE_BUCKET, storageService } from '../../integrations/supabase';
 import { permissionCache } from '../../rbac/permission-cache';
 import type { UserRoleAssignment } from '../../rbac/role-assignments';
 import { ConflictError, NotFoundError } from '../../shared/errors/app-error';
 import type { User } from '../../db/types';
-import type { AssignRoleInput, ListUsersQuery, UpdateUserInput } from './users.schema';
+import type {
+  AssignRoleInput,
+  CreateFacultyUserInput,
+  ListUsersQuery,
+  UpdateUserInput,
+} from './users.schema';
 import type { ListUsersResult, SafeUser } from './users.types';
 import { usersRepository } from './users.repository';
 
@@ -165,6 +171,36 @@ async function assignRole(
   return assignment;
 }
 
+// Faculty account creation for the Admin's Faculty management UI — a real
+// gap this codebase had (no POST /users at all). Deliberately composed from
+// the two EXISTING steps (createUser, then assignRole) rather than one new
+// combined repository write: role assignment already happens as a separate
+// step everywhere else in this codebase (see assignRole above, and
+// students.service.ts's createStudentsInBatch, which does the exact same
+// createUser-then-assignRole sequence for students) — this isn't wrapped
+// in one DB transaction either, matching that same established, stated
+// limitation (no service in this codebase accepts an injectable
+// transaction client today). collegeId's existence is validated by the
+// CONTROLLER (organizationService.findCollegeById), not here — importing
+// organizationService from this file would create a circular dependency,
+// since organization.service.ts already imports usersService.
+async function createFacultyUser(
+  input: CreateFacultyUserInput,
+  createdBy: string,
+): Promise<SafeUser> {
+  const facultyRole = await findRoleBySlug('faculty');
+  const passwordHash = await argon2.hash(input.password);
+
+  const user = await createUser(
+    { email: input.email, passwordHash, fullName: input.fullName },
+    createdBy,
+  );
+
+  await assignRole(user.id, { roleId: facultyRole.id, collegeId: input.collegeId }, createdBy);
+
+  return user;
+}
+
 async function revokeRole(userId: string, roleId: string, collegeId: string | null): Promise<void> {
   const user = await usersRepository.findById(userId);
   if (!user) {
@@ -199,6 +235,7 @@ export const usersService = {
   findById,
   findByEmail,
   createUser,
+  createFacultyUser,
   findRoleBySlug,
   update,
   uploadAvatar,

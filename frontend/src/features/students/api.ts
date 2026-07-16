@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import { env } from '@/lib/env'
+import { csvTextToXlsxBlob, triggerBlobDownload, type SpreadsheetFormat } from '@/lib/spreadsheet'
 import { useAuthStore } from '@/store/authStore'
 import type {
   CreateStudentsInBatchInput,
@@ -88,20 +89,24 @@ export function useCreateStudentsInBatch(batchId: string) {
   })
 }
 
-// --- CSV export (Phase 3) ---
+// --- Roster export: CSV or Excel (Phase 3 + later Excel addition) ---
 // Deliberately NOT routed through the shared `api` client: the backend
 // sends a raw CSV file for this one endpoint, not the {success,data}
 // envelope api/index.ts's response interceptor unconditionally expects (see
 // students.controller.ts's exportStudentsCsv comment on the backend side) —
 // running it through that interceptor would crash trying to read
 // `body.success` off a Blob. Plain fetch, manual Authorization header
-// (mirrors api/index.ts's own request interceptor), then a synthetic <a>
-// click to trigger the browser's native download — there's no other way to
-// name/save a fetched Blob as a file.
-export async function downloadStudentsCsv(
+// (mirrors api/index.ts's own request interceptor).
+//
+// The backend only ever produces CSV — there's no separate Excel endpoint.
+// For 'xlsx', the same CSV text is converted client-side via
+// lib/spreadsheet.ts's csvTextToXlsxBlob (SheetJS), rather than adding a
+// second backend response format for what's still the exact same rows.
+export async function downloadStudentsExport(
   batchId: string,
   batchName: string,
   params: ExportStudentsParams,
+  format: SpreadsheetFormat,
 ): Promise<void> {
   const query = new URLSearchParams()
   if (params.limit) query.set('limit', String(params.limit))
@@ -123,13 +128,12 @@ export async function downloadStudentsCsv(
     throw new Error(body?.error?.message ?? 'Failed to export students.')
   }
 
-  const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `${batchName.replace(/[^a-z0-9-]+/gi, '-')}-students.csv`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+  const csvText = await response.text()
+  const safeName = batchName.replace(/[^a-z0-9-]+/gi, '-')
+
+  if (format === 'csv') {
+    triggerBlobDownload(new Blob([csvText], { type: 'text/csv;charset=utf-8' }), `${safeName}-students.csv`)
+  } else {
+    triggerBlobDownload(await csvTextToXlsxBlob(csvText), `${safeName}-students.xlsx`)
+  }
 }

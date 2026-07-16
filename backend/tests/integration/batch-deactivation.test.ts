@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { env } from '../../src/config/env';
 import { db } from '../../src/db/client';
+import { users } from '../../src/db/schema/identity.schema';
 import { trainingProgramStudents } from '../../src/db/schema/students.schema';
 import { authService } from '../../src/modules/auth/auth.service';
 import { organizationService } from '../../src/modules/organization/organization.service';
@@ -43,6 +44,18 @@ describe('batch deactivation cascade', () => {
   // correctly fail.
   let accessTokenBeforeDeactivation: string;
 
+  // Second student, independently archived (student_profiles.status =
+  // 'archived') via the real archiveStudentProfile service call BEFORE the
+  // batch is ever deactivated — used by the reactivation test below to
+  // prove activateBatchCascade's student_profiles.status filter actually
+  // works: this student's enrollment is still 'active' (archiving a
+  // profile doesn't touch training_program_students), so they'd be
+  // deactivated right alongside the primary student when the batch goes
+  // inactive, but should NOT come back when the batch is reactivated.
+  let archivedStudentProfileId: string;
+  let archivedStudentUserId: string;
+  let archivedStudentEmail: string;
+
   // Matches makeBatch's own hard-coded commonPassword exactly — the
   // student created below gets their password_hash COPIED from the
   // batch's common_password_hash (studentsService.createStudentsInBatch's
@@ -62,7 +75,9 @@ describe('batch deactivation cascade', () => {
       batchId = batch.id;
 
       // activeCollegeId: null => Super Admin, matching this exact caller
-      // shape in createStudentsInBatch's own access check.
+      // shape in createStudentsInBatch's own access check. Both students
+      // created in one call (real bulk-creation usage), then one of them
+      // is independently archived below.
       const result = await studentsService.createStudentsInBatch(
         batchId,
         {
@@ -70,6 +85,10 @@ describe('batch deactivation cascade', () => {
             {
               fullName: 'Test Deactivation Student',
               email: `test-deactivation-${randomUUID()}@jcs-ilearn.test`,
+            },
+            {
+              fullName: 'Test Independently Archived Student',
+              email: `test-archived-${randomUUID()}@jcs-ilearn.test`,
             },
           ],
         },
@@ -82,24 +101,41 @@ describe('batch deactivation cascade', () => {
       registry.userIds.add(created.userId);
       registry.studentProfileIds.add(created.studentProfileId);
 
+      const createdArchived = result.created[1]!;
+      archivedStudentProfileId = createdArchived.studentProfileId;
+      archivedStudentUserId = createdArchived.userId;
+      archivedStudentEmail = createdArchived.email;
+      registry.userIds.add(createdArchived.userId);
+      registry.studentProfileIds.add(createdArchived.studentProfileId);
+
+      // The real archiveStudentProfile service call, not a raw DB update —
+      // this is what "independently archived for an unrelated reason"
+      // actually looks like in production. Deliberately done here, BEFORE
+      // the batch is ever deactivated, so this student's enrollment is
+      // still 'active' when deactivateBatchCascade runs (archiving a
+      // profile doesn't touch training_program_students.status).
+      await studentsService.archiveStudentProfile(archivedStudentProfileId, actorId);
+
       // createStudentsInBatch's own result doesn't include the
-      // training_program_students row it creates (only
-      // studentProfileId/userId/email/fullName) — look it up directly so
-      // cleanupRegistry can delete it before the batch itself (FK order:
+      // training_program_students rows it creates (only
+      // studentProfileId/userId/email/fullName) — look them up directly so
+      // cleanupRegistry can delete them before the batch itself (FK order:
       // training_program_students.batch_id has no ON DELETE CASCADE,
       // confirmed live — deleting the batch first throws
       // "still referenced from table training_program_students").
-      const [enrollment] = await db
+      const enrollments = await db
         .select({ id: trainingProgramStudents.id })
         .from(trainingProgramStudents)
         .where(
           and(
-            eq(trainingProgramStudents.studentId, created.studentProfileId),
             eq(trainingProgramStudents.batchId, batchId),
+            inArray(trainingProgramStudents.studentId, [
+              created.studentProfileId,
+              createdArchived.studentProfileId,
+            ]),
           ),
-        )
-        .limit(1);
-      if (enrollment) {
+        );
+      for (const enrollment of enrollments) {
         registry.trainingProgramStudentIds.add(enrollment.id);
       }
     });
@@ -183,4 +219,52 @@ describe('batch deactivation cascade', () => {
     const decoded = jwt.verify(accessTokenBeforeDeactivation, env.JWT_SECRET) as { sub: string };
     expect(decoded.sub).toBe(studentUserId);
   });
+
+  // Bugfix regression test: confirmed live via sanjay@gmail.com — a batch
+  // that was deactivated then reactivated left its students permanently
+  // locked out, because the archived -> active branch of toggleBatchActive
+  // used to be a plain status flip with no student-side reversal at all.
+  // This exercises the real fix (activateBatchCascade) end-to-end, the same
+  // way the deactivation test above does: a genuine login attempt, not just
+  // an is_active row check.
+  it(
+    'reactivating the batch restores the primary student\'s login, but does not resurrect ' +
+      'a student who was independently archived beforehand',
+    async () => {
+      // Both students were deactivated by the previous test's batch
+      // deactivation — confirm the independently-archived student was
+      // caught by it too (their enrollment was still 'active' at that
+      // point; archiving a profile doesn't touch enrollment status), so
+      // the "still false after reactivation" assertion below is proving
+      // something real, not just an untouched default.
+      const [beforeReactivation] = await db
+        .select({ isActive: users.isActive })
+        .from(users)
+        .where(eq(users.id, archivedStudentUserId))
+        .limit(1);
+      expect(beforeReactivation?.isActive).toBe(false);
+
+      const batch = await organizationService.toggleBatchActive(batchId, actorId);
+      expect(batch.status).toBe('active');
+
+      // The primary student's account is genuinely usable again — a real
+      // login succeeds, not just a DB row flipped back.
+      const result = await authService.login({ email: studentEmail, password: studentPassword });
+      expect(result.user.email).toBe(studentEmail);
+
+      // The independently-archived student's account was NOT touched by
+      // the reactivation cascade — confirmed both at the DB level and via
+      // a real login attempt still being rejected.
+      const [afterReactivation] = await db
+        .select({ isActive: users.isActive })
+        .from(users)
+        .where(eq(users.id, archivedStudentUserId))
+        .limit(1);
+      expect(afterReactivation?.isActive).toBe(false);
+
+      await expect(
+        authService.login({ email: archivedStudentEmail, password: studentPassword }),
+      ).rejects.toBeInstanceOf(UnauthorizedError);
+    },
+  );
 });

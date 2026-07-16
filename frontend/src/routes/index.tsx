@@ -19,6 +19,7 @@ import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
 import BatchListPage from '@/features/organization/pages/BatchListPage'
 import CreateBatchPage from '@/features/organization/pages/CreateBatchPage'
 import MyBatchesPage from '@/features/organization/pages/MyBatchesPage'
+import FacultyListPage from '@/features/users/pages/FacultyListPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import AdminLayout from '@/layouts/AdminLayout'
@@ -142,6 +143,7 @@ export function AppRoutes() {
               <Route index element={<BatchListPage />} />
               <Route path="new" element={<CreateBatchPage />} />
             </Route>
+            <Route path="faculty" element={<FacultyListPage />} />
             <Route path="assessments">
               <Route index element={<AssessmentListPage />} />
               <Route path="new" element={<CreateAssessmentPage />} />

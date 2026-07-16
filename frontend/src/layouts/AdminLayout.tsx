@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Search, Users } from 'lucide-react'
+import { BarChart3, BookOpen, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Search, UserCog, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/authStore'
 const NAV_ITEMS = [
   { type: 'link' as const, to: '/admin', label: 'Students', end: true, icon: Users },
   { type: 'link' as const, to: '/admin/batches', label: 'Batches', end: true, icon: BookOpen },
+  { type: 'link' as const, to: '/admin/faculty', label: 'Faculty', end: true, icon: UserCog },
   {
     type: 'group' as const,
     label: 'Question Bank',

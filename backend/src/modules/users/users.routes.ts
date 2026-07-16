@@ -5,12 +5,14 @@ import { ValidationError } from '../../shared/errors/app-error';
 import { usersController } from './users.controller';
 import {
   assignRoleSchema,
+  createFacultyUserSchema,
   listUsersQuerySchema,
   revokeRoleQuerySchema,
   updateUserSchema,
   userIdParamsSchema,
   userRoleParamsSchema,
   type AssignRoleInput,
+  type CreateFacultyUserInput,
   type ListUsersQuery,
   type RevokeRoleQuery,
   type UpdateUserInput,
@@ -74,6 +76,27 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: [validateParams(userIdParamsSchema), validateBody(updateUserSchema)],
     },
     usersController.update,
+  );
+
+  // Faculty account creation — gated by 'users.manage_roles' (Super Admin
+  // only; Faculty doesn't hold it — see schema.sql's role_permissions
+  // seed), not 'users.edit': this creates an account AND assigns it a
+  // role in one call, which is what users.manage_roles already represents
+  // elsewhere (POST /users/:id/roles below). Deactivating/reactivating a
+  // faculty account reuses the EXISTING PATCH /users/:id { isActive }
+  // above — no separate delete/deactivate route needed; see
+  // users.service.ts's createFacultyUser for why hard-delete was rejected
+  // (users has FK fan-out — createdBy/updatedBy/assignedBy — across nearly
+  // every table in this schema; deleting a user row would null out audit
+  // trails platform-wide, whereas is_active is the same, already-proven
+  // lever the batch-deactivation cascade uses).
+  fastify.post<{ Body: CreateFacultyUserInput }>(
+    '/users',
+    {
+      preHandler: [fastify.authenticate, requirePermission('users.manage_roles')],
+      preValidation: validateBody(createFacultyUserSchema),
+    },
+    usersController.createFacultyUser,
   );
 
   // requirePermission('users.edit') here is only the baseline gate (same

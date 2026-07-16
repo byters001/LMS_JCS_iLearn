@@ -1,19 +1,28 @@
 import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
+import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { useMyBatches } from '../api'
 import { BatchCard } from '../components/BatchCard'
+import type { Batch } from '../types'
 
 const PAGE_SIZE = 20
 
 // Trainer's "My Batches" — backed by GET /batches/mine (self-scoped
 // server-side by the caller's own id via batch_trainers, not a client-side
 // filter of listBatches). Reuses BatchCard, same as BatchListPage — no
-// duplicated card markup. No menu items or active-toggle here: those are
-// Admin/Faculty-management actions that belong on BatchListPage, not on a
-// trainer's own read-scoped view of batches they're assigned to.
+// duplicated card markup. Add Students / Download CSV are wired in here the
+// same way BatchListPage wires them, now that the backend actually
+// authorizes them for a Faculty caller who is personally assigned to the
+// batch (organizationService.isTrainerAssignedToBatch — see
+// students.service.ts's createStudentsInBatch/exportStudentsCsv). No
+// active-toggle here: that stays a Super-Admin-only lifecycle action on
+// BatchListPage, matching the backend's batches.toggle_active permission.
 export default function MyBatchesPage() {
   const [page, setPage] = useState(1)
+  const [addStudentsBatch, setAddStudentsBatch] = useState<Batch | null>(null)
+  const [downloadCsvBatch, setDownloadCsvBatch] = useState<Batch | null>(null)
   const batches = useMyBatches({ page, pageSize: PAGE_SIZE })
 
   const totalPages = batches.data
@@ -59,7 +68,14 @@ export default function MyBatchesPage() {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {batches.data.items.map((batch) => (
-              <BatchCard key={batch.id} batch={batch} />
+              <BatchCard
+                key={batch.id}
+                batch={batch}
+                menuItems={[
+                  { label: 'Add Students', onSelect: () => setAddStudentsBatch(batch) },
+                  { label: 'Download CSV', onSelect: () => setDownloadCsvBatch(batch) },
+                ]}
+              />
             ))}
           </div>
 
@@ -91,6 +107,38 @@ export default function MyBatchesPage() {
             </div>
           </div>
         </>
+      )}
+
+      {addStudentsBatch && (
+        <AddStudentsDialog
+          batchId={addStudentsBatch.id}
+          batchName={addStudentsBatch.name}
+          open={addStudentsBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setAddStudentsBatch(null)
+          }}
+        />
+      )}
+
+      {downloadCsvBatch && (
+        <DownloadCsvDialog
+          batchId={downloadCsvBatch.id}
+          batchName={downloadCsvBatch.name}
+          // Unlike BatchListPage (single college context, one shared
+          // departments fetch), a trainer's own batches can span multiple
+          // colleges and the Batch type here doesn't carry a raw
+          // collegeId/departmentId (only display names) — so there's no
+          // single department list to fetch. The department filter simply
+          // shows "Any department" here; the export itself still works
+          // unfiltered-by-department, which is the actual functionality
+          // being restored, not a full parity requirement with the Admin
+          // view.
+          departmentOptions={[]}
+          open={downloadCsvBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setDownloadCsvBatch(null)
+          }}
+        />
       )}
     </div>
   )

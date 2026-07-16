@@ -147,27 +147,31 @@ async function createStudentsInBatch(
   activeCollegeId: string | null,
   createdBy: string,
 ): Promise<CreateStudentsInBatchResult> {
-  // CRITICAL access rule, stated rather than silently allowed: Faculty is
-  // rejected unconditionally here, not just college-scoped. Per-trainer
-  // batch assignment (Phase 4) doesn't exist yet, so there's no data
-  // anywhere saying WHICH batches a given Faculty member should be able to
-  // add students to — even within their own college. A college-match check
-  // alone (like analytics.service.ts's assertCanAccessBatch) would let ANY
-  // Faculty member at a college add students to ANY batch there, which is
-  // broader access than intended once Phase 4 actually scopes this per
-  // trainer. This route is also gated by 'students.manage' at the route
-  // layer (super_admin only — see students.routes.ts and
-  // 0005_add-students-permissions.sql's grant), so Faculty never reaches
-  // this check in practice today; it's here as defense-in-depth against a
-  // future permission grant that doesn't also update this logic, and as the
-  // one line Phase 4 needs to replace with real assigned-batch scoping.
+  const batch = await organizationService.findBatchById(batchId);
+
+  // Real per-trainer scoping (this replaces the former unconditional
+  // "Faculty rejected regardless of batch" placeholder, which predated
+  // batch_trainers existing at all — see this function's git history). A
+  // Faculty caller (activeCollegeId !== null) may add students to a batch
+  // only if THEY THEMSELVES are currently assigned to it as a trainer,
+  // checked server-side via organizationService.isTrainerAssignedToBatch —
+  // not just "holds a faculty role" or "batch is in their college," either
+  // of which would let any faculty member at a college add students to any
+  // batch there, broader than intended. Super Admin
+  // (activeCollegeId === null) bypasses this, same convention as every
+  // other isSuperAdmin-style check in this codebase. Route-level gating
+  // also changed alongside this — see students.routes.ts's own comment —
+  // 'students.manage' is now granted to Faculty too, with this check as the
+  // real restriction.
   if (activeCollegeId !== null) {
-    throw new ForbiddenError(
-      'Only Super Admin can add students to a batch until per-trainer batch assignment exists',
-    );
+    const isAssigned = await organizationService.isTrainerAssignedToBatch(batchId, createdBy);
+    if (!isAssigned) {
+      throw new ForbiddenError(
+        'You must be assigned as a trainer on this batch to add students to it',
+      );
+    }
   }
 
-  const batch = await organizationService.findBatchById(batchId);
   const trainingProgram = await organizationService.findTrainingProgramById(batch.trainingProgramId);
 
   // Every student in a batch shares this one initial password — see
@@ -282,23 +286,33 @@ function toCsv(rows: { fullName: string; email: string; rollNumber: string | nul
 }
 
 // Gated by 'students.view' at the route layer (both Super Admin and
-// Faculty hold it — see 0016_grant-faculty-students-view.sql), not the
-// stricter 'students.manage' createStudentsInBatch above uses: exporting a
-// roster is read-only, and a Faculty member exporting a batch already
-// within THEIR OWN college's scope is consistent with what students.view
-// already permits elsewhere (students.repository.ts's own college-scoped
-// list). The "faculty effectively rejected" rule above is specific to
-// *creating* accounts, not reading an existing roster.
+// Faculty hold it — see 0016_grant-faculty-students-view.sql). Previously
+// only college-matched (any Faculty member at the batch's college could
+// export it) — now also requires the caller be personally assigned to
+// THIS batch as a trainer, same organizationService.isTrainerAssignedToBatch
+// check createStudentsInBatch above uses, tightened for consistency:
+// exporting a roster is read-only, but there's no reason a Faculty member
+// with no connection to a specific batch should be able to pull its roster
+// just because they're at the same college.
 async function exportStudentsCsv(
   batchId: string,
   query: ExportBatchStudentsQuery,
   activeCollegeId: string | null,
+  requesterId: string,
 ): Promise<string> {
   const batch = await organizationService.findBatchById(batchId);
   const trainingProgram = await organizationService.findTrainingProgramById(batch.trainingProgramId);
 
-  if (activeCollegeId !== null && trainingProgram.collegeId !== activeCollegeId) {
-    throw new ForbiddenError('You are not authorized to export students for this batch');
+  if (activeCollegeId !== null) {
+    if (trainingProgram.collegeId !== activeCollegeId) {
+      throw new ForbiddenError('You are not authorized to export students for this batch');
+    }
+    const isAssigned = await organizationService.isTrainerAssignedToBatch(batchId, requesterId);
+    if (!isAssigned) {
+      throw new ForbiddenError(
+        'You must be assigned as a trainer on this batch to export its roster',
+      );
+    }
   }
 
   const rows = await studentsRepository.listStudentsForExport({

@@ -118,7 +118,13 @@ async function exportStudentsCsv(
   reply: FastifyReply,
 ): Promise<void> {
   const activeCollegeId = requireActiveCollegeId(request);
-  const csv = await studentsService.exportStudentsCsv(request.params.id, request.query, activeCollegeId);
+  const requesterId = requireUserId(request);
+  const csv = await studentsService.exportStudentsCsv(
+    request.params.id,
+    request.query,
+    activeCollegeId,
+    requesterId,
+  );
   reply
     .header('Content-Type', 'text/csv; charset=utf-8')
     .header('Content-Disposition', `attachment; filename="batch-${request.params.id}-students.csv"`)
