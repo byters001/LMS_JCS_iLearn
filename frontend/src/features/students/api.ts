@@ -1,8 +1,16 @@
 // TanStack Query hooks for the "students" feature, calling the shared api/ client.
 // This is the only file in this feature allowed to import from api/.
-import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { ListStudentProfilesParams, ListStudentProfilesResponse } from './types'
+import { env } from '@/lib/env'
+import { useAuthStore } from '@/store/authStore'
+import type {
+  CreateStudentsInBatchInput,
+  CreateStudentsInBatchResponse,
+  ExportStudentsParams,
+  ListStudentProfilesParams,
+  ListStudentProfilesResponse,
+} from './types'
 
 function listStudentProfiles(
   params: ListStudentProfilesParams,
@@ -54,4 +62,74 @@ export function useStudentCountsByCollege(collegeIds: string[]) {
   })
 
   return { countsByCollegeId }
+}
+
+// --- Bulk student creation (Phase 3) ---
+// Single-student manual entry reuses this exact mutation with a one-item
+// `students` array — same endpoint, no separate hook, per the backend's own
+// "same endpoint, friendlier single-row UI" design (see students.schema.ts's
+// createStudentsInBatchSchema comment).
+function createStudentsInBatch(
+  batchId: string,
+  input: CreateStudentsInBatchInput,
+): Promise<CreateStudentsInBatchResponse> {
+  return api.post<CreateStudentsInBatchResponse>(`/batches/${batchId}/students`, input)
+}
+
+export function useCreateStudentsInBatch(batchId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateStudentsInBatchInput) => createStudentsInBatch(batchId, input),
+    onSuccess: () => {
+      // Both the college-scoped table (StudentListPage) and the per-college
+      // count cards key off this same ['students', 'list', ...] prefix.
+      queryClient.invalidateQueries({ queryKey: ['students', 'list'] })
+    },
+  })
+}
+
+// --- CSV export (Phase 3) ---
+// Deliberately NOT routed through the shared `api` client: the backend
+// sends a raw CSV file for this one endpoint, not the {success,data}
+// envelope api/index.ts's response interceptor unconditionally expects (see
+// students.controller.ts's exportStudentsCsv comment on the backend side) —
+// running it through that interceptor would crash trying to read
+// `body.success` off a Blob. Plain fetch, manual Authorization header
+// (mirrors api/index.ts's own request interceptor), then a synthetic <a>
+// click to trigger the browser's native download — there's no other way to
+// name/save a fetched Blob as a file.
+export async function downloadStudentsCsv(
+  batchId: string,
+  batchName: string,
+  params: ExportStudentsParams,
+): Promise<void> {
+  const query = new URLSearchParams()
+  if (params.limit) query.set('limit', String(params.limit))
+  if (params.departmentId) query.set('departmentId', params.departmentId)
+  if (params.status) query.set('status', params.status)
+  const queryString = query.toString()
+
+  const accessToken = useAuthStore.getState().accessToken
+  const response = await fetch(
+    `${env.apiBaseUrl}/batches/${batchId}/students/export${queryString ? `?${queryString}` : ''}`,
+    {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      credentials: 'include',
+    },
+  )
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error?.message ?? 'Failed to export students.')
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${batchName.replace(/[^a-z0-9-]+/gi, '-')}-students.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }

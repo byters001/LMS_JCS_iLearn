@@ -1,0 +1,1 @@
+ALTER TABLE "student_profiles" ADD COLUMN "must_change_password" boolean DEFAULT true NOT NULL;

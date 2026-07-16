@@ -1,4 +1,4 @@
-import { index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from './identity.schema';
 import { batches, colleges, departments, trainingPrograms } from './organization.schema';
 
@@ -38,6 +38,14 @@ export const studentProfiles = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    // Phase 3 (bulk student creation): every student provisioned via
+    // createStudentsInBatch logs in with the batch's shared common
+    // password initially, so this flags "still using that shared password,
+    // hasn't set their own yet." Defaults true so newly-created rows start
+    // flagged; existing/manually-created profiles before this phase default
+    // true too (harmless — nothing reads this flag yet, see the module
+    // comment below on login-flow wiring being separate scope).
+    mustChangePassword: boolean('must_change_password').notNull().default(true),
   },
   (table) => ({
     // Not partial (no WHERE clause) — schema.sql's own index on this table

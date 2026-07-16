@@ -1,11 +1,20 @@
+import { MoreVertical } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Combobox } from '@/components/Combobox'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
+import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
+import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { useAuthStore } from '@/store/authStore'
-import { useBatches, useColleges, useToggleBatchActive } from '../api'
+import { useBatches, useColleges, useDepartments, useToggleBatchActive } from '../api'
 import type { Batch } from '../types'
 
 const PAGE_SIZE = 20
@@ -36,6 +45,8 @@ export default function BatchListPage() {
 
   const [collegeId, setCollegeId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [addStudentsBatch, setAddStudentsBatch] = useState<Batch | null>(null)
+  const [downloadCsvBatch, setDownloadCsvBatch] = useState<Batch | null>(null)
 
   const colleges = useColleges({ page: 1, pageSize: COLLEGE_PICKER_PAGE_SIZE })
   const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
@@ -48,6 +59,18 @@ export default function BatchListPage() {
     { enabled: collegeId !== null },
   )
   const toggleActive = useToggleBatchActive()
+
+  // Every batch on this page already belongs to the one selected college,
+  // so one departments fetch (for the Download CSV dialog's department
+  // filter) covers all of them — no per-card fetch needed.
+  const departments = useDepartments(
+    { collegeId: collegeId ?? '', page: 1, pageSize: 100 },
+    { enabled: collegeId !== null },
+  )
+  const departmentOptions = (departments.data?.items ?? []).map((department) => ({
+    id: department.id,
+    name: department.name,
+  }))
 
   const totalPages = batches.data
     ? Math.max(1, Math.ceil(batches.data.total / batches.data.pageSize))
@@ -136,7 +159,28 @@ export default function BatchListPage() {
                       {batch.collegeName} · {batch.departmentName}
                     </p>
                   </div>
-                  <StatusBadge status={batch.status} />
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <StatusBadge status={batch.status} />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${batch.name}`}
+                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-brand-primary"
+                        >
+                          <MoreVertical className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setAddStudentsBatch(batch)}>
+                          Add Students
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setDownloadCsvBatch(batch)}>
+                          Download CSV
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-2">
                   <p className="text-sm text-muted-foreground">
@@ -199,6 +243,29 @@ export default function BatchListPage() {
             </div>
           </div>
         </>
+      )}
+
+      {addStudentsBatch && (
+        <AddStudentsDialog
+          batchId={addStudentsBatch.id}
+          batchName={addStudentsBatch.name}
+          open={addStudentsBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setAddStudentsBatch(null)
+          }}
+        />
+      )}
+
+      {downloadCsvBatch && (
+        <DownloadCsvDialog
+          batchId={downloadCsvBatch.id}
+          batchName={downloadCsvBatch.name}
+          departmentOptions={departmentOptions}
+          open={downloadCsvBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setDownloadCsvBatch(null)
+          }}
+        />
       )}
     </div>
   )

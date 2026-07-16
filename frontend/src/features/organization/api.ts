@@ -9,6 +9,8 @@ import type {
   ListBatchesResponse,
   ListCollegesParams,
   ListCollegesResponse,
+  ListDepartmentsParams,
+  ListDepartmentsResponse,
   ListTrainingProgramsParams,
   ListTrainingProgramsResponse,
 } from './types'
@@ -68,6 +70,19 @@ export function useColleges(params: ListCollegesParams) {
     queryKey: ['organization', 'colleges', 'list', params],
     queryFn: () => listColleges(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+function listDepartments(params: ListDepartmentsParams): Promise<ListDepartmentsResponse> {
+  return api.get<ListDepartmentsResponse>('/departments', { params })
+}
+
+export function useDepartments(params: ListDepartmentsParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['organization', 'departments', 'list', params],
+    queryFn: () => listDepartments(params),
+    placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 

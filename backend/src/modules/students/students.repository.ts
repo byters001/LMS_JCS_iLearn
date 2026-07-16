@@ -60,6 +60,7 @@ const STUDENT_PROFILE_WITH_NAMES_COLUMNS = {
   updatedAt: studentProfiles.updatedAt,
   createdBy: studentProfiles.createdBy,
   updatedBy: studentProfiles.updatedBy,
+  mustChangePassword: studentProfiles.mustChangePassword,
   fullName: users.fullName,
   departmentName: departments.name,
   collegeName: colleges.name,
@@ -273,6 +274,92 @@ async function archiveStudentProfile(id: string, updatedBy: string | null): Prom
   return Boolean(archived);
 }
 
+// --- Bulk student creation (Phase 3) ---
+
+export interface CreateStudentWithEnrollmentData {
+  profile: CreateStudentProfileData;
+  trainingProgramId: string;
+  batchId: string;
+}
+
+// One profile + one enrollment row, atomically: a student_profiles row with
+// no matching training_program_students row (or vice versa) would be a
+// silently half-created student — not just "row didn't get created," but a
+// user account that logged in fine yet had no batch to attempt assessments
+// against. This is the one piece of the whole bulk-creation flow that's
+// genuinely atomic — see students.service.ts's createStudentsInBatch for
+// why the surrounding user-account + role-assignment steps aren't wrapped
+// into this same transaction (they're cross-module service calls against
+// the shared `db` singleton, not this repository's own tx).
+async function createStudentProfileWithEnrollment(
+  data: CreateStudentWithEnrollmentData,
+): Promise<StudentProfile> {
+  return db.transaction(async (tx) => {
+    const [studentProfile] = await tx.insert(studentProfiles).values(data.profile).returning();
+    await tx.insert(trainingProgramStudents).values({
+      trainingProgramId: data.trainingProgramId,
+      studentId: studentProfile.id,
+      batchId: data.batchId,
+      createdBy: data.profile.createdBy ?? null,
+    });
+    return studentProfile;
+  });
+}
+
+// --- CSV export (Phase 3) ---
+
+export interface ExportStudentsParams {
+  batchId: string;
+  departmentId?: string;
+  status?: 'active' | 'archived';
+  limit?: number;
+}
+
+export interface StudentExportRow {
+  fullName: string;
+  email: string;
+  rollNumber: string | null;
+  departmentName: string | null;
+  status: string;
+}
+
+// Unlike listStudentProfiles above, this selects users.email (the CSV needs
+// it — see students.service.ts's exportStudentsCsv column spec) and is
+// never paginated: "export" means every matching row (optionally capped by
+// `limit`, the brief's own "first N" filter), not one page at a time.
+// users is an INNER JOIN here, not LEFT: every student_profiles row has a
+// NOT NULL, UNIQUE user_id, so this can never actually drop a row.
+async function listStudentsForExport(params: ExportStudentsParams): Promise<StudentExportRow[]> {
+  const { batchId, departmentId, status, limit } = params;
+  const conditions = [eq(trainingProgramStudents.batchId, batchId)];
+  if (departmentId) conditions.push(eq(studentProfiles.departmentId, departmentId));
+  if (status) conditions.push(eq(studentProfiles.status, status));
+
+  // Ordered by the joined users.fullName, not studentProfiles.createdAt —
+  // Postgres requires every ORDER BY expression to appear in the SELECT
+  // list for a SELECT DISTINCT (confirmed live: created_at isn't selected
+  // here, and ordering by it threw "for SELECT DISTINCT, ORDER BY
+  // expressions must appear in select list"). Ordering alphabetically by
+  // name is also just a better default for a roster export, not merely a
+  // workaround.
+  const query = db
+    .selectDistinct({
+      fullName: users.fullName,
+      email: users.email,
+      rollNumber: studentProfiles.rollNumber,
+      departmentName: departments.name,
+      status: studentProfiles.status,
+    })
+    .from(studentProfiles)
+    .innerJoin(trainingProgramStudents, eq(trainingProgramStudents.studentId, studentProfiles.id))
+    .innerJoin(users, eq(users.id, studentProfiles.userId))
+    .leftJoin(departments, eq(departments.id, studentProfiles.departmentId))
+    .where(and(...conditions))
+    .orderBy(asc(users.fullName));
+
+  return limit ? query.limit(limit) : query;
+}
+
 export const studentsRepository = {
   listStudentProfiles,
   findStudentProfileById,
@@ -281,4 +368,6 @@ export const studentsRepository = {
   createStudentProfile,
   updateStudentProfile,
   archiveStudentProfile,
+  createStudentProfileWithEnrollment,
+  listStudentsForExport,
 };

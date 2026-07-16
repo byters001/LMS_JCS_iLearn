@@ -71,6 +71,26 @@ export interface ListCollegesResponse {
   pageSize: number
 }
 
+export interface Department {
+  id: string
+  collegeId: string
+  name: string
+  code: string | null
+}
+
+export interface ListDepartmentsParams {
+  collegeId?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface ListDepartmentsResponse {
+  items: Department[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export type TrainingProgramStatus = 'planned' | 'ongoing' | 'completed' | 'archived'
 
 export interface TrainingProgram {

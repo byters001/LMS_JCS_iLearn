@@ -48,3 +48,37 @@ export interface ListStudentProfilesResponse {
   page: number
   pageSize: number
 }
+
+// --- Bulk student creation (Phase 3) ---
+// Matches backend/.../students.schema.ts's studentRowSchema exactly.
+// departmentId omitted => falls back to the batch's own training program's
+// department server-side (see students.service.ts's createStudentsInBatch).
+export interface StudentRowInput {
+  fullName: string
+  email: string
+  rollNumber?: string
+  departmentId?: string
+}
+
+export interface CreateStudentsInBatchInput {
+  students: StudentRowInput[]
+}
+
+export interface CreatedStudent {
+  studentProfileId: string
+  userId: string
+  email: string
+  fullName: string
+}
+
+export interface CreateStudentsInBatchResponse {
+  created: CreatedStudent[]
+}
+
+// --- CSV export (Phase 3) ---
+// Matches backend/.../students.schema.ts's exportBatchStudentsQuerySchema.
+export interface ExportStudentsParams {
+  limit?: number
+  departmentId?: string
+  status?: StudentStatus
+}

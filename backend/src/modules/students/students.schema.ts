@@ -65,7 +65,55 @@ export const studentProfileIdParamsSchema = z
   })
   .strict();
 
+// --- Bulk student creation (Phase 3) ---
+// Route is POST /batches/:id/students — :id here is a BATCH id, not a
+// student_profiles id, hence a separate params schema from
+// studentProfileIdParamsSchema above rather than reusing it (same name,
+// different resource, would be confusing to share).
+export const batchStudentsParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+  })
+  .strict();
+
+const studentRowSchema = z.object({
+  fullName: z.string().min(1, 'fullName is required'),
+  email: z.string().email('email must be a valid email'),
+  rollNumber: z.string().min(1).optional(),
+  // Falls back to the batch's training program's own departmentId when
+  // omitted (see students.service.ts) — a row-level override only matters
+  // when a batch's cohort spans more than one department.
+  departmentId: z.string().uuid('departmentId must be a valid UUID').optional(),
+});
+
+// Single-student manual entry reuses this exact schema (and the same
+// service function/route) with a one-item `students` array — per the
+// brief's own "same endpoint, friendlier single-row UI" instruction, not a
+// separate backend path.
+export const createStudentsInBatchSchema = z
+  .object({
+    students: z
+      .array(studentRowSchema)
+      .min(1, 'At least one student is required')
+      .max(500, 'Maximum 500 students per request'),
+  })
+  .strict();
+
+// --- CSV export (Phase 3) ---
+export const exportBatchStudentsQuerySchema = z
+  .object({
+    // "first N" per the brief's own spec — caps how many rows the export
+    // includes, applied after the other filters below.
+    limit: z.coerce.number().int().positive().max(5000).optional(),
+    departmentId: z.string().uuid('departmentId must be a valid UUID').optional(),
+    status: z.enum(['active', 'archived']).optional(),
+  })
+  .strict();
+
 export type ListStudentProfilesQuery = z.infer<typeof listStudentProfilesQuerySchema>;
 export type CreateStudentProfileInput = z.infer<typeof createStudentProfileSchema>;
 export type UpdateStudentProfileInput = z.infer<typeof updateStudentProfileSchema>;
 export type StudentProfileIdParams = z.infer<typeof studentProfileIdParamsSchema>;
+export type BatchStudentsParams = z.infer<typeof batchStudentsParamsSchema>;
+export type CreateStudentsInBatchInput = z.infer<typeof createStudentsInBatchSchema>;
+export type ExportBatchStudentsQuery = z.infer<typeof exportBatchStudentsQuerySchema>;

@@ -61,6 +61,52 @@ async function findById(id: string): Promise<User | undefined> {
   return user;
 }
 
+// Own copy, not a reuse of auth.repository.ts's near-identical
+// findUserByEmail — that one lives in the auth module's own repository,
+// and CLAUDE.md's boundary rule ("a module may call another module's
+// service, never its repository") means students.service.ts can't import
+// it directly. This is the one other modules are meant to go through
+// (via usersService.findByEmail below), for the "is this email already
+// registered" pre-check bulk student creation needs.
+async function findByEmail(email: string): Promise<User | undefined> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.email, email), isNull(users.deletedAt)))
+    .limit(1);
+  return user;
+}
+
+// First real account-provisioning path in this codebase — confirmed by
+// grep that no createUser existed anywhere before this (trainers.service.ts's
+// own createTrainerProfile comment says as much: "no module in this
+// codebase currently exposes user creation at all... that gap belongs to
+// whichever future phase builds account provisioning"). Takes an
+// ALREADY-HASHED passwordHash rather than a plaintext password — this
+// function stays a generic, hashing-agnostic insert; the caller decides
+// where the hash comes from (students.service.ts's bulk creation copies a
+// batch's existing common_password_hash verbatim, no fresh argon2.hash()
+// call needed for that specific path — see that module for why).
+export interface CreateUserData {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+  createdBy: string | null;
+}
+
+async function createUser(data: CreateUserData): Promise<User> {
+  const [user] = await db.insert(users).values(data).returning();
+  return user;
+}
+
+// Resolves a system role's id from its slug (e.g. 'student') — needed by
+// callers that provision a role assignment without already knowing the
+// role's UUID (usersService.assignRole takes a roleId, not a slug).
+async function findRoleBySlug(slug: string): Promise<{ id: string } | undefined> {
+  const [role] = await db.select({ id: roles.id }).from(roles).where(eq(roles.slug, slug)).limit(1);
+  return role;
+}
+
 export interface UpdateUserData {
   fullName?: string;
   isActive?: boolean;
@@ -155,6 +201,9 @@ async function getPermissionKeysForUser(
 export const usersRepository = {
   list,
   findById,
+  findByEmail,
+  createUser,
+  findRoleBySlug,
   update,
   updateAvatarUrl,
   roleExists,

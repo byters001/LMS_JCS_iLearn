@@ -40,6 +40,41 @@ async function findById(id: string): Promise<SafeUser> {
   return toSafeUser(user);
 }
 
+// Returns undefined rather than throwing — callers use this for a
+// does-this-email-already-exist pre-check (students.service.ts's bulk
+// creation), where "not found" is the expected, non-error case, not a
+// NotFoundError-worthy failure.
+async function findByEmail(email: string): Promise<SafeUser | undefined> {
+  const user = await usersRepository.findByEmail(email);
+  return user ? toSafeUser(user) : undefined;
+}
+
+export interface CreateUserInput {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+}
+
+// See users.repository.ts's createUser comment for why this takes an
+// already-hashed password rather than hashing one itself.
+async function createUser(input: CreateUserInput, createdBy: string): Promise<SafeUser> {
+  const existing = await usersRepository.findByEmail(input.email);
+  if (existing) {
+    throw new ConflictError('A user with this email already exists');
+  }
+
+  const user = await usersRepository.createUser({ ...input, createdBy });
+  return toSafeUser(user);
+}
+
+async function findRoleBySlug(slug: string): Promise<{ id: string }> {
+  const role = await usersRepository.findRoleBySlug(slug);
+  if (!role) {
+    throw new NotFoundError(`Role '${slug}' not found`);
+  }
+  return role;
+}
+
 async function update(id: string, input: UpdateUserInput): Promise<SafeUser> {
   const existing = await usersRepository.findById(id);
   if (!existing) {
@@ -162,6 +197,9 @@ async function resolvePermissionsForUser(
 export const usersService = {
   list,
   findById,
+  findByEmail,
+  createUser,
+  findRoleBySlug,
   update,
   uploadAvatar,
   removeAvatar,

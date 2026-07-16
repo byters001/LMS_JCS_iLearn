@@ -3,7 +3,10 @@ import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { studentsService } from './students.service';
 import type {
+  BatchStudentsParams,
   CreateStudentProfileInput,
+  CreateStudentsInBatchInput,
+  ExportBatchStudentsQuery,
   ListStudentProfilesQuery,
   StudentProfileIdParams,
   UpdateStudentProfileInput,
@@ -17,6 +20,16 @@ function requireUserId(request: FastifyRequest): string {
     throw new UnauthorizedError('Authentication required');
   }
   return request.user.id;
+}
+
+// Same helper as analytics.controller.ts's/organization.controller.ts's own
+// requireActiveCollegeId — null means a global (Super Admin) grant,
+// non-null means a college-scoped caller (Faculty).
+function requireActiveCollegeId(request: FastifyRequest): string | null {
+  if (!request.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+  return request.user.activeCollegeId ?? null;
 }
 
 async function listStudentProfiles(
@@ -79,10 +92,46 @@ async function archiveStudentProfile(
   reply.status(204).send();
 }
 
+async function createStudentsInBatch(
+  request: FastifyRequest<{ Params: BatchStudentsParams; Body: CreateStudentsInBatchInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const createdBy = requireUserId(request);
+  const activeCollegeId = requireActiveCollegeId(request);
+  const result = await studentsService.createStudentsInBatch(
+    request.params.id,
+    request.body,
+    activeCollegeId,
+    createdBy,
+  );
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(201).send(response);
+}
+
+// Deliberately NOT the {success,data} envelope every other endpoint in this
+// codebase returns — this sends a raw CSV file. The frontend's shared api/
+// client unwraps every response assuming that envelope (see api/index.ts's
+// response interceptor), so this endpoint can't go through it; the
+// frontend fetches this one directly instead (see features/students/api.ts).
+async function exportStudentsCsv(
+  request: FastifyRequest<{ Params: BatchStudentsParams; Querystring: ExportBatchStudentsQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const activeCollegeId = requireActiveCollegeId(request);
+  const csv = await studentsService.exportStudentsCsv(request.params.id, request.query, activeCollegeId);
+  reply
+    .header('Content-Type', 'text/csv; charset=utf-8')
+    .header('Content-Disposition', `attachment; filename="batch-${request.params.id}-students.csv"`)
+    .status(200)
+    .send(csv);
+}
+
 export const studentsController = {
   listStudentProfiles,
   getStudentProfileById,
   createStudentProfile,
   updateStudentProfile,
   archiveStudentProfile,
+  createStudentsInBatch,
+  exportStudentsCsv,
 };
