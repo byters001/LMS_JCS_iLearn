@@ -2,6 +2,7 @@
 // interceptor. The only file in the app allowed to construct HTTP
 // requests directly — see CLAUDE1.md "Boundary rules".
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
+import { toast } from 'sonner'
 import { env } from '@/lib/env'
 import { useAuthStore } from '@/store/authStore'
 
@@ -54,7 +55,33 @@ export class ApiError extends Error {
 declare module 'axios' {
   interface InternalAxiosRequestConfig {
     _retry?: boolean
+    _rateLimitRetryCount?: number
   }
+}
+
+// --- 429 retry-with-backoff (distinct from the 401-refresh retry above) ---
+// Different failure mode, different recovery: a 401 means the credential
+// used was bad and needs replacing before retrying; a 429 means the
+// credential is fine but the caller was too fast, and needs to wait. This
+// reads the backend's own Retry-After header (@fastify/rate-limit sends one
+// on every 429, in whole seconds — see rate-limit.plugin.ts) rather than
+// guessing a delay, so the retry actually waits exactly as long as the
+// server says. RATE_LIMIT_TOAST_ID keeps concurrent 429s (a whole burst of
+// mounted queries can all get limited at once) collapsed into one visible
+// toast that updates in place, instead of stacking one per request.
+const MAX_RATE_LIMIT_RETRIES = 3
+const DEFAULT_RATE_LIMIT_RETRY_DELAY_MS = 1000
+const RATE_LIMIT_TOAST_ID = 'rate-limit-retry'
+
+function parseRetryAfterMs(retryAfterHeader: unknown): number {
+  const seconds = Number(retryAfterHeader)
+  return Number.isFinite(seconds) && seconds > 0
+    ? seconds * 1000
+    : DEFAULT_RATE_LIMIT_RETRY_DELAY_MS
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 const rawApi = axios.create({
@@ -135,6 +162,27 @@ rawApi.interceptors.response.use(
     }
 
     const config = error.config
+
+    if (error.response.status === 429 && config !== undefined) {
+      const retryCount = config._rateLimitRetryCount ?? 0
+      if (retryCount < MAX_RATE_LIMIT_RETRIES) {
+        config._rateLimitRetryCount = retryCount + 1
+        const delayMs = parseRetryAfterMs(error.response.headers['retry-after'])
+        toast.loading('Too many requests, retrying…', { id: RATE_LIMIT_TOAST_ID })
+        await sleep(delayMs)
+        // Awaited (not `return rawApi(config)`), same reasoning as the 401
+        // retry below: an unawaited-but-returned promise that rejects later
+        // would propagate straight to the caller, bypassing this function's
+        // own error handling — here specifically, it would skip dismissing/
+        // updating RATE_LIMIT_TOAST_ID, leaving a stale "retrying…" toast on
+        // screen forever after a request that ultimately failed.
+        const result = await rawApi(config)
+        toast.dismiss(RATE_LIMIT_TOAST_ID)
+        return result
+      }
+      toast.error('Too many requests. Please try again shortly.', { id: RATE_LIMIT_TOAST_ID })
+    }
+
     const body = error.response.data as ApiErrorBody | undefined
     const code = body?.error?.code ?? 'UNKNOWN_ERROR'
     const message = body?.error?.message ?? 'An unexpected error occurred'
