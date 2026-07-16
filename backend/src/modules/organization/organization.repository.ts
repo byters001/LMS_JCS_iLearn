@@ -522,7 +522,19 @@ export interface ListBatchesParams {
 // StudentProfileWithNames, for the same reason: BatchListPage's card grid
 // needs collegeName/departmentName/studentCount displayed per batch, not
 // just the raw batches row.
-export interface BatchWithDetails extends Batch {
+//
+// Omits commonPasswordHash/deletedAt deliberately — same principle as
+// users.types.ts's SafeUser omitting passwordHash. commonPasswordHash must
+// never leave the server in any list/response shape (it's a real argon2
+// hash once a batch has one set); deletedAt is non-sensitive but pointless
+// here (these queries already filter to non-deleted rows, so it's always
+// null) and dropped for the same cleaner-public-contract reason. Single-row
+// batch responses (getBatchById/createBatch/updateBatch/toggleBatchActive)
+// are redacted separately in organization.controller.ts's toPublicBatch,
+// since the internal Batch type — hash included — is still needed
+// server-side (students.service.ts reads batch.commonPasswordHash directly
+// to seed new students' password hashes).
+export interface BatchWithDetails extends Omit<Batch, 'commonPasswordHash' | 'deletedAt'> {
   collegeName: string;
   departmentName: string;
   studentCount: number;
@@ -557,12 +569,10 @@ async function listBatches(params: ListBatchesParams): Promise<ListBatchesResult
         name: batches.name,
         maxStudents: batches.maxStudents,
         status: batches.status,
-        commonPasswordHash: batches.commonPasswordHash,
         createdAt: batches.createdAt,
         updatedAt: batches.updatedAt,
         createdBy: batches.createdBy,
         updatedBy: batches.updatedBy,
-        deletedAt: batches.deletedAt,
         collegeName: colleges.name,
         departmentName: departments.name,
         // Active enrollments only — a dropped/transferred/completed
@@ -680,12 +690,10 @@ async function listMyBatches(params: ListMyBatchesParams): Promise<ListBatchesRe
         name: batches.name,
         maxStudents: batches.maxStudents,
         status: batches.status,
-        commonPasswordHash: batches.commonPasswordHash,
         createdAt: batches.createdAt,
         updatedAt: batches.updatedAt,
         createdBy: batches.createdBy,
         updatedBy: batches.updatedBy,
-        deletedAt: batches.deletedAt,
         collegeName: colleges.name,
         departmentName: departments.name,
         studentCount: sql<number>`count(${trainingProgramStudents.id}) filter (where ${trainingProgramStudents.status} = 'active')`,

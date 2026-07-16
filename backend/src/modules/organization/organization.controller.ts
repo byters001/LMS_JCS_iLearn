@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { Batch } from '../../db/types';
 import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { organizationService } from './organization.service';
@@ -37,6 +38,23 @@ function requireUserId(request: FastifyRequest): string {
     throw new UnauthorizedError('Authentication required');
   }
   return request.user.id;
+}
+
+// Same redaction principle as users.service.ts's toSafeUser
+// (passwordHash) — commonPasswordHash must never leave the server in any
+// response, full stop. Applied here at the controller layer rather than
+// inside organizationService's own findBatchById/createBatch/updateBatch/
+// toggleBatchActive: those functions are also called internally by
+// students.service.ts, which genuinely needs batch.commonPasswordHash
+// server-side (to seed new students' password hashes) — stripping it at
+// the service layer would break that real internal consumer. This is the
+// actual HTTP boundary, so it's the right place to enforce "never leaves
+// the server." deletedAt is dropped too for a clean public contract (it's
+// always null here — these lookups already exclude soft-deleted batches —
+// so this is tidiness, not a security fix, unlike commonPasswordHash).
+function toPublicBatch(batch: Batch): Omit<Batch, 'commonPasswordHash' | 'deletedAt'> {
+  const { commonPasswordHash, deletedAt, ...publicBatch } = batch;
+  return publicBatch;
 }
 
 // Same helper as analytics.controller.ts's own requireActiveCollegeId —
@@ -323,7 +341,8 @@ async function getBatchById(
   reply: FastifyReply,
 ): Promise<void> {
   const batch = await organizationService.findBatchById(request.params.id);
-  const response: ApiSuccessResponse<typeof batch> = { success: true, data: batch };
+  const publicBatch = toPublicBatch(batch);
+  const response: ApiSuccessResponse<typeof publicBatch> = { success: true, data: publicBatch };
   reply.status(200).send(response);
 }
 
@@ -333,7 +352,8 @@ async function createBatch(
 ): Promise<void> {
   const createdBy = requireUserId(request);
   const batch = await organizationService.createBatch(request.body, createdBy);
-  const response: ApiSuccessResponse<typeof batch> = { success: true, data: batch };
+  const publicBatch = toPublicBatch(batch);
+  const response: ApiSuccessResponse<typeof publicBatch> = { success: true, data: publicBatch };
   reply.status(201).send(response);
 }
 
@@ -343,7 +363,8 @@ async function updateBatch(
 ): Promise<void> {
   const updatedBy = requireUserId(request);
   const batch = await organizationService.updateBatch(request.params.id, request.body, updatedBy);
-  const response: ApiSuccessResponse<typeof batch> = { success: true, data: batch };
+  const publicBatch = toPublicBatch(batch);
+  const response: ApiSuccessResponse<typeof publicBatch> = { success: true, data: publicBatch };
   reply.status(200).send(response);
 }
 
@@ -361,7 +382,8 @@ async function toggleBatchActive(
 ): Promise<void> {
   const updatedBy = requireUserId(request);
   const batch = await organizationService.toggleBatchActive(request.params.id, updatedBy);
-  const response: ApiSuccessResponse<typeof batch> = { success: true, data: batch };
+  const publicBatch = toPublicBatch(batch);
+  const response: ApiSuccessResponse<typeof publicBatch> = { success: true, data: publicBatch };
   reply.status(200).send(response);
 }
 
