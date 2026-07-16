@@ -3,14 +3,19 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type {
+  AssignBatchTrainerInput,
   Batch,
+  BatchTrainer,
   CreateBatchInput,
   ListBatchesParams,
   ListBatchesResponse,
+  ListBatchTrainersParams,
+  ListBatchTrainersResponse,
   ListCollegesParams,
   ListCollegesResponse,
   ListDepartmentsParams,
   ListDepartmentsResponse,
+  ListMyBatchesParams,
   ListTrainingProgramsParams,
   ListTrainingProgramsResponse,
 } from './types'
@@ -106,5 +111,70 @@ export function useTrainingPrograms(
     queryFn: () => listTrainingPrograms(params),
     placeholderData: keepPreviousData,
     enabled: options?.enabled,
+  })
+}
+
+function listMyBatches(params: ListMyBatchesParams): Promise<ListBatchesResponse> {
+  return api.get<ListBatchesResponse>('/batches/mine', { params })
+}
+
+// Backs Trainer's "My Batches" nav item/page — self-scoped server-side by
+// the caller's own id (GET /batches/mine), not a client-side filter.
+export function useMyBatches(params: ListMyBatchesParams) {
+  return useQuery({
+    queryKey: ['organization', 'batches', 'mine', params],
+    queryFn: () => listMyBatches(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+function listBatchTrainers(
+  batchId: string,
+  params: ListBatchTrainersParams,
+): Promise<ListBatchTrainersResponse> {
+  return api.get<ListBatchTrainersResponse>(`/batches/${batchId}/trainers`, { params })
+}
+
+export function useBatchTrainers(batchId: string, params: ListBatchTrainersParams) {
+  return useQuery({
+    queryKey: ['organization', 'batches', batchId, 'trainers', params],
+    queryFn: () => listBatchTrainers(batchId, params),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(batchId),
+  })
+}
+
+function assignTrainerToBatch(
+  batchId: string,
+  input: AssignBatchTrainerInput,
+): Promise<BatchTrainer> {
+  return api.post<BatchTrainer>(`/batches/${batchId}/trainers`, input)
+}
+
+export function useAssignTrainerToBatch(batchId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: AssignBatchTrainerInput) => assignTrainerToBatch(batchId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['organization', 'batches', batchId, 'trainers'],
+      })
+    },
+  })
+}
+
+function unassignTrainerFromBatch(batchId: string, trainerId: string): Promise<void> {
+  return api.delete<void>(`/batches/${batchId}/trainers/${trainerId}`)
+}
+
+export function useUnassignTrainerFromBatch(batchId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (trainerId: string) => unassignTrainerFromBatch(batchId, trainerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['organization', 'batches', batchId, 'trainers'],
+      })
+    },
   })
 }

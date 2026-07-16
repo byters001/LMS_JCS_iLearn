@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, HelpCircle, Search, Users } from 'lucide-react'
+import { BarChart3, ClipboardList, HelpCircle, Search, Users, Layers } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/authStore'
 // otherwise.
 const NAV_LINKS = [
   { to: '/trainer', label: 'Students', end: true, icon: Users },
+  { to: '/trainer/batches', label: 'My Batches', end: true, icon: Layers },
   { to: '/trainer/questions', label: 'Questions', end: true, icon: HelpCircle },
   { to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },
   { to: '/trainer/analytics', label: 'Analytics', end: true, icon: BarChart3 },

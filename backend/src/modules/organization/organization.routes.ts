@@ -5,8 +5,10 @@ import { ValidationError } from '../../shared/errors/app-error';
 import { organizationController } from './organization.controller';
 import {
   academicYearIdParamsSchema,
+  assignBatchTrainerSchema,
   assignTrainingProgramTrainerSchema,
   batchIdParamsSchema,
+  batchTrainerParamsSchema,
   collegeIdParamsSchema,
   createAcademicYearSchema,
   createBatchSchema,
@@ -16,8 +18,10 @@ import {
   departmentIdParamsSchema,
   listAcademicYearsQuerySchema,
   listBatchesQuerySchema,
+  listBatchTrainersQuerySchema,
   listCollegesQuerySchema,
   listDepartmentsQuerySchema,
+  listMyBatchesQuerySchema,
   listTrainingProgramTrainersQuerySchema,
   listTrainingProgramsQuerySchema,
   trainingProgramIdParamsSchema,
@@ -28,8 +32,10 @@ import {
   updateDepartmentSchema,
   updateTrainingProgramSchema,
   type AcademicYearIdParams,
+  type AssignBatchTrainerInput,
   type AssignTrainingProgramTrainerInput,
   type BatchIdParams,
+  type BatchTrainerParams,
   type CollegeIdParams,
   type CreateAcademicYearInput,
   type CreateBatchInput,
@@ -39,8 +45,10 @@ import {
   type DepartmentIdParams,
   type ListAcademicYearsQuery,
   type ListBatchesQuery,
+  type ListBatchTrainersQuery,
   type ListCollegesQuery,
   type ListDepartmentsQuery,
+  type ListMyBatchesQuery,
   type ListTrainingProgramTrainersQuery,
   type ListTrainingProgramsQuery,
   type TrainingProgramIdParams,
@@ -359,6 +367,22 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
     organizationController.listBatches,
   );
 
+  // Self-scoped, permission-free — same model as reports' listMyAttempts:
+  // "mine" resolves from the caller's own JWT user id, nothing to
+  // authorize beyond fastify.authenticate itself. Registered as a static
+  // path ahead of the parametric '/batches/:id' below — find-my-way (this
+  // codebase's router) already disambiguates static vs parametric routes
+  // correctly regardless of registration order, but this ordering is the
+  // clearer read.
+  fastify.get<{ Querystring: ListMyBatchesQuery }>(
+    '/batches/mine',
+    {
+      preHandler: [fastify.authenticate],
+      preValidation: validateQuery(listMyBatchesQuerySchema),
+    },
+    organizationController.listMyBatches,
+  );
+
   fastify.get<{ Params: BatchIdParams }>(
     '/batches/:id',
     {
@@ -411,6 +435,41 @@ export async function organizationRoutes(fastify: FastifyInstance): Promise<void
       preValidation: validateParams(batchIdParamsSchema),
     },
     organizationController.toggleBatchActive,
+  );
+
+  // --- Batch trainers (Phase 4) ---
+  // Gated by 'batches.manage' — the SAME key both super_admin and faculty
+  // already hold for every other batches.* route, deliberately not a
+  // narrower super-admin-only key like toggle-active above: the brief
+  // wants faculty able to use this same endpoint. The real restriction
+  // (self, or already-assigned-to-this-batch) is enforced at the SERVICE
+  // layer instead — see organization.service.ts's assignTrainerToBatch/
+  // unassignTrainerFromBatch.
+  fastify.get<{ Params: BatchIdParams; Querystring: ListBatchTrainersQuery }>(
+    '/batches/:id/trainers',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: [validateParams(batchIdParamsSchema), validateQuery(listBatchTrainersQuerySchema)],
+    },
+    organizationController.listBatchTrainers,
+  );
+
+  fastify.post<{ Params: BatchIdParams; Body: AssignBatchTrainerInput }>(
+    '/batches/:id/trainers',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: [validateParams(batchIdParamsSchema), validateBody(assignBatchTrainerSchema)],
+    },
+    organizationController.assignTrainerToBatch,
+  );
+
+  fastify.delete<{ Params: BatchTrainerParams }>(
+    '/batches/:id/trainers/:trainerId',
+    {
+      preHandler: [fastify.authenticate, requirePermission('batches.manage')],
+      preValidation: validateParams(batchTrainerParamsSchema),
+    },
+    organizationController.unassignTrainerFromBatch,
   );
 }
 

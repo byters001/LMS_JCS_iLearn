@@ -3,6 +3,7 @@ import type { permissions, rolePermissions, roles, userRoles, users } from './sc
 import type {
   academicYears,
   batches,
+  batchTrainers,
   colleges,
   departments,
   trainingProgramTrainers,
@@ -83,6 +84,9 @@ export type NewTrainingProgramTrainer = InferInsertModel<typeof trainingProgramT
 
 export type Batch = InferSelectModel<typeof batches>;
 export type NewBatch = InferInsertModel<typeof batches>;
+
+export type BatchTrainer = InferSelectModel<typeof batchTrainers>;
+export type NewBatchTrainer = InferInsertModel<typeof batchTrainers>;
 
 export type TrainerProfile = InferSelectModel<typeof trainerProfiles>;
 export type NewTrainerProfile = InferInsertModel<typeof trainerProfiles>;

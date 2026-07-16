@@ -114,3 +114,38 @@ export interface ListTrainingProgramsResponse {
   page: number
   pageSize: number
 }
+
+// Matches backend/src/modules/organization/organization.repository.ts's
+// batchTrainers row shape exactly — this endpoint returns the raw
+// batch_trainers row (no joined trainer name/email); the picker/list UI
+// cross-references trainerId against useUsers' own list to display a name.
+export interface BatchTrainer {
+  id: string
+  batchId: string
+  trainerId: string
+  assignedBy: string | null
+  assignedAt: string
+}
+
+export interface ListBatchTrainersParams {
+  page?: number
+  pageSize?: number
+}
+
+export interface ListBatchTrainersResponse {
+  items: BatchTrainer[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface AssignBatchTrainerInput {
+  trainerId: string
+}
+
+// GET /batches/mine — self-scoped, no params beyond pagination (matches
+// listMyBatchesQuerySchema exactly).
+export interface ListMyBatchesParams {
+  page?: number
+  pageSize?: number
+}

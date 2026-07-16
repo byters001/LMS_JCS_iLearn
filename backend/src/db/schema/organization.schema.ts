@@ -186,3 +186,39 @@ export const batches = pgTable(
       .where(sql`${table.deletedAt} IS NULL`),
   }),
 );
+
+// Phase 4 — per-batch trainer assignment. Deliberately a separate table
+// from training_program_trainers above, not a reuse: that one assigns a
+// trainer to an entire training program (every batch under it); this one
+// scopes to one specific batch, matching the brief's §6 spec exactly and
+// the "handing off during personal leave" per-batch use case. Column names
+// and index-naming style mirror training_program_trainers' own precedent
+// as closely as this table's own spec allows — id/batch_id/trainer_id (FK
+// CASCADE, both — a deleted batch or deleted user shouldn't leave a
+// dangling assignment row), full (not abbreviated) index names since
+// "batch_trainers" itself is already short, unlike training_program_
+// trainers' abbreviated "idx_tpt_*" (that one's own full name would have
+// been unwieldy). assigned_by/assigned_at match user_roles' own
+// assigned_by (FK SET NULL — losing track of WHO assigned something
+// shouldn't cascade-delete the assignment itself) rather than the plain
+// created_by/created_at pattern used elsewhere, per the brief's explicit
+// column names.
+export const batchTrainers = pgTable(
+  'batch_trainers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => batches.id, { onDelete: 'cascade' }),
+    trainerId: uuid('trainer_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+    assignedAt: timestamp('assigned_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    batchIdx: index('idx_batch_trainers_batch').on(table.batchId),
+    trainerIdx: index('idx_batch_trainers_trainer').on(table.trainerId),
+    batchTrainerUnique: unique().on(table.batchId, table.trainerId),
+  }),
+);

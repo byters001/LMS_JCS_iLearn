@@ -4,8 +4,10 @@ import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { organizationService } from './organization.service';
 import type {
   AcademicYearIdParams,
+  AssignBatchTrainerInput,
   AssignTrainingProgramTrainerInput,
   BatchIdParams,
+  BatchTrainerParams,
   CollegeIdParams,
   CreateAcademicYearInput,
   CreateBatchInput,
@@ -15,8 +17,10 @@ import type {
   DepartmentIdParams,
   ListAcademicYearsQuery,
   ListBatchesQuery,
+  ListBatchTrainersQuery,
   ListCollegesQuery,
   ListDepartmentsQuery,
+  ListMyBatchesQuery,
   ListTrainingProgramTrainersQuery,
   ListTrainingProgramsQuery,
   TrainingProgramIdParams,
@@ -361,6 +365,61 @@ async function toggleBatchActive(
   reply.status(200).send(response);
 }
 
+// --- My Batches (Phase 4) ---
+
+async function listMyBatches(
+  request: FastifyRequest<{ Querystring: ListMyBatchesQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const trainerId = requireUserId(request);
+  const result = await organizationService.listMyBatches(trainerId, request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+// --- Batch trainers (Phase 4) ---
+
+async function listBatchTrainers(
+  request: FastifyRequest<{ Params: BatchIdParams; Querystring: ListBatchTrainersQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await organizationService.listBatchTrainers(request.params.id, request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function assignTrainerToBatch(
+  request: FastifyRequest<{ Params: BatchIdParams; Body: AssignBatchTrainerInput }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const callerId = requireUserId(request);
+  const isSuperAdmin = requireActiveCollegeId(request) === null;
+  const assignment = await organizationService.assignTrainerToBatch(
+    request.params.id,
+    request.body,
+    callerId,
+    isSuperAdmin,
+    callerId,
+  );
+  const response: ApiSuccessResponse<typeof assignment> = { success: true, data: assignment };
+  reply.status(201).send(response);
+}
+
+async function unassignTrainerFromBatch(
+  request: FastifyRequest<{ Params: BatchTrainerParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const callerId = requireUserId(request);
+  const isSuperAdmin = requireActiveCollegeId(request) === null;
+  await organizationService.unassignTrainerFromBatch(
+    request.params.id,
+    request.params.trainerId,
+    callerId,
+    isSuperAdmin,
+  );
+  reply.status(204).send();
+}
+
 export const organizationController = {
   listColleges,
   getCollegeById,
@@ -390,4 +449,8 @@ export const organizationController = {
   updateBatch,
   deleteBatch,
   toggleBatchActive,
+  listMyBatches,
+  listBatchTrainers,
+  assignTrainerToBatch,
+  unassignTrainerFromBatch,
 };

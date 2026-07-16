@@ -1,9 +1,11 @@
 import argon2 from 'argon2';
-import type { AcademicYear, Batch, College, Department, TrainingProgram, TrainingProgramTrainer } from '../../db/types';
+import { permissionCache } from '../../rbac/permission-cache';
+import type { AcademicYear, Batch, BatchTrainer, College, Department, TrainingProgram, TrainingProgramTrainer } from '../../db/types';
 import { usersService } from '../users/users.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { organizationRepository } from './organization.repository';
 import type {
+  AssignBatchTrainerInput,
   AssignTrainingProgramTrainerInput,
   CreateAcademicYearInput,
   CreateBatchInput,
@@ -12,8 +14,10 @@ import type {
   CreateTrainingProgramInput,
   ListAcademicYearsQuery,
   ListBatchesQuery,
+  ListBatchTrainersQuery,
   ListCollegesQuery,
   ListDepartmentsQuery,
+  ListMyBatchesQuery,
   ListTrainingProgramTrainersQuery,
   ListTrainingProgramsQuery,
   UpdateAcademicYearInput,
@@ -25,6 +29,7 @@ import type {
 import type {
   ListAcademicYearsResult,
   ListBatchesResult,
+  ListBatchTrainersResult,
   ListCollegesResult,
   ListDepartmentsResult,
   ListTrainingProgramTrainersResult,
@@ -440,6 +445,15 @@ async function deleteBatch(id: string): Promise<void> {
 // should silently reopen. Rejects rather than guessing what the caller
 // meant. Reuses the existing updateBatch repository call rather than a new
 // one — this is a thin business-rule wrapper around the same write.
+// Going active -> archived now runs the Phase 4 deactivation cascade
+// (organization.repository.ts's deactivateBatchCascade) instead of a plain
+// status update — see that function's own module comment for the full
+// session-invalidation finding this is built on. Going archived -> active
+// stays a plain status flip: reactivating a batch does NOT reactivate its
+// students' accounts, a much bigger, unasked-for behavior (silently
+// resurrecting accounts nobody explicitly asked to bring back) — a
+// batch's own status and its students' account status are related but
+// deliberately not symmetric here.
 async function toggleBatchActive(id: string, updatedBy: string): Promise<Batch> {
   const existing = await organizationRepository.findBatchById(id);
   if (!existing) {
@@ -449,15 +463,143 @@ async function toggleBatchActive(id: string, updatedBy: string): Promise<Batch> 
     throw new ConflictError('Cannot toggle a completed batch');
   }
 
-  const nextStatus = existing.status === 'active' ? 'archived' : 'active';
+  if (existing.status === 'active') {
+    const { batch, affectedUsers } = await organizationRepository.deactivateBatchCascade(
+      id,
+      updatedBy,
+    );
+
+    // Redis is deliberately outside the SQL transaction above — this only
+    // runs once that transaction has actually committed, so a student's
+    // permission cache is never cleared unless their account deactivation
+    // genuinely took effect first. Each invalidate() targets that specific
+    // student's own (userId, collegeId) cache key — see
+    // deactivateBatchCascade's own comment for why collegeId can't be null
+    // here.
+    await Promise.all(
+      affectedUsers.map(({ userId, collegeId }) => permissionCache.invalidate(userId, collegeId)),
+    );
+
+    return batch;
+  }
+
   const updated = await organizationRepository.updateBatch(id, {
-    status: nextStatus,
+    status: 'active',
     updatedBy,
   });
   if (!updated) {
     throw new NotFoundError('Batch not found');
   }
   return updated;
+}
+
+// --- My Batches (Phase 4) ---
+// Self-scoped, permission-free — same model as reports' listMyAttempts:
+// "mine" is resolved from the caller's own JWT user id, not a query param,
+// so there's nothing to authorize beyond fastify.authenticate itself (see
+// organization.routes.ts).
+async function listMyBatches(
+  trainerId: string,
+  query: ListMyBatchesQuery,
+): Promise<ListBatchesResult> {
+  const { items, total } = await organizationRepository.listMyBatches({
+    trainerId,
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+// --- Batch trainers (Phase 4) ---
+
+async function listBatchTrainers(
+  batchId: string,
+  query: ListBatchTrainersQuery,
+): Promise<ListBatchTrainersResult> {
+  await findBatchById(batchId);
+
+  const { items, total } = await organizationRepository.listBatchTrainers({
+    batchId,
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+// CRITICAL access rule, per the brief: Super Admin may assign to any
+// batch. Faculty may use this SAME endpoint, but only to assign themselves
+// OR a trainer already on a batch they themselves are already assigned to
+// (the "handing off during personal leave" case). "Already assigned"
+// is checked server-side via organizationRepository.findBatchTrainer — a
+// real row lookup against batch_trainers for (batchId, callerId) — not
+// just trusting that the caller HOLDS a faculty role in general. A Faculty
+// caller with no existing assignment on this batch, trying to add someone
+// else, is rejected regardless of what role they hold.
+async function assignTrainerToBatch(
+  batchId: string,
+  input: AssignBatchTrainerInput,
+  callerId: string,
+  isSuperAdmin: boolean,
+  assignedBy: string,
+): Promise<BatchTrainer> {
+  await findBatchById(batchId);
+
+  if (!isSuperAdmin) {
+    const isSelfAssignment = input.trainerId === callerId;
+    if (!isSelfAssignment) {
+      const callerAssignment = await organizationRepository.findBatchTrainer(batchId, callerId);
+      if (!callerAssignment) {
+        throw new ForbiddenError(
+          'You must already be assigned to this batch to assign another trainer to it',
+        );
+      }
+    }
+  }
+
+  // trainer_id references users(id) directly, same as training_program_
+  // trainers — "a valid trainer" just means "an existing user" (see
+  // assignTrainingProgramTrainer's own comment on this exact point).
+  await usersService.findById(input.trainerId);
+
+  const existingAssignment = await organizationRepository.findBatchTrainer(
+    batchId,
+    input.trainerId,
+  );
+  if (existingAssignment) {
+    throw new ConflictError('This trainer is already assigned to this batch');
+  }
+
+  return organizationRepository.createBatchTrainer({
+    batchId,
+    trainerId: input.trainerId,
+    assignedBy,
+  });
+}
+
+async function unassignTrainerFromBatch(
+  batchId: string,
+  trainerId: string,
+  callerId: string,
+  isSuperAdmin: boolean,
+): Promise<void> {
+  await findBatchById(batchId);
+
+  if (!isSuperAdmin) {
+    const isSelfUnassignment = trainerId === callerId;
+    if (!isSelfUnassignment) {
+      const callerAssignment = await organizationRepository.findBatchTrainer(batchId, callerId);
+      if (!callerAssignment) {
+        throw new ForbiddenError(
+          'You must already be assigned to this batch to unassign another trainer from it',
+        );
+      }
+    }
+  }
+
+  const removed = await organizationRepository.deleteBatchTrainer(batchId, trainerId);
+  if (!removed) {
+    throw new NotFoundError('This trainer is not assigned to this batch');
+  }
 }
 
 export const organizationService = {
@@ -489,4 +631,8 @@ export const organizationService = {
   updateBatch,
   deleteBatch,
   toggleBatchActive,
+  listMyBatches,
+  listBatchTrainers,
+  assignTrainerToBatch,
+  unassignTrainerFromBatch,
 };

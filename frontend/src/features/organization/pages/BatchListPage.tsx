@@ -1,20 +1,14 @@
-import { MoreVertical } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Combobox } from '@/components/Combobox'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Switch } from '@/components/ui/switch'
 import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
 import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { useAuthStore } from '@/store/authStore'
 import { useBatches, useColleges, useDepartments, useToggleBatchActive } from '../api'
+import { AssignTrainerDialog } from '../components/AssignTrainerDialog'
+import { BatchCard } from '../components/BatchCard'
 import type { Batch } from '../types'
 
 const PAGE_SIZE = 20
@@ -24,21 +18,6 @@ const PAGE_SIZE = 20
 // own BATCH_PICKER_PAGE_SIZE.
 const COLLEGE_PICKER_PAGE_SIZE = 100
 
-function StatusBadge({ status }: { status: Batch['status'] }) {
-  if (status === 'active') {
-    return (
-      <span className="shrink-0 rounded-full bg-brand-accent/10 px-2 py-0.5 text-xs font-medium text-brand-accent">
-        active
-      </span>
-    )
-  }
-  return (
-    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-      {status}
-    </span>
-  )
-}
-
 export default function BatchListPage() {
   const user = useAuthStore((state) => state.user)
   const isSuperAdmin = user?.roles.includes('super_admin') ?? false
@@ -47,6 +26,7 @@ export default function BatchListPage() {
   const [page, setPage] = useState(1)
   const [addStudentsBatch, setAddStudentsBatch] = useState<Batch | null>(null)
   const [downloadCsvBatch, setDownloadCsvBatch] = useState<Batch | null>(null)
+  const [assignTrainerBatch, setAssignTrainerBatch] = useState<Batch | null>(null)
 
   const colleges = useColleges({ page: 1, pageSize: COLLEGE_PICKER_PAGE_SIZE })
   const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
@@ -148,62 +128,18 @@ export default function BatchListPage() {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {batches.data.items.map((batch) => (
-              <div
+              <BatchCard
                 key={batch.id}
-                className="rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-brand-primary">{batch.name}</p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {batch.collegeName} · {batch.departmentName}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <StatusBadge status={batch.status} />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${batch.name}`}
-                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-brand-primary"
-                        >
-                          <MoreVertical className="size-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setAddStudentsBatch(batch)}>
-                          Add Students
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setDownloadCsvBatch(batch)}>
-                          Download CSV
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    {batch.studentCount} student{batch.studentCount === 1 ? '' : 's'}
-                    {batch.maxStudents ? ` / ${batch.maxStudents} max` : ''}
-                  </p>
-                  {/* Super Admin only — matches the backend's
-                      batches.toggle_active permission, granted only to
-                      super_admin (see organization.routes.ts). Hidden
-                      entirely for 'completed' batches: that's a permanent
-                      lifecycle end-state, not something this toggle should
-                      offer to reopen (the backend rejects it too — this is
-                      just not offering a control that would 409). */}
-                  {isSuperAdmin && batch.status !== 'completed' && (
-                    <Switch
-                      checked={batch.status === 'active'}
-                      disabled={toggleActive.isPending}
-                      onCheckedChange={() => toggleActive.mutate(batch.id)}
-                      aria-label={batch.status === 'active' ? 'Set batch inactive' : 'Set batch active'}
-                    />
-                  )}
-                </div>
-              </div>
+                batch={batch}
+                menuItems={[
+                  { label: 'Add Students', onSelect: () => setAddStudentsBatch(batch) },
+                  { label: 'Download CSV', onSelect: () => setDownloadCsvBatch(batch) },
+                  { label: 'Assign Trainer', onSelect: () => setAssignTrainerBatch(batch) },
+                ]}
+                showActiveToggle={isSuperAdmin}
+                isTogglingActive={toggleActive.isPending}
+                onToggleActive={() => toggleActive.mutate(batch.id)}
+              />
             ))}
           </div>
 
@@ -264,6 +200,17 @@ export default function BatchListPage() {
           open={downloadCsvBatch !== null}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) setDownloadCsvBatch(null)
+          }}
+        />
+      )}
+
+      {assignTrainerBatch && (
+        <AssignTrainerDialog
+          batchId={assignTrainerBatch.id}
+          batchName={assignTrainerBatch.name}
+          open={assignTrainerBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setAssignTrainerBatch(null)
           }}
         />
       )}

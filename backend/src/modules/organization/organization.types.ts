@@ -1,5 +1,6 @@
 import type {
   AcademicYear,
+  BatchTrainer,
   College,
   Department,
   TrainingProgram,
@@ -44,6 +45,13 @@ export interface ListTrainingProgramTrainersResult {
 
 export interface ListBatchesResult {
   items: BatchWithDetails[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListBatchTrainersResult {
+  items: BatchTrainer[];
   total: number;
   page: number;
   pageSize: number;

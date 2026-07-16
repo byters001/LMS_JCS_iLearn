@@ -247,6 +247,36 @@ export const batchIdParamsSchema = z
   })
   .strict();
 
+// --- Batch trainers (Phase 4) ---
+
+export const assignBatchTrainerSchema = z
+  .object({
+    trainerId: z.string().uuid('trainerId must be a valid UUID'),
+  })
+  .strict();
+
+export const batchTrainerParamsSchema = z
+  .object({
+    id: z.string().uuid('id must be a valid UUID'),
+    trainerId: z.string().uuid('trainerId must be a valid UUID'),
+  })
+  .strict();
+
+export const listBatchTrainersQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
+
+// Self-scoped — no params at all; the caller's own id resolves "mine" (see
+// organization.controller.ts's listMyBatches), same precedent as reports'
+// listMyAttempts.
+export const listMyBatchesQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
+
 export type ListTrainingProgramsQuery = z.infer<typeof listTrainingProgramsQuerySchema>;
 export type CreateTrainingProgramInput = z.infer<typeof createTrainingProgramSchema>;
 export type UpdateTrainingProgramInput = z.infer<typeof updateTrainingProgramSchema>;
@@ -264,3 +294,8 @@ export type ListBatchesQuery = z.infer<typeof listBatchesQuerySchema>;
 export type CreateBatchInput = z.infer<typeof createBatchSchema>;
 export type UpdateBatchInput = z.infer<typeof updateBatchSchema>;
 export type BatchIdParams = z.infer<typeof batchIdParamsSchema>;
+
+export type AssignBatchTrainerInput = z.infer<typeof assignBatchTrainerSchema>;
+export type BatchTrainerParams = z.infer<typeof batchTrainerParamsSchema>;
+export type ListBatchTrainersQuery = z.infer<typeof listBatchTrainersQuerySchema>;
+export type ListMyBatchesQuery = z.infer<typeof listMyBatchesQuerySchema>;

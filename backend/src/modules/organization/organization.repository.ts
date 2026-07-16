@@ -1,24 +1,33 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
+import { users } from '../../db/schema/identity.schema';
 import {
   academicYears,
   batches,
+  batchTrainers,
   colleges,
   departments,
   trainingProgramTrainers,
   trainingPrograms,
 } from '../../db/schema/organization.schema';
-// trainingProgramStudents lives in students.schema.ts, not this module's own
-// schema file — imported directly for a plain SQL join (student count per
-// batch), same as students.repository.ts already imports users/departments/
-// colleges directly for its own name-joins. CLAUDE.md's boundary rule is
-// about not calling another module's SERVICE/REPOSITORY functions, not about
-// sharing a raw table definition for a join — this isn't a boundary
-// violation.
-import { trainingProgramStudents } from '../../db/schema/students.schema';
+// trainingProgramStudents/studentProfiles live in students.schema.ts, not
+// this module's own schema file — imported directly for plain SQL
+// joins/updates (student count per batch; the Phase 4 deactivation
+// cascade), same as students.repository.ts already imports users/
+// departments/colleges directly for its own name-joins. CLAUDE.md's
+// boundary rule is about not calling another module's SERVICE/REPOSITORY
+// functions, not about sharing a raw table definition for a join or a
+// write that must share ONE transaction — see deactivateBatchCascade
+// below for why this one specific function writes to `users` directly
+// rather than going through usersService (no service in this codebase
+// accepts an injectable transaction client today, and the whole point of
+// this function is that the batch-status change and the affected
+// students' account deactivation commit atomically or not at all).
+import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
 import type {
   AcademicYear,
   Batch,
+  BatchTrainer,
   College,
   Department,
   TrainingProgram,
@@ -643,6 +652,208 @@ async function deleteBatch(id: string): Promise<boolean> {
   return Boolean(deleted);
 }
 
+// --- My Batches (Phase 4) ---
+// Same enriched BatchWithDetails shape as listBatches above (collegeName/
+// departmentName/studentCount), but filtered through batch_trainers by
+// trainerId instead of through training_programs by collegeId — different
+// enough in WHERE/JOIN shape (no collegeId requirement at all here; a
+// trainer's own batches are whatever they're assigned to, full stop) that
+// this is a separate function rather than folding a trainerId branch into
+// listBatches' existing one, at the cost of some duplication between the
+// two column lists.
+export interface ListMyBatchesParams {
+  trainerId: string;
+  page: number;
+  pageSize: number;
+}
+
+async function listMyBatches(params: ListMyBatchesParams): Promise<ListBatchesResult> {
+  const { trainerId, page, pageSize } = params;
+  const offset = (page - 1) * pageSize;
+  const where = and(isNull(batches.deletedAt), eq(batchTrainers.trainerId, trainerId));
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select({
+        id: batches.id,
+        trainingProgramId: batches.trainingProgramId,
+        name: batches.name,
+        maxStudents: batches.maxStudents,
+        status: batches.status,
+        commonPasswordHash: batches.commonPasswordHash,
+        createdAt: batches.createdAt,
+        updatedAt: batches.updatedAt,
+        createdBy: batches.createdBy,
+        updatedBy: batches.updatedBy,
+        deletedAt: batches.deletedAt,
+        collegeName: colleges.name,
+        departmentName: departments.name,
+        studentCount: sql<number>`count(${trainingProgramStudents.id}) filter (where ${trainingProgramStudents.status} = 'active')`,
+      })
+      .from(batches)
+      .innerJoin(batchTrainers, eq(batchTrainers.batchId, batches.id))
+      .innerJoin(trainingPrograms, eq(trainingPrograms.id, batches.trainingProgramId))
+      .innerJoin(colleges, eq(colleges.id, trainingPrograms.collegeId))
+      .innerJoin(departments, eq(departments.id, trainingPrograms.departmentId))
+      .leftJoin(trainingProgramStudents, eq(trainingProgramStudents.batchId, batches.id))
+      .where(where)
+      .groupBy(batches.id, colleges.name, departments.name)
+      .orderBy(asc(batches.name))
+      .limit(pageSize)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(distinct ${batches.id})` })
+      .from(batches)
+      .innerJoin(batchTrainers, eq(batchTrainers.batchId, batches.id))
+      .where(where),
+  ]);
+
+  // Same bigint-as-string fix as listBatches above.
+  const itemsWithNumericCount = items.map((item) => ({
+    ...item,
+    studentCount: Number(item.studentCount),
+  }));
+
+  return { items: itemsWithNumericCount, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+// --- Batch trainers (Phase 4) ---
+// Hard delete, no deleted_at column — same reasoning as training_program_
+// trainers above: pure join/assignment membership, not an audit-worthy
+// entity of its own.
+
+export interface ListBatchTrainersParams {
+  batchId: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListBatchTrainersResult {
+  items: BatchTrainer[];
+  total: number;
+}
+
+async function listBatchTrainers(params: ListBatchTrainersParams): Promise<ListBatchTrainersResult> {
+  const { batchId, page, pageSize } = params;
+  const offset = (page - 1) * pageSize;
+  const where = eq(batchTrainers.batchId, batchId);
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(batchTrainers)
+      .where(where)
+      .orderBy(asc(batchTrainers.assignedAt))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(batchTrainers).where(where),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+// Used both for the pre-insert duplicate check (UNIQUE(batch_id,
+// trainer_id)) and — critically — by organization.service.ts's
+// unassignTrainerFromBatch to confirm "is this trainer CURRENTLY assigned
+// to this batch" server-side before letting a Faculty caller touch the
+// assignment, not just trusting their role.
+async function findBatchTrainer(batchId: string, trainerId: string): Promise<BatchTrainer | undefined> {
+  const [assignment] = await db
+    .select()
+    .from(batchTrainers)
+    .where(and(eq(batchTrainers.batchId, batchId), eq(batchTrainers.trainerId, trainerId)))
+    .limit(1);
+  return assignment;
+}
+
+export interface CreateBatchTrainerData {
+  batchId: string;
+  trainerId: string;
+  assignedBy: string | null;
+}
+
+async function createBatchTrainer(data: CreateBatchTrainerData): Promise<BatchTrainer> {
+  const [assignment] = await db.insert(batchTrainers).values(data).returning();
+  return assignment;
+}
+
+async function deleteBatchTrainer(batchId: string, trainerId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(batchTrainers)
+    .where(and(eq(batchTrainers.batchId, batchId), eq(batchTrainers.trainerId, trainerId)))
+    .returning({ id: batchTrainers.id });
+  return deleted.length > 0;
+}
+
+// --- Deactivation cascade (Phase 4, the high-risk piece) ---
+//
+// Session-invalidation finding (stated here since this is the function it
+// governs): this codebase has no per-user "revoke all sessions" primitive.
+// Access tokens (authenticate.plugin.ts) are stateless JWTs verified by
+// signature+expiry ALONE — no DB/Redis lookup per request at all — so an
+// already-issued access token keeps authenticating until it naturally
+// expires (JWT_ACCESS_EXPIRY, 15m in this env), regardless of anything this
+// function does. Refresh tokens carry a `jti`, but the server only ever
+// learns a jti at the moment a token is PRESENTED (rotate-on-use into a
+// Redis blocklist, see auth.service.ts's revokeRefreshTokenId) — there is
+// no server-side index of "which jtis currently belong to user X" to bulk
+// -revoke from. What DOES already exist, and IS the real lever here: both
+// auth.service.ts's login() and refresh() already reject when
+// !user.isActive. So users.is_active is the actual, only "kill this
+// user's ability to start or renew a session" switch this codebase has —
+// not a Redis blocklist insert (there's no addressable token to blocklist
+// for a student who isn't mid-request), just this flag, which the
+// pre-existing login/refresh code already checks. See
+// students-deactivation.test.ts for this proven against a REAL login+
+// refresh, not just asserting the DB row.
+// collegeId travels alongside each userId (not just a bare userId[]) so
+// organization.service.ts can invalidate EACH student's permission cache
+// with the right key — permissionCache's own key is scoped by
+// (userId, collegeId) TOGETHER (see permission-cache.ts's permissionsKey),
+// and every student is college-scoped, never global, so passing null there
+// would invalidate a cache entry that was never actually populated,
+// silently leaving their real cached permissions untouched.
+export interface DeactivateBatchCascadeResult {
+  batch: Batch;
+  affectedUsers: Array<{ userId: string; collegeId: string }>;
+}
+
+async function deactivateBatchCascade(
+  batchId: string,
+  updatedBy: string,
+): Promise<DeactivateBatchCascadeResult> {
+  return db.transaction(async (tx) => {
+    const [batch] = await tx
+      .update(batches)
+      .set({ status: 'archived', updatedBy })
+      .where(eq(batches.id, batchId))
+      .returning();
+
+    // Only currently-active enrollments in THIS batch, matching
+    // listActiveBatchIdsForStudent's own 'active'-only precedent — a
+    // dropped/transferred/completed enrollment shouldn't have its user
+    // account touched by this batch's deactivation.
+    const affectedStudents = await tx
+      .select({ userId: studentProfiles.userId, collegeId: studentProfiles.collegeId })
+      .from(trainingProgramStudents)
+      .innerJoin(studentProfiles, eq(studentProfiles.id, trainingProgramStudents.studentId))
+      .where(
+        and(
+          eq(trainingProgramStudents.batchId, batchId),
+          eq(trainingProgramStudents.status, 'active'),
+        ),
+      );
+
+    const affectedUserIds = affectedStudents.map((row) => row.userId);
+
+    if (affectedUserIds.length > 0) {
+      await tx.update(users).set({ isActive: false }).where(inArray(users.id, affectedUserIds));
+    }
+
+    return { batch, affectedUsers: affectedStudents };
+  });
+}
+
 export const organizationRepository = {
   listColleges,
   findCollegeById,
@@ -673,4 +884,10 @@ export const organizationRepository = {
   createBatch,
   updateBatch,
   deleteBatch,
+  listMyBatches,
+  listBatchTrainers,
+  findBatchTrainer,
+  createBatchTrainer,
+  deleteBatchTrainer,
+  deactivateBatchCascade,
 };

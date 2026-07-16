@@ -18,6 +18,7 @@ import QuestionListPage from '@/features/question-bank/pages/QuestionListPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
 import BatchListPage from '@/features/organization/pages/BatchListPage'
 import CreateBatchPage from '@/features/organization/pages/CreateBatchPage'
+import MyBatchesPage from '@/features/organization/pages/MyBatchesPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import AdminLayout from '@/layouts/AdminLayout'
@@ -98,6 +99,11 @@ export function AppRoutes() {
         <Route element={<RequireRole roles={['faculty']} />}>
           <Route path="/trainer" element={<TrainerLayout />}>
             <Route index element={<StudentListPage />} />
+            {/* Backed by GET /batches/mine (self-scoped via batch_trainers),
+                real data as of Phase 4 — see BatchListPage.tsx's own comment,
+                previously this route didn't exist because the scoping it
+                depends on didn't exist yet. */}
+            <Route path="batches" element={<MyBatchesPage />} />
             {/* Properly NESTED (not flat siblings) — React Router resolves
                 relative navigate()/Link paths (".." , "new", "${id}/edit")
                 against the ROUTE TREE's nesting depth, not URL segment
@@ -128,10 +134,10 @@ export function AppRoutes() {
         <Route element={<RequireRole roles={['super_admin']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<StudentListPage />} />
-            {/* Admin only this phase — the brief's Trainer "My Batches" view
-                depends on Phase 4's per-trainer assignment scoping, which
-                doesn't exist yet (see BatchListPage.tsx's own module
-                comment on collegeId enforcement). */}
+            {/* Admin's full cross-college batch management (create, assign
+                trainers, toggle active). Trainer's own scoped view is the
+                separate /trainer/batches route above, backed by
+                MyBatchesPage/listMyBatches — not this route. */}
             <Route path="batches">
               <Route index element={<BatchListPage />} />
               <Route path="new" element={<CreateBatchPage />} />
