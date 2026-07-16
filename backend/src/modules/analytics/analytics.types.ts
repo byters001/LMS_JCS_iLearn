@@ -87,3 +87,52 @@ export interface BatchPerformanceSummary {
   page: number;
   pageSize: number;
 }
+
+// --- Attendance-by-date (Phase 6a chatbot tool) ---
+// See analytics.repository.ts's listTrainingSessionsOnDate comment: this
+// reports SESSIONS held on a date, not per-student physical presence —
+// there is no attendance/roll-call table in this schema. sessionType/
+// status are kept as `string` here rather than the narrower Drizzle enum
+// unions (matching this file's existing convention of not re-deriving
+// pgEnum types into every read shape).
+export interface AttendanceSessionRow {
+  sessionId: string;
+  title: string;
+  sessionType: string;
+  status: string;
+  trainingProgramId: string;
+  collegeId: string;
+  collegeName: string;
+  departmentName: string;
+}
+
+export interface AttendanceByDateResult {
+  date: string;
+  // The scope actually applied — always non-null for a Faculty caller
+  // (forced to their own activeCollegeId even if omitted from the
+  // request), null only for a Super Admin who didn't narrow to one
+  // college. See analytics.service.ts's getAttendanceByDate.
+  collegeId: string | null;
+  sessions: AttendanceSessionRow[];
+  totalSessions: number;
+  completedSessions: number;
+}
+
+// --- Failed students (Phase 6a chatbot tool) ---
+// Reuses getBatchPerformance's own PerStudentPerformanceRow/classification
+// as-is (filtered to status === 'failed') — no separate pass/fail
+// computation exists here. Grouped by batch since "failed students on this
+// assessment" can span multiple batches when batchId is omitted (see
+// analytics.service.ts's getFailedStudents).
+export interface FailedStudentsBatchGroup {
+  batchId: string;
+  batchName: string;
+  students: PerStudentPerformanceRow[];
+}
+
+export interface FailedStudentsResult {
+  assessmentId: string;
+  assessmentTitle: string;
+  batches: FailedStudentsBatchGroup[];
+  totalFailedStudents: number;
+}

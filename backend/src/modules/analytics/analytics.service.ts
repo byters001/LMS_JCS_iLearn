@@ -1,3 +1,4 @@
+import { MAX_PAGE_SIZE } from '../../config/constants';
 import { assessmentsService } from '../assessments/assessments.service';
 import { organizationService } from '../organization/organization.service';
 import { ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
@@ -7,7 +8,10 @@ import {
 } from './analytics.repository';
 import type { GetBatchPerformanceQuery } from './analytics.schema';
 import type {
+  AttendanceByDateResult,
   BatchPerformanceSummary,
+  FailedStudentsBatchGroup,
+  FailedStudentsResult,
   PassingThresholdInfo,
   PerStudentPerformanceRow,
   PerStudentStatus,
@@ -380,7 +384,122 @@ async function getTrainerPerformanceTrend(
   return trend.sort((a, b) => a.attemptedAt.localeCompare(b.attemptedAt));
 }
 
+// --- Attendance-by-date (Phase 6a chatbot tool) ---
+//
+// See analytics.repository.ts's listTrainingSessionsOnDate for the full
+// "no attendance table exists" design-decision comment — this reports
+// which training sessions were scheduled/held on `date`, not per-student
+// physical presence.
+//
+// College scoping mirrors organization.service.ts's listBatches exactly:
+// a Faculty caller (activeCollegeId !== null) may only ever see their own
+// college — an explicit, different collegeId is rejected outright, not
+// silently narrowed. Unlike listBatches (where collegeId is a REQUIRED
+// query param), collegeId is optional here — a Faculty caller who omits
+// it gets their own college's sessions by default (never "all colleges,"
+// which they hold no grant over anyway); a Super Admin who omits it sees
+// every college's sessions on that date, unscoped, since collegeId ===
+// null already means a global grant everywhere else in this codebase.
+async function getAttendanceByDate(
+  date: string,
+  collegeId: string | undefined,
+  activeCollegeId: string | null,
+): Promise<AttendanceByDateResult> {
+  let effectiveCollegeId = collegeId;
+
+  if (activeCollegeId !== null) {
+    if (collegeId !== undefined && collegeId !== activeCollegeId) {
+      throw new ForbiddenError('You are not authorized to view attendance for this college');
+    }
+    effectiveCollegeId = activeCollegeId;
+  }
+
+  const sessions = await analyticsRepository.listTrainingSessionsOnDate(date, effectiveCollegeId);
+
+  return {
+    date,
+    collegeId: effectiveCollegeId ?? null,
+    sessions,
+    totalSessions: sessions.length,
+    completedSessions: sessions.filter((session) => session.status === 'completed').length,
+  };
+}
+
+// --- Failed students (Phase 6a chatbot tool) ---
+//
+// Reuses getBatchPerformance verbatim, once per resolved batch — zero
+// duplication of the pass/fail classification or threshold-resolution
+// logic above (same reuse shape as getTrainerPerformanceTrend). When
+// batchId is omitted, candidate batches come from
+// assessmentsService.listAssessmentBatches (an existing cross-module
+// SERVICE call, not a fresh query against assessment_batches here).
+//
+// A batch outside the caller's own college (ForbiddenError from
+// getBatchPerformance's own assertCanAccessBatch) or with zero attempts
+// yet on this assessment (NotFoundError) is SKIPPED, not a hard failure
+// for the whole request — "give me what you're allowed to see and what
+// actually has data," matching this function's inherently multi-batch
+// scope. Contrast with getBatchPerformance's own single-batch caller,
+// where either of those IS a hard failure, because there the caller named
+// exactly one specific batch they don't have access to / has no data.
+async function getFailedStudents(
+  assessmentId: string,
+  batchId: string | undefined,
+  activeCollegeId: string | null,
+): Promise<FailedStudentsResult> {
+  const assessment = await assessmentsService.findAssessmentById(assessmentId);
+
+  const candidateBatchIds = batchId
+    ? [batchId]
+    : await assessmentsService.listAssessmentBatches(assessmentId);
+
+  if (candidateBatchIds.length === 0) {
+    throw new NotFoundError('This assessment has no batches assigned');
+  }
+
+  const batches: FailedStudentsBatchGroup[] = [];
+  for (const candidateBatchId of candidateBatchIds) {
+    let summary: BatchPerformanceSummary;
+    try {
+      // pageSize: MAX_PAGE_SIZE (100) — getBatchPerformance's own
+      // `students` array is paginated (see that function's module
+      // comment: aggregates are computed over the full batch, but the
+      // returned list is capped). A batch with MORE than 100 active
+      // students would have its overflow silently excluded from this
+      // failed-students list on page 1 — a stated, accepted limitation
+      // for this phase (matches batches.max_students' own implied
+      // "class-sized cohort" scale this codebase already assumes
+      // elsewhere), not a silently-introduced correctness gap.
+      summary = await getBatchPerformance(
+        candidateBatchId,
+        { assessmentId, page: 1, pageSize: MAX_PAGE_SIZE },
+        activeCollegeId,
+      );
+    } catch (err) {
+      if (err instanceof ForbiddenError || err instanceof NotFoundError) {
+        continue;
+      }
+      throw err;
+    }
+
+    const failedStudents = summary.students.filter((row) => row.status === 'failed');
+    if (failedStudents.length > 0) {
+      const batch = await organizationService.findBatchById(candidateBatchId);
+      batches.push({ batchId: candidateBatchId, batchName: batch.name, students: failedStudents });
+    }
+  }
+
+  return {
+    assessmentId,
+    assessmentTitle: assessment.title,
+    batches,
+    totalFailedStudents: batches.reduce((sum, group) => sum + group.students.length, 0),
+  };
+}
+
 export const analyticsService = {
   getBatchPerformance,
   getTrainerPerformanceTrend,
+  getAttendanceByDate,
+  getFailedStudents,
 };

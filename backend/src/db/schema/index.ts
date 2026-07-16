@@ -8,3 +8,4 @@ export * from './attempts.schema';
 export * from './coding.schema';
 export * from './settings.schema';
 export * from './notifications.schema';
+export * from './chatbot.schema';

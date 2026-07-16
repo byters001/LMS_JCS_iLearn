@@ -148,6 +148,20 @@
       "when": 1784185521672,
       "tag": "0020_opposite_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784224825342,
+      "tag": "0021_add-chatbot-query-log",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784224842908,
+      "tag": "0022_add-chatbot-permissions",
+      "breakpoints": true
     }
   ]
 }

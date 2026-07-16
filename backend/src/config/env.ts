@@ -82,6 +82,31 @@ const envSchema = z.object({
     .string()
     .min(1, 'EMAIL_FROM_ADDRESS must not be empty')
     .default('JCS iLearn <notifications@jcsilearn.app>'),
+
+  // --- NVIDIA (Phase 6a — chatbot function-calling layer) ---
+  NVIDIA_BASE_URL: z
+    .string()
+    .url('NVIDIA_BASE_URL must be a valid URL')
+    .default('https://integrate.api.nvidia.com/v1'),
+  // Optional, same tier as JUDGE0_API_KEY/RESEND_API_KEY — the chatbot is
+  // an add-on feature the rest of the app doesn't depend on to function.
+  // Unlike JUDGE0_API_KEY (optional because a self-hosted instance MAY
+  // have no auth), NVIDIA's hosted API always requires a key — this is
+  // "optional to configure" in the RESEND_API_KEY sense (a real feature
+  // that gracefully degrades when unconfigured), not "sometimes doesn't
+  // need one." A missing key means integrations/nvidia/client.ts
+  // short-circuits every call with a clear ServiceUnavailableError instead
+  // of a doomed request; it does NOT mean the backend fails to start.
+  NVIDIA_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => (value ? value : undefined)),
+  // Overridable rather than inlined in the client — lets the model be
+  // swapped (e.g. to a cheaper/faster NIM model) without a code change.
+  // meta/llama-3.1-70b-instruct is a well-supported NVIDIA NIM
+  // function-calling model as of this phase; not a hardcoded assumption
+  // baked into request-building code.
+  NVIDIA_MODEL: z.string().min(1).default('meta/llama-3.1-70b-instruct'),
 });
 
 function loadEnv() {

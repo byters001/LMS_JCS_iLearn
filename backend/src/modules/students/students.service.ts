@@ -1,8 +1,9 @@
 import type { StudentProfile } from '../../db/types';
+import { buildCsv } from '../../shared/utils/csv.util';
 import { organizationService } from '../organization/organization.service';
 import { usersService } from '../users/users.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
-import { studentsRepository } from './students.repository';
+import { studentsRepository, type StudentExportRow } from './students.repository';
 import type {
   CreateStudentProfileInput,
   CreateStudentsInBatchInput,
@@ -256,73 +257,75 @@ async function createStudentsInBatch(
   return { created };
 }
 
-// --- CSV export (Phase 3) ---
-
-function escapeCsvField(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
+// --- Roster / CSV export (Phase 3, extended Phase 6a) ---
 
 // Columns per the brief's own spec: full_name, email, reg_no, department,
-// status. Deliberately NO "Handled by: <trainer names>" trailing row — the
-// brief's spec includes one, but batch_trainers doesn't exist yet (Phase
-// 4). A placeholder like "Handled by: (not yet assigned)" would be
-// identical on every single export until that phase ships, which is worse
-// than just not printing it: it implies a real, checked concept ("this
-// batch's assignment status") when there's no assignment concept at all
-// yet, for anyone. Omitting the row entirely is the honest choice — Phase 4
-// adds it as a genuinely new capability, not a placeholder graduating into
-// real data.
-function toCsv(rows: { fullName: string; email: string; rollNumber: string | null; departmentName: string | null; status: string }[]): string {
-  const header = ['full_name', 'email', 'reg_no', 'department', 'status'];
-  const lines = [header.join(',')];
-  for (const row of rows) {
-    lines.push(
-      [row.fullName, row.email, row.rollNumber ?? '', row.departmentName ?? '', row.status]
-        .map(escapeCsvField)
-        .join(','),
-    );
-  }
-  return lines.join('\n');
+// status. Exported (not module-private) so modules/chatbot's getBatchRoster
+// tool can build the exact same CSV shape for its own re-fetchable
+// download — one column list, not two that could drift.
+export const STUDENT_EXPORT_CSV_HEADER = ['full_name', 'email', 'reg_no', 'department', 'status'];
+
+export function studentExportRowToCsvRow(row: StudentExportRow): string[] {
+  return [row.fullName, row.email, row.rollNumber ?? '', row.departmentName ?? '', row.status];
 }
 
-// Gated by 'students.view' at the route layer (both Super Admin and
-// Faculty hold it — see 0016_grant-faculty-students-view.sql). Previously
-// only college-matched (any Faculty member at the batch's college could
-// export it) — now also requires the caller be personally assigned to
-// THIS batch as a trainer, same organizationService.isTrainerAssignedToBatch
-// check createStudentsInBatch above uses, tightened for consistency:
-// exporting a roster is read-only, but there's no reason a Faculty member
-// with no connection to a specific batch should be able to pull its roster
-// just because they're at the same college.
+export interface GetBatchRosterParams {
+  departmentId?: string;
+  status?: 'active' | 'archived';
+  limit?: number;
+}
+
+// Extracted from exportStudentsCsv below (Phase 3's original body) so
+// there is exactly ONE place deciding "is this caller allowed to see this
+// batch's roster" — reused verbatim by both the CSV export route below
+// AND modules/chatbot's getBatchRoster tool (Phase 6a), rather than a
+// second copy of this same college-match + trainer-assignment check
+// living in the chatbot module. Gated by 'students.view' at the route
+// layer (both Super Admin and Faculty hold it — see
+// 0016_grant-faculty-students-view.sql); Faculty additionally needs a
+// college-match AND a personal batch_trainers assignment on this specific
+// batch — college membership alone isn't enough to view a batch's roster.
+async function getBatchRoster(
+  batchId: string,
+  params: GetBatchRosterParams,
+  activeCollegeId: string | null,
+  requesterId: string,
+): Promise<StudentExportRow[]> {
+  const batch = await organizationService.findBatchById(batchId);
+  const trainingProgram = await organizationService.findTrainingProgramById(batch.trainingProgramId);
+
+  if (activeCollegeId !== null) {
+    if (trainingProgram.collegeId !== activeCollegeId) {
+      throw new ForbiddenError('You are not authorized to view the roster for this batch');
+    }
+    const isAssigned = await organizationService.isTrainerAssignedToBatch(batchId, requesterId);
+    if (!isAssigned) {
+      throw new ForbiddenError(
+        'You must be assigned as a trainer on this batch to view its roster',
+      );
+    }
+  }
+
+  return studentsRepository.listStudentsForExport({
+    batchId,
+    departmentId: params.departmentId,
+    status: params.status,
+    limit: params.limit,
+  });
+}
+
+// Deliberately NO "Handled by: <trainer names>" trailing row — same
+// reasoning as this function's original Phase 3 comment (kept here, not
+// lost in the refactor): a placeholder would imply a checked concept where
+// none exists in this export shape.
 async function exportStudentsCsv(
   batchId: string,
   query: ExportBatchStudentsQuery,
   activeCollegeId: string | null,
   requesterId: string,
 ): Promise<string> {
-  const batch = await organizationService.findBatchById(batchId);
-  const trainingProgram = await organizationService.findTrainingProgramById(batch.trainingProgramId);
-
-  if (activeCollegeId !== null) {
-    if (trainingProgram.collegeId !== activeCollegeId) {
-      throw new ForbiddenError('You are not authorized to export students for this batch');
-    }
-    const isAssigned = await organizationService.isTrainerAssignedToBatch(batchId, requesterId);
-    if (!isAssigned) {
-      throw new ForbiddenError(
-        'You must be assigned as a trainer on this batch to export its roster',
-      );
-    }
-  }
-
-  const rows = await studentsRepository.listStudentsForExport({
-    batchId,
-    departmentId: query.departmentId,
-    status: query.status,
-    limit: query.limit,
-  });
-
-  return toCsv(rows);
+  const rows = await getBatchRoster(batchId, query, activeCollegeId, requesterId);
+  return buildCsv(STUDENT_EXPORT_CSV_HEADER, rows.map(studentExportRowToCsvRow));
 }
 
 export const studentsService = {
@@ -334,5 +337,6 @@ export const studentsService = {
   updateStudentProfile,
   archiveStudentProfile,
   createStudentsInBatch,
+  getBatchRoster,
   exportStudentsCsv,
 };

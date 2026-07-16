@@ -3,8 +3,10 @@ import { db } from '../../db/client';
 import { assessmentSections } from '../../db/schema/assessments.schema';
 import { assessmentAttempts, attemptQuestionSelections } from '../../db/schema/attempts.schema';
 import { users } from '../../db/schema/identity.schema';
+import { colleges, departments, trainingPrograms } from '../../db/schema/organization.schema';
 import { questionVersions } from '../../db/schema/question-bank.schema';
 import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
+import { trainingSessions } from '../../db/schema/trainers.schema';
 import type { AssessmentAttempt } from '../../db/types';
 
 // analytics is CLAUDE.md's explicit cross-module-QUERY exception (shared
@@ -183,10 +185,64 @@ async function listAssessmentActivityForBatch(batchId: string): Promise<BatchAss
     .orderBy(asc(sql`max(${assessmentAttempts.createdAt})`));
 }
 
+// --- Attendance-by-date (Phase 6a chatbot tool) ---
+//
+// STATED DESIGN DECISION, not silently guessed: this schema has NO
+// attendance table (confirmed directly against schema.sql — zero matches
+// for "attendance" anywhere). The closest real concept is training_
+// sessions (schema.sql: session_date, status). "Attendance on a date"
+// here means "which training sessions were scheduled/held on that date,"
+// NOT per-student physical presence — there is no roll-call/presence
+// concept anywhere in this schema to report on instead. See
+// analytics.service.ts's getAttendanceByDate and modules/chatbot's tool
+// description for this same caveat surfaced to the actual caller, not
+// just left in a code comment.
+export interface SessionOnDateRow {
+  sessionId: string;
+  title: string;
+  sessionType: string;
+  status: string;
+  trainingProgramId: string;
+  collegeId: string;
+  collegeName: string;
+  departmentName: string;
+}
+
+// innerJoin throughout: trainingSessions.trainingProgramId and training_
+// programs' collegeId/departmentId are all NOT NULL (schema.sql), same
+// "no orphan-row risk" reasoning organization.repository.ts's listBatches/
+// listMyBatches already established for this identical FK chain.
+async function listTrainingSessionsOnDate(
+  date: string,
+  collegeId: string | undefined,
+): Promise<SessionOnDateRow[]> {
+  const conditions = [eq(trainingSessions.sessionDate, date)];
+  if (collegeId) conditions.push(eq(trainingPrograms.collegeId, collegeId));
+
+  return db
+    .select({
+      sessionId: trainingSessions.id,
+      title: trainingSessions.title,
+      sessionType: trainingSessions.sessionType,
+      status: trainingSessions.status,
+      trainingProgramId: trainingSessions.trainingProgramId,
+      collegeId: trainingPrograms.collegeId,
+      collegeName: colleges.name,
+      departmentName: departments.name,
+    })
+    .from(trainingSessions)
+    .innerJoin(trainingPrograms, eq(trainingPrograms.id, trainingSessions.trainingProgramId))
+    .innerJoin(colleges, eq(colleges.id, trainingPrograms.collegeId))
+    .innerJoin(departments, eq(departments.id, trainingPrograms.departmentId))
+    .where(and(...conditions))
+    .orderBy(asc(trainingSessions.sessionDate));
+}
+
 export const analyticsRepository = {
   listBatchAttemptsForAssessment,
   findMostRecentAssessmentIdForBatch,
   findAssessmentSectionsThresholdInfo,
   sumPossibleMarksForAttempts,
   listAssessmentActivityForBatch,
+  listTrainingSessionsOnDate,
 };

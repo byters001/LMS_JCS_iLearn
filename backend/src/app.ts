@@ -5,6 +5,7 @@ import analyticsRoutes from './modules/analytics/analytics.routes';
 import assessmentsRoutes from './modules/assessments/assessments.routes';
 import attemptsRoutes from './modules/attempts/attempts.routes';
 import authRoutes from './modules/auth/auth.routes';
+import chatbotRoutes from './modules/chatbot/chatbot.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import organizationRoutes from './modules/organization/organization.routes';
 import questionBankRoutes from './modules/question-bank/question-bank.routes';
@@ -134,6 +135,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(reportsRoutes, { prefix: API_PREFIX });
   await app.register(analyticsRoutes, { prefix: API_PREFIX });
   await app.register(notificationsRoutes, { prefix: API_PREFIX });
+  // Phase 6a — chatbot function-calling layer. Gated entirely by
+  // 'chatbot.query' (super_admin + faculty only, seeded via a --custom
+  // migration) — see chatbot.routes.ts.
+  await app.register(chatbotRoutes, { prefix: API_PREFIX });
 
   return app;
 }

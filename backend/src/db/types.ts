@@ -51,6 +51,7 @@ import type {
 import type { codingSubmissions } from './schema/coding.schema';
 import type { featureFlags, moduleToggles, systemSettings } from './schema/settings.schema';
 import type { notifications } from './schema/notifications.schema';
+import type { chatbotQueryLog } from './schema/chatbot.schema';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -198,3 +199,6 @@ export type NewSystemSetting = InferInsertModel<typeof systemSettings>;
 
 export type Notification = InferSelectModel<typeof notifications>;
 export type NewNotification = InferInsertModel<typeof notifications>;
+
+export type ChatbotQueryLog = InferSelectModel<typeof chatbotQueryLog>;
+export type NewChatbotQueryLog = InferInsertModel<typeof chatbotQueryLog>;
