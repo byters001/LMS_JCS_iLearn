@@ -3,7 +3,7 @@ import { permissionCache } from '../../rbac/permission-cache';
 import type { AcademicYear, Batch, BatchTrainer, College, Department, TrainingProgram, TrainingProgramTrainer } from '../../db/types';
 import { usersService } from '../users/users.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
-import { organizationRepository } from './organization.repository';
+import { organizationRepository, type TrainerBatchAssignmentRow } from './organization.repository';
 import type {
   AssignBatchTrainerInput,
   AssignTrainingProgramTrainerInput,
@@ -618,6 +618,18 @@ async function isTrainerAssignedToBatch(batchId: string, trainerId: string): Pro
   return assignment !== undefined;
 }
 
+// Exposed for trainers.service.ts's Phase 5 overview/performance endpoints
+// (the same module-boundary reasoning as isTrainerAssignedToBatch above —
+// a module may call another module's SERVICE, never its repository). A
+// thin pass-through: no business logic of its own, since
+// listBatchTrainerAssignments already returns exactly the shape those
+// callers need (one row per trainer-batch assignment, names resolved).
+async function listBatchAssignmentsForTrainers(
+  trainerIds: string[],
+): Promise<TrainerBatchAssignmentRow[]> {
+  return organizationRepository.listBatchTrainerAssignments(trainerIds);
+}
+
 export const organizationService = {
   listColleges,
   findCollegeById,
@@ -652,4 +664,5 @@ export const organizationService = {
   assignTrainerToBatch,
   unassignTrainerFromBatch,
   isTrainerAssignedToBatch,
+  listBatchAssignmentsForTrainers,
 };

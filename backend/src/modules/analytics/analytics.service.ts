@@ -12,6 +12,7 @@ import type {
   PerStudentPerformanceRow,
   PerStudentStatus,
   ScoreDistribution,
+  TrainerPerformanceTrendPoint,
 } from './analytics.types';
 
 // --- Passing threshold (item 1) ---
@@ -309,6 +310,77 @@ async function getBatchPerformance(
   };
 }
 
+// --- Trainer performance trend (Phase 5) ---
+//
+// Reuses getBatchPerformance as-is, once per (batchId, assessmentId) pair
+// — zero duplication of the average-score/pass-rate math, threshold
+// resolution, or classifyStudent/groupByStudent reduction above; this
+// function is purely orchestration (enumerate which assessments each
+// batch has activity on, call the existing summary function for each,
+// flatten into one chronological list).
+//
+// activeCollegeId is hardcoded to null (not threaded through as a
+// parameter) — this is intentionally NOT the same college-scoping check
+// getBatchPerformance's other caller (analytics.routes.ts's own
+// GET /analytics/batches/:batchId/performance) performs for a Faculty
+// caller reading one specific batch they claim access to. A trainer's
+// PERFORMANCE TREND, by contrast, is only ever reachable via
+// trainers.service.ts's getTrainerPerformance, which is itself gated by
+// trainers.routes.ts's Super-Admin-only 'trainers.view' permission — a
+// Super Admin's own activeCollegeId is always null already (schema.sql:
+// their role assignment has no college_id), and a trainer's assigned
+// batches can legitimately span multiple colleges, so there is no single
+// "caller's own college" to check against here even if one wanted to.
+// Passing null explicitly documents that this reuse deliberately skips
+// assertCanAccessBatch's ForbiddenError branch, rather than leaving it to
+// be discovered by reading getBatchPerformance's implementation.
+//
+// pageSize: 1 on each call — only the summary fields (averageScore,
+// passRate, totalStudents, studentsAttempted, assessmentTitle) are used
+// below; the paginated per-student `students` array getBatchPerformance
+// also computes/returns is discarded. The underlying aggregates are
+// always computed over the FULL batch regardless of page/pageSize (see
+// getBatchPerformance's own "Live query vs caching" comment) — pageSize
+// only bounds the per-student list's payload size, not correctness.
+async function getTrainerPerformanceTrend(
+  batchIds: string[],
+): Promise<TrainerPerformanceTrendPoint[]> {
+  const activityByBatch = await Promise.all(
+    batchIds.map(async (batchId) => ({
+      batchId,
+      activity: await analyticsRepository.listAssessmentActivityForBatch(batchId),
+    })),
+  );
+
+  const pairs = activityByBatch.flatMap(({ batchId, activity }) =>
+    activity.map((entry) => ({ batchId, ...entry })),
+  );
+
+  const trend = await Promise.all(
+    pairs.map(async ({ batchId, assessmentId, mostRecentAttemptAt }) => {
+      const summary = await getBatchPerformance(
+        batchId,
+        { assessmentId, page: 1, pageSize: 1 },
+        null,
+      );
+      const point: TrainerPerformanceTrendPoint = {
+        batchId,
+        assessmentId,
+        assessmentTitle: summary.assessmentTitle,
+        attemptedAt: mostRecentAttemptAt.toISOString(),
+        averageScore: summary.averageScore,
+        passRate: summary.passRate,
+        totalStudents: summary.totalStudents,
+        studentsAttempted: summary.studentsAttempted,
+      };
+      return point;
+    }),
+  );
+
+  return trend.sort((a, b) => a.attemptedAt.localeCompare(b.attemptedAt));
+}
+
 export const analyticsService = {
   getBatchPerformance,
+  getTrainerPerformanceTrend,
 };

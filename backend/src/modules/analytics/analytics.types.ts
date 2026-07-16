@@ -44,6 +44,25 @@ export interface PassingThresholdInfo {
   fallbackPercentage: number | null;
 }
 
+// Phase 5 (trainer performance trend) — one point per (batch, assessment)
+// pair a trainer's batches have real attempt activity on, ordered
+// chronologically by attemptedAt. Deliberately one row per assessment
+// rather than one pooled number across all of them — same scale-mixing
+// reasoning as BatchPerformanceSummary above (getBatchPerformance's own
+// module comment): different assessments can have wildly different total
+// possible marks, so a trend chart plots them as separate points instead
+// of averaging incompatible scales together.
+export interface TrainerPerformanceTrendPoint {
+  batchId: string;
+  assessmentId: string;
+  assessmentTitle: string;
+  attemptedAt: string;
+  averageScore: string | null;
+  passRate: number | null;
+  totalStudents: number;
+  studentsAttempted: number;
+}
+
 export interface BatchPerformanceSummary {
   batchId: string;
   assessmentId: string;

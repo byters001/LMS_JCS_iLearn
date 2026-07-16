@@ -10,7 +10,13 @@
 // features/organization/ (a different backend module).
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { ListTrainingSessionsParams, ListTrainingSessionsResponse } from './types'
+import type {
+  ListTrainersOverviewParams,
+  ListTrainersOverviewResponse,
+  ListTrainingSessionsParams,
+  ListTrainingSessionsResponse,
+  TrainerPerformanceResult,
+} from './types'
 
 function listTrainingSessions(
   params: ListTrainingSessionsParams,
@@ -23,5 +29,37 @@ export function useTrainingSessions(params: ListTrainingSessionsParams) {
     queryKey: ['trainers', 'training-sessions', params],
     queryFn: () => listTrainingSessions(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+// --- Trainers overview / performance (Phase 5, Super Admin dashboard) ---
+// Backed by trainers.routes.ts's '/trainers/overview' and
+// '/trainers/:trainerId/performance' — both gated by 'trainers.view'
+// (Super-Admin-only, confirmed against the backend migration that seeded
+// it), matching this feature's Admin-only nav placement.
+
+function listTrainersOverview(
+  params: ListTrainersOverviewParams,
+): Promise<ListTrainersOverviewResponse> {
+  return api.get<ListTrainersOverviewResponse>('/trainers/overview', { params })
+}
+
+export function useTrainersOverview(params: ListTrainersOverviewParams) {
+  return useQuery({
+    queryKey: ['trainers', 'overview', params],
+    queryFn: () => listTrainersOverview(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+function getTrainerPerformance(trainerId: string): Promise<TrainerPerformanceResult> {
+  return api.get<TrainerPerformanceResult>(`/trainers/${trainerId}/performance`)
+}
+
+export function useTrainerPerformance(trainerId: string | undefined) {
+  return useQuery({
+    queryKey: ['trainers', 'performance', trainerId],
+    queryFn: () => getTrainerPerformance(trainerId as string),
+    enabled: Boolean(trainerId),
   })
 }

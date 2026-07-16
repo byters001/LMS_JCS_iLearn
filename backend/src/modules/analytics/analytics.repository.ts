@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { assessmentSections } from '../../db/schema/assessments.schema';
 import { assessmentAttempts, attemptQuestionSelections } from '../../db/schema/attempts.schema';
@@ -149,9 +149,44 @@ async function sumPossibleMarksForAttempts(
     .groupBy(attemptQuestionSelections.attemptId);
 }
 
+export interface BatchAssessmentActivity {
+  assessmentId: string;
+  mostRecentAttemptAt: Date;
+}
+
+// Phase 5 (trainer performance trend) — enumeration sibling of
+// findMostRecentAssessmentIdForBatch above: same join skeleton (active
+// batch students -> their attempts), but GROUPed instead of LIMITed to 1,
+// so a trend view can plot every assessment a batch has real attempt
+// activity on, ordered chronologically, instead of only ever seeing the
+// single most-recent one. Deliberately does NOT compute any score/pass-
+// rate itself — analytics.service.ts's getTrainerPerformanceTrend calls
+// the existing getBatchPerformance once per (batchId, assessmentId) pair
+// this returns, reusing that function's classifyStudent/threshold-
+// resolution logic as-is rather than duplicating it here.
+async function listAssessmentActivityForBatch(batchId: string): Promise<BatchAssessmentActivity[]> {
+  return db
+    .select({
+      assessmentId: assessmentAttempts.assessmentId,
+      mostRecentAttemptAt: sql<Date>`max(${assessmentAttempts.createdAt})`,
+    })
+    .from(trainingProgramStudents)
+    .innerJoin(studentProfiles, eq(studentProfiles.id, trainingProgramStudents.studentId))
+    .innerJoin(assessmentAttempts, eq(assessmentAttempts.studentId, studentProfiles.id))
+    .where(
+      and(
+        eq(trainingProgramStudents.batchId, batchId),
+        eq(trainingProgramStudents.status, 'active'),
+      ),
+    )
+    .groupBy(assessmentAttempts.assessmentId)
+    .orderBy(asc(sql`max(${assessmentAttempts.createdAt})`));
+}
+
 export const analyticsRepository = {
   listBatchAttemptsForAssessment,
   findMostRecentAssessmentIdForBatch,
   findAssessmentSectionsThresholdInfo,
   sumPossibleMarksForAttempts,
+  listAssessmentActivityForBatch,
 };

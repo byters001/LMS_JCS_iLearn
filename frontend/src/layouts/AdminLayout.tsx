@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Search, UserCog, Users } from 'lucide-react'
+import { BarChart3, BookOpen, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Presentation, Search, UserCog, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -18,6 +18,13 @@ const NAV_ITEMS = [
   { type: 'link' as const, to: '/admin', label: 'Students', end: true, icon: Users },
   { type: 'link' as const, to: '/admin/batches', label: 'Batches', end: true, icon: BookOpen },
   { type: 'link' as const, to: '/admin/faculty', label: 'Faculty', end: true, icon: UserCog },
+  // Phase 5, Super-Admin-only (brief §3.7) — which trainer works in which
+  // college/department/batch, plus performance trends. Presentation (not
+  // UserCog again): UserCog is already Faculty's own icon two rows up, and
+  // this is conceptually a different surface (assignment/performance
+  // overview, not account management) even though both are about the same
+  // underlying faculty users.
+  { type: 'link' as const, to: '/admin/trainers', label: 'Trainers', end: true, icon: Presentation },
   {
     type: 'group' as const,
     label: 'Question Bank',

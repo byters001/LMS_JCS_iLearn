@@ -793,6 +793,63 @@ async function deleteBatchTrainer(batchId: string, trainerId: string): Promise<b
   return deleted.length > 0;
 }
 
+// --- Batch assignments for multiple trainers (Phase 5) ---
+// Multi-trainer sibling of listMyBatches above — same join skeleton
+// (batches -> batchTrainers -> trainingPrograms -> colleges/departments),
+// parameterized by a LIST of trainerIds via inArray instead of one eq(),
+// for trainers.service.ts's Super Admin trainer-overview/performance-trend
+// endpoints, which need this for potentially many trainers at once.
+// Reusing listMyBatches' single-trainerId shape once per trainer would be
+// exactly the N+1 pattern this phase's own brief flags as a fix target on
+// the frontend — not something to introduce fresh here on the backend.
+//
+// innerJoin throughout, not leftJoin: same reasoning as listBatches/
+// listMyBatches directly above (not students.repository.ts's leftJoin
+// convention) — batches.trainingProgramId and training_programs'
+// collegeId/departmentId are all NOT NULL in schema.sql, so this exact
+// chain can never actually produce an orphaned row; leftJoin would only
+// add a null-handling case that can't occur, going against the sibling
+// functions in this same file that already established innerJoin as the
+// correct choice for this specific FK chain.
+//
+// No studentCount/pagination here (unlike listMyBatches) — the overview
+// endpoint only needs batch/college/department identity to compute counts
+// and distinct college/department names in trainers.service.ts, not the
+// richer BatchWithDetails shape.
+export interface TrainerBatchAssignmentRow {
+  trainerId: string;
+  batchId: string;
+  batchName: string;
+  collegeId: string;
+  collegeName: string;
+  departmentId: string;
+  departmentName: string;
+}
+
+async function listBatchTrainerAssignments(
+  trainerIds: string[],
+): Promise<TrainerBatchAssignmentRow[]> {
+  if (trainerIds.length === 0) {
+    return [];
+  }
+  return db
+    .select({
+      trainerId: batchTrainers.trainerId,
+      batchId: batches.id,
+      batchName: batches.name,
+      collegeId: colleges.id,
+      collegeName: colleges.name,
+      departmentId: departments.id,
+      departmentName: departments.name,
+    })
+    .from(batchTrainers)
+    .innerJoin(batches, eq(batches.id, batchTrainers.batchId))
+    .innerJoin(trainingPrograms, eq(trainingPrograms.id, batches.trainingProgramId))
+    .innerJoin(colleges, eq(colleges.id, trainingPrograms.collegeId))
+    .innerJoin(departments, eq(departments.id, trainingPrograms.departmentId))
+    .where(and(inArray(batchTrainers.trainerId, trainerIds), isNull(batches.deletedAt)));
+}
+
 // --- Deactivation cascade (Phase 4, the high-risk piece) ---
 //
 // Session-invalidation finding (stated here since this is the function it
@@ -971,6 +1028,7 @@ export const organizationRepository = {
   findBatchTrainer,
   createBatchTrainer,
   deleteBatchTrainer,
+  listBatchTrainerAssignments,
   deactivateBatchCascade,
   activateBatchCascade,
 };

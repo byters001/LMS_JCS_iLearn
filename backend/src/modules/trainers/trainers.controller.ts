@@ -4,7 +4,9 @@ import { trainersService } from './trainers.service';
 import type {
   CreateTrainerProfileInput,
   ListTrainerProfilesQuery,
+  ListTrainersOverviewQuery,
   ListTrainingSessionsQuery,
+  TrainerIdParams,
   TrainerProfileIdParams,
   UpdateTrainerProfileInput,
 } from './trainers.schema';
@@ -74,6 +76,24 @@ async function listTrainingSessions(
   reply.status(200).send(response);
 }
 
+async function listTrainersOverview(
+  request: FastifyRequest<{ Querystring: ListTrainersOverviewQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await trainersService.listTrainersOverview(request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function getTrainerPerformance(
+  request: FastifyRequest<{ Params: TrainerIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await trainersService.getTrainerPerformance(request.params.trainerId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const trainersController = {
   listTrainerProfiles,
   getTrainerProfileById,
@@ -81,4 +101,6 @@ export const trainersController = {
   updateTrainerProfile,
   deleteTrainerProfile,
   listTrainingSessions,
+  listTrainersOverview,
+  getTrainerPerformance,
 };

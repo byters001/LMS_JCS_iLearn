@@ -6,12 +6,16 @@ import { trainersController } from './trainers.controller';
 import {
   createTrainerProfileSchema,
   listTrainerProfilesQuerySchema,
+  listTrainersOverviewQuerySchema,
   listTrainingSessionsQuerySchema,
+  trainerIdParamsSchema,
   trainerProfileIdParamsSchema,
   updateTrainerProfileSchema,
   type CreateTrainerProfileInput,
   type ListTrainerProfilesQuery,
+  type ListTrainersOverviewQuery,
   type ListTrainingSessionsQuery,
+  type TrainerIdParams,
   type TrainerProfileIdParams,
   type UpdateTrainerProfileInput,
 } from './trainers.schema';
@@ -121,6 +125,45 @@ export async function trainersRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: validateQuery(listTrainingSessionsQuerySchema),
     },
     trainersController.listTrainingSessions,
+  );
+
+  // --- Trainers overview / performance (Phase 5, Super Admin dashboard) ---
+  // Reuses 'trainers.view' rather than minting a new permission key:
+  // confirmed against drizzle/migrations/0003_add-trainers-permissions.sql
+  // that 'trainers.view' is ALREADY granted to super_admin only (Faculty
+  // holds no trainers.* key at all) — exactly the "Admin only" scoping the
+  // brief asks for, via infrastructure that already exists, not a
+  // silently-assumed reuse. Both routes are read-only, same view/manage
+  // split precedent as every other route in this file.
+  //
+  // Path: bare '/trainers/*', unlike '/trainer-profiles' above — that
+  // earlier choice was to avoid colliding with OTHER trainer-assignment
+  // routes (organization.routes.ts's '/training-programs/:id/trainers',
+  // '/batches/:id/trainers'), not a blanket avoidance of the word
+  // "trainers" itself. Confirmed by reading organization.routes.ts
+  // directly: both of those are nested under a parent resource, never a
+  // bare top-level '/trainers', so '/trainers/overview' and
+  // '/trainers/:trainerId/performance' don't collide with anything. This
+  // naming is also the semantically correct one here — these endpoints
+  // are about trainers as an identity/role concept (faculty users and
+  // their assignments), not about trainer_profiles (bio/specialization),
+  // so routing them under '/trainer-profiles' would have been wrong.
+  fastify.get<{ Querystring: ListTrainersOverviewQuery }>(
+    '/trainers/overview',
+    {
+      preHandler: [fastify.authenticate, requirePermission('trainers.view')],
+      preValidation: validateQuery(listTrainersOverviewQuerySchema),
+    },
+    trainersController.listTrainersOverview,
+  );
+
+  fastify.get<{ Params: TrainerIdParams }>(
+    '/trainers/:trainerId/performance',
+    {
+      preHandler: [fastify.authenticate, requirePermission('trainers.view')],
+      preValidation: validateParams(trainerIdParamsSchema),
+    },
+    trainersController.getTrainerPerformance,
   );
 }
 

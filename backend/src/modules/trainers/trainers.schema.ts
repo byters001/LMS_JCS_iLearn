@@ -45,8 +45,24 @@ export const trainerProfileIdParamsSchema = z
   })
   .strict();
 
+// --- Trainers overview / performance (Phase 5) ---
+
+export const listTrainersOverviewQuerySchema = z
+  .object({
+    ...paginationFields,
+  })
+  .strict();
+
+export const trainerIdParamsSchema = z
+  .object({
+    trainerId: z.string().uuid('trainerId must be a valid UUID'),
+  })
+  .strict();
+
 export type ListTrainerProfilesQuery = z.infer<typeof listTrainerProfilesQuerySchema>;
 export type ListTrainingSessionsQuery = z.infer<typeof listTrainingSessionsQuerySchema>;
 export type CreateTrainerProfileInput = z.infer<typeof createTrainerProfileSchema>;
 export type UpdateTrainerProfileInput = z.infer<typeof updateTrainerProfileSchema>;
 export type TrainerProfileIdParams = z.infer<typeof trainerProfileIdParamsSchema>;
+export type ListTrainersOverviewQuery = z.infer<typeof listTrainersOverviewQuerySchema>;
+export type TrainerIdParams = z.infer<typeof trainerIdParamsSchema>;

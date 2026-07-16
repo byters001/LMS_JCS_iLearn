@@ -22,6 +22,8 @@ import MyBatchesPage from '@/features/organization/pages/MyBatchesPage'
 import FacultyListPage from '@/features/users/pages/FacultyListPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
+import TrainerDetailPage from '@/features/trainers/pages/TrainerDetailPage'
+import TrainersDashboardPage from '@/features/trainers/pages/TrainersDashboardPage'
 import AdminLayout from '@/layouts/AdminLayout'
 import StudentLayout from '@/layouts/StudentLayout'
 import TrainerLayout from '@/layouts/TrainerLayout'
@@ -144,6 +146,17 @@ export function AppRoutes() {
               <Route path="new" element={<CreateBatchPage />} />
             </Route>
             <Route path="faculty" element={<FacultyListPage />} />
+            {/* Phase 5 — Super-Admin-only trainer dashboard (brief §3.7):
+                which trainer works in which college/department/batch, plus
+                performance trends. Nested (not flat), same reasoning as
+                pools/questions above — TrainersDashboardPage's row links
+                use a relative `to={trainer.trainerId}` Link, which needs
+                this nesting depth to resolve to .../trainers/:trainerId
+                rather than replacing the whole /admin/trainers segment. */}
+            <Route path="trainers">
+              <Route index element={<TrainersDashboardPage />} />
+              <Route path=":trainerId" element={<TrainerDetailPage />} />
+            </Route>
             <Route path="assessments">
               <Route index element={<AssessmentListPage />} />
               <Route path="new" element={<CreateAssessmentPage />} />

@@ -1,14 +1,25 @@
 import type { TrainerProfile, TrainingSession } from '../../db/types';
+import { analyticsService } from '../analytics/analytics.service';
+import { organizationService } from '../organization/organization.service';
+import type { TrainerBatchAssignmentRow } from '../organization/organization.types';
 import { usersService } from '../users/users.service';
 import { ConflictError, NotFoundError } from '../../shared/errors/app-error';
 import { trainersRepository } from './trainers.repository';
 import type {
   CreateTrainerProfileInput,
   ListTrainerProfilesQuery,
+  ListTrainersOverviewQuery,
   ListTrainingSessionsQuery,
   UpdateTrainerProfileInput,
 } from './trainers.schema';
-import type { ListTrainerProfilesResult, ListTrainingSessionsResult } from './trainers.types';
+import type {
+  ListTrainerProfilesResult,
+  ListTrainersOverviewResult,
+  ListTrainingSessionsResult,
+  TrainerOverviewRow,
+  TrainerPerformanceBatchSummary,
+  TrainerPerformanceResult,
+} from './trainers.types';
 
 async function listTrainerProfiles(
   query: ListTrainerProfilesQuery,
@@ -106,6 +117,106 @@ async function listTrainingSessions(
   return { items, total, page: query.page, pageSize: query.pageSize };
 }
 
+// --- Trainers overview / performance (Phase 5, Super Admin dashboard) ---
+//
+// "Trainer" here means "a user holding the 'faculty' role" — see
+// TrainerOverviewRow's own comment in trainers.types.ts for why this reads
+// from users (via usersService.list's existing roleSlug filter), not
+// trainer_profiles (which is optional bio/specialization metadata, not
+// identity — a faculty user with no profile row is still very much a
+// trainer for this dashboard's purposes).
+const TRAINER_ROLE_SLUG = 'faculty';
+
+function groupAssignmentsByTrainer(
+  assignments: TrainerBatchAssignmentRow[],
+): Map<string, TrainerBatchAssignmentRow[]> {
+  const grouped = new Map<string, TrainerBatchAssignmentRow[]>();
+  for (const assignment of assignments) {
+    const existing = grouped.get(assignment.trainerId);
+    if (existing) {
+      existing.push(assignment);
+    } else {
+      grouped.set(assignment.trainerId, [assignment]);
+    }
+  }
+  return grouped;
+}
+
+// Two queries total regardless of how many trainers are on the page — the
+// paginated faculty-user list, then ONE batched assignment lookup for
+// just those trainerIds (organizationService.listBatchAssignmentsForTrainers,
+// backed by inArray, not one call per trainer) — deliberately not the N+1
+// "one request per item" pattern this same Phase 5 brief's frontend half
+// flags as a fix target elsewhere.
+async function listTrainersOverview(
+  query: ListTrainersOverviewQuery,
+): Promise<ListTrainersOverviewResult> {
+  const { items: trainerUsers, total } = await usersService.list({
+    page: query.page,
+    pageSize: query.pageSize,
+    roleSlug: TRAINER_ROLE_SLUG,
+  });
+
+  const trainerIds = trainerUsers.map((user) => user.id);
+  const assignments = await organizationService.listBatchAssignmentsForTrainers(trainerIds);
+  const assignmentsByTrainer = groupAssignmentsByTrainer(assignments);
+
+  const items: TrainerOverviewRow[] = trainerUsers.map((user) => {
+    const trainerAssignments = assignmentsByTrainer.get(user.id) ?? [];
+    // Map keyed by id, not a plain array — a trainer assigned to two
+    // batches in the SAME college/department should show that
+    // college/department once, not once per batch.
+    const colleges = new Map(trainerAssignments.map((a) => [a.collegeId, a.collegeName]));
+    const departments = new Map(trainerAssignments.map((a) => [a.departmentId, a.departmentName]));
+
+    return {
+      trainerId: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      isActive: user.isActive,
+      batchCount: trainerAssignments.length,
+      colleges: [...colleges.entries()].map(([id, name]) => ({ id, name })),
+      departments: [...departments.entries()].map(([id, name]) => ({ id, name })),
+    };
+  });
+
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
+// usersService.findById throws NotFoundError for a nonexistent/deleted
+// trainerId — the right failure mode for an invalid path param. Beyond
+// that, this deliberately does NOT verify the found user actually holds
+// the 'faculty' role: same permissiveness precedent as organization.
+// service.ts's assignTrainingProgramTrainer ("a valid trainer just means
+// an existing user... whether that user actually holds a trainer-ish role
+// is not this scope's concern") — this is an internal, Super-Admin-only
+// tool (trainers.routes.ts's trainers.view guard), not a public surface,
+// so the cost of that gap is low; flagged here rather than silently
+// assumed away.
+//
+// A trainer with zero batch assignments yet returns an empty
+// batches/trend, not a 404 — "no batches assigned" is a legitimate,
+// non-error state for a newly onboarded trainer, not a failure.
+async function getTrainerPerformance(trainerId: string): Promise<TrainerPerformanceResult> {
+  const trainer = await usersService.findById(trainerId);
+  const assignments = await organizationService.listBatchAssignmentsForTrainers([trainerId]);
+
+  const batchesById = new Map<string, TrainerPerformanceBatchSummary>();
+  for (const assignment of assignments) {
+    batchesById.set(assignment.batchId, {
+      id: assignment.batchId,
+      name: assignment.batchName,
+      collegeName: assignment.collegeName,
+      departmentName: assignment.departmentName,
+    });
+  }
+  const batches = [...batchesById.values()];
+
+  const trend = await analyticsService.getTrainerPerformanceTrend(batches.map((batch) => batch.id));
+
+  return { trainerId, fullName: trainer.fullName, batches, trend };
+}
+
 export const trainersService = {
   listTrainerProfiles,
   findTrainerProfileById,
@@ -114,4 +225,6 @@ export const trainersService = {
   deleteTrainerProfile,
   findTrainingSessionById,
   listTrainingSessions,
+  listTrainersOverview,
+  getTrainerPerformance,
 };
