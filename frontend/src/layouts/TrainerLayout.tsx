@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, HelpCircle, Search, Users, Layers } from 'lucide-react'
+import { BarChart3, ClipboardList, HelpCircle, Search, Layers } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -27,8 +27,18 @@ import { useAuthStore } from '@/store/authStore'
 // nav purposes either way since a Trainers *page* doesn't exist yet (later
 // phase), but flagging the permission fact since the brief assumed
 // otherwise.
+//
+// Also NOT included (fix-doc item 6): a standalone "Students" link. It used
+// to point at StudentListPage's college-wise browser, which 403s for
+// Faculty — that page's college grid is backed by GET /colleges, gated by a
+// permission only super_admin holds, so Faculty always hit "Failed to load
+// colleges" (confirmed against colleges.view in
+// backend/drizzle/reference/schema.sql's role_permissions seed). Faculty
+// don't manage colleges at all — their students are reachable through the
+// batches they're actually assigned to, so student browsing now lives as a
+// per-batch drill-down on My Batches (see MyBatchesPage.tsx) instead of a
+// separate nav item.
 const NAV_LINKS = [
-  { to: '/trainer', label: 'Students', end: true, icon: Users },
   { to: '/trainer/batches', label: 'My Batches', end: true, icon: Layers },
   { to: '/trainer/questions', label: 'Questions', end: true, icon: HelpCircle },
   { to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },

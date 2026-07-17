@@ -101,7 +101,14 @@ export function AppRoutes() {
 
         <Route element={<RequireRole roles={['faculty']} />}>
           <Route path="/trainer" element={<TrainerLayout />}>
-            <Route index element={<StudentListPage />} />
+            {/* Fix-doc item 6: /trainer's index used to render
+                StudentListPage's college-wise browser, which 403s for
+                Faculty (GET /colleges is gated by colleges.view,
+                super_admin-only — see TrainerLayout.tsx's NAV_LINKS
+                comment). Redirects straight to My Batches, now the actual
+                Trainer landing page and where student browsing lives
+                (per-batch drill-down, not a separate route/page). */}
+            <Route index element={<Navigate to="batches" replace />} />
             {/* Backed by GET /batches/mine (self-scoped via batch_trainers),
                 real data as of Phase 4 — see BatchListPage.tsx's own comment,
                 previously this route didn't exist because the scoping it
