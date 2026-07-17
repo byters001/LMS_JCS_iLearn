@@ -4,6 +4,7 @@ import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
 import { Input } from '@/components/ui/input'
 import { useLogout } from '@/features/auth/api'
+import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -115,6 +116,12 @@ function TrainerLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating, role-gated internally (super_admin/faculty only) — see
+          ChatbotWidget's own comment. Mounted here (not StudentLayout) as
+          the structural half of that gate; the component's own role check
+          is defense-in-depth on top of it. */}
+      <ChatbotWidget />
     </div>
   )
 }

@@ -22,6 +22,13 @@ export interface ChatbotCsvExport {
 }
 
 export interface AskChatbotResult {
+  // The chatbot_query_log row id this call was recorded under (chatbot.
+  // repository.ts's logQuery already returns the full inserted row —
+  // this just threads its id through instead of discarding it). The
+  // frontend's "Download" feature (item 5) needs this to call GET
+  // /chatbot/queries/:id/export against the SAME row that was just
+  // logged, rather than having no way to reference it at all.
+  queryLogId: string;
   question: string;
   // null when the model didn't resolve to any allowlisted function at all
   // (declined to call a tool, or proposed one that failed validation) —

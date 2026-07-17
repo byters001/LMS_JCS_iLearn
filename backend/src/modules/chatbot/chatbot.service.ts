@@ -198,7 +198,10 @@ async function askChatbot(question: string, context: ChatbotToolContext): Promis
   // Logged BEFORE validation can throw — see this function's own module
   // comment. This line runs whether or not the function name below turns
   // out to be allowlisted or the arguments turn out to be well-formed.
-  await chatbotRepository.logQuery({
+  // The inserted row's id is captured (not discarded) — the frontend
+  // needs it to call GET /chatbot/queries/:id/export against this exact
+  // logged row (see AskChatbotResult's own comment on queryLogId).
+  const loggedQuery = await chatbotRepository.logQuery({
     askedBy: context.userId,
     questionText: question,
     resolvedFn: rawToolCall.functionName,
@@ -211,7 +214,7 @@ async function askChatbot(question: string, context: ChatbotToolContext): Promis
   const result = await tool.execute(args, context);
   const answer = await phraseAnswer(question, result);
 
-  return { question, functionCalled: toolName, args, result, answer };
+  return { queryLogId: loggedQuery.id, question, functionCalled: toolName, args, result, answer };
 }
 
 // --- GET /chatbot/queries/:id/export (item 5, "Download") ---
