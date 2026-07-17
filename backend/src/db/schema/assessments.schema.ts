@@ -46,9 +46,18 @@ export const assessments = pgTable(
   'assessments',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    trainingSessionId: uuid('training_session_id')
-      .notNull()
-      .references(() => trainingSessions.id, { onDelete: 'restrict' }),
+    // Nullable (item 4, decision doc) — assessment_batches, not training
+    // session, is the mechanism that actually controls student visibility
+    // (confirmed directly in item 8A's diagnosis: listAvailableAssessments
+    // joins assessment_batches, never training_sessions). Training Session
+    // is a looser organizational label; requiring one at creation was
+    // friction with no real authorization purpose behind it, and no
+    // "Create Training Session" flow exists to unblock a college with none
+    // yet. ON DELETE RESTRICT unchanged — a NULL FK value is exempt from the
+    // constraint entirely (standard SQL), so this needs no ON DELETE change.
+    trainingSessionId: uuid('training_session_id').references(() => trainingSessions.id, {
+      onDelete: 'restrict',
+    }),
     title: text('title').notNull(),
     description: text('description'),
     testCategory: testCategoryEnum('test_category').notNull(),

@@ -46,7 +46,17 @@ function toOptionalNumber(value: string | undefined): number | undefined {
 // features/assessments/types.ts's CreateAssessmentInput comment for why.
 const createAssessmentFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  trainingSessionId: z.string().uuid('Must be a valid training session UUID'),
+  // Optional (item 4, decision doc): assessment_batches, not training
+  // session, is what actually controls student visibility (item 8A's
+  // diagnosis) — an empty string means "no specific session," the same
+  // untouched-select-input default this form already uses elsewhere
+  // (optionalIntString above), converted to `undefined` in onSubmit before
+  // it ever reaches the backend's z.string().uuid().optional().
+  trainingSessionId: z
+    .string()
+    .refine((value) => !value || z.string().uuid().safeParse(value).success, {
+      message: 'Must be a valid training session UUID',
+    }),
   testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']),
   description: z.string().optional(),
   timerMinutes: optionalIntString,
@@ -102,7 +112,7 @@ export default function CreateAssessmentPage() {
     createAssessment.mutate(
       {
         title: values.title,
-        trainingSessionId: values.trainingSessionId,
+        trainingSessionId: values.trainingSessionId || undefined,
         testCategory: values.testCategory,
         description: values.description || undefined,
         timerMinutes: toOptionalInt(values.timerMinutes),
@@ -152,7 +162,7 @@ export default function CreateAssessmentPage() {
 
           <div className="space-y-1.5">
             <label htmlFor="trainingSessionId" className="text-sm font-medium text-brand-primary">
-              Training Session
+              Training Session <span className="text-muted-foreground">(optional)</span>
             </label>
 
             {trainingSessions.isPending && (
@@ -174,20 +184,22 @@ export default function CreateAssessmentPage() {
             )}
 
             {trainingSessions.data && (
-              <select
-                id="trainingSessionId"
-                className={inputClassName}
-                disabled={trainingSessions.data.items.length === 0}
-                {...register('trainingSessionId')}
-              >
-                <option value="" disabled>
-                  {trainingSessions.data.items.length === 0
-                    ? 'No training sessions available'
-                    : 'Select a training session'}
-                </option>
+              // Never disabled — "No specific session" (value="") is always a
+              // real, selectable option, whether or not any sessions exist
+              // yet. assessment_batches, not training session, is what
+              // controls student visibility (item 8A's diagnosis), so there's
+              // no reason a missing session should block creation.
+              <select id="trainingSessionId" className={inputClassName} {...register('trainingSessionId')}>
+                <option value="">No specific session</option>
                 {trainingSessions.data.items.map((session) => (
+                  // "{title} — {date} ({program})" — two sessions from
+                  // DIFFERENT training programs can share the exact same
+                  // title (e.g. both called "Session 1"), so title + date
+                  // alone was ambiguous. trainingProgramName (backend now
+                  // joins training_programs for this) makes each option
+                  // distinguishable.
                   <option key={session.id} value={session.id}>
-                    {session.title} — {session.sessionDate}
+                    {session.title} — {session.sessionDate} ({session.trainingProgramName})
                   </option>
                 ))}
               </select>
@@ -195,7 +207,8 @@ export default function CreateAssessmentPage() {
 
             {trainingSessions.data?.items.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                No training sessions exist yet — create one before scheduling an assessment.
+                No training sessions exist yet — that&apos;s fine, this assessment can be created
+                without one and linked to a session later if one becomes relevant.
               </p>
             )}
 

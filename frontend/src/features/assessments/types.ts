@@ -14,7 +14,10 @@ export type AssessmentStatus =
 
 export interface Assessment {
   id: string
-  trainingSessionId: string
+  // Nullable (item 4) — assessment_batches, not training session, is what
+  // actually controls student visibility (item 8A's diagnosis), so a
+  // training session is no longer required at creation.
+  trainingSessionId: string | null
   title: string
   description: string | null
   testCategory: TestCategory
@@ -88,7 +91,7 @@ export interface ListAssessmentsResult {
 // are actually in use, which this phase's minimal pool-attach UI (paste a
 // questionPoolId) doesn't need a default count for yet.
 export interface CreateAssessmentInput {
-  trainingSessionId: string
+  trainingSessionId?: string
   title: string
   description?: string
   testCategory: TestCategory

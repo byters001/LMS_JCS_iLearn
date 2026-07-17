@@ -135,7 +135,7 @@ async function findAssessmentById(id: string): Promise<Assessment | undefined> {
 }
 
 export interface CreateAssessmentData {
-  trainingSessionId: string;
+  trainingSessionId?: string;
   title: string;
   description?: string;
   testCategory: 'mcq' | 'coding' | 'psychometric' | 'mixed';

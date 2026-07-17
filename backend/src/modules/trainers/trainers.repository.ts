@@ -172,8 +172,20 @@ export interface ListTrainingSessionsParams {
   pageSize: number;
 }
 
+// Item 4 (fix/feature doc) — CreateAssessmentPage's Training Session
+// dropdown had a real duplicate-label problem: two sessions from
+// DIFFERENT programs can share the exact same title (e.g. "Session 1"),
+// and the picker previously rendered only `${title} — ${sessionDate}`,
+// nothing distinguishing them. trainingProgramId alone (already on the raw
+// row) isn't human-readable — this adds the program's actual name via a
+// join, the same explicit-column-list join pattern organization.
+// repository.ts's listBatches already uses for collegeName/departmentName.
+export interface TrainingSessionWithProgram extends TrainingSession {
+  trainingProgramName: string;
+}
+
 export interface ListTrainingSessionsResult {
-  items: TrainingSession[];
+  items: TrainingSessionWithProgram[];
   total: number;
 }
 
@@ -196,8 +208,28 @@ async function listTrainingSessions(
 
   const [items, totalRows] = await Promise.all([
     db
-      .select()
+      .select({
+        id: trainingSessions.id,
+        trainingProgramId: trainingSessions.trainingProgramId,
+        title: trainingSessions.title,
+        description: trainingSessions.description,
+        sessionNumber: trainingSessions.sessionNumber,
+        sessionDate: trainingSessions.sessionDate,
+        startTime: trainingSessions.startTime,
+        endTime: trainingSessions.endTime,
+        sessionType: trainingSessions.sessionType,
+        status: trainingSessions.status,
+        createdAt: trainingSessions.createdAt,
+        updatedAt: trainingSessions.updatedAt,
+        createdBy: trainingSessions.createdBy,
+        updatedBy: trainingSessions.updatedBy,
+        trainingProgramName: trainingPrograms.name,
+      })
       .from(trainingSessions)
+      // Inner, not left — training_sessions.training_program_id is NOT NULL
+      // (checked directly), so every session row has exactly one matching
+      // program; no session can ever be dropped by this join.
+      .innerJoin(trainingPrograms, eq(trainingPrograms.id, trainingSessions.trainingProgramId))
       .where(where)
       .orderBy(asc(trainingSessions.sessionDate), asc(trainingSessions.sessionNumber))
       .limit(pageSize)

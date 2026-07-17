@@ -288,8 +288,12 @@ async function createAssessment(
   // (e.g. organization.service.ts's createDepartment validating collegeId):
   // training_sessions has no deleted_at column in schema.sql (checked
   // directly), so existence is the whole check — findTrainingSessionById
-  // already 404s if missing, nothing further to layer on top.
-  await trainersService.findTrainingSessionById(input.trainingSessionId);
+  // already 404s if missing, nothing further to layer on top. Guarded now
+  // that trainingSessionId is optional (item 4) — omitted entirely means
+  // "no session," not "validate a session that doesn't exist."
+  if (input.trainingSessionId) {
+    await trainersService.findTrainingSessionById(input.trainingSessionId);
+  }
 
   const batchIds = input.batchIds ?? [];
   await Promise.all(batchIds.map((batchId) => organizationService.findBatchById(batchId)));

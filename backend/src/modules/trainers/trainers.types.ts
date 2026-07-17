@@ -1,4 +1,5 @@
-import type { TrainerProfile, TrainingSession } from '../../db/types';
+import type { TrainerProfile } from '../../db/types';
+import type { TrainingSessionWithProgram } from './trainers.repository';
 import type { TrainerPerformanceTrendPoint } from '../analytics/analytics.types';
 
 export interface ListTrainerProfilesResult {
@@ -9,7 +10,7 @@ export interface ListTrainerProfilesResult {
 }
 
 export interface ListTrainingSessionsResult {
-  items: TrainingSession[];
+  items: TrainingSessionWithProgram[];
   total: number;
   page: number;
   pageSize: number;

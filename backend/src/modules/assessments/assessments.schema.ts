@@ -39,7 +39,12 @@ export const listAvailableAssessmentsQuerySchema = z
 // this isn't a separate top-level CRUD resource.
 export const createAssessmentSchema = z
   .object({
-    trainingSessionId: z.string().uuid('trainingSessionId must be a valid UUID'),
+    // Optional (item 4, decision doc): assessment_batches, not training
+    // session, is what actually controls student visibility (item 8A's
+    // diagnosis) — training session is a looser organizational label, not
+    // worth blocking creation over when no session exists yet for a
+    // college/program.
+    trainingSessionId: z.string().uuid('trainingSessionId must be a valid UUID').optional(),
     title: z.string().min(1, 'title is required'),
     description: z.string().min(1).optional(),
     testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']),
@@ -58,15 +63,19 @@ export const createAssessmentSchema = z
   })
   .strict();
 
-// trainingSessionId and testCategory deliberately excluded — same call as
-// question-bank's updateQuestionPoolSchema excluding `type`: sections/
-// questions/pools already attached under this assessment implicitly assume
-// a fixed test category (see assertQuestionMatchesTestCategory below), so
-// changing it after the fact would silently invalidate that content.
-// trainingSessionId is a structural anchor set at creation, same treatment
-// as every other such FK elsewhere in this codebase (e.g. trainer_profiles.
-// user_id). `status` is excluded too — approval-workflow concern, handled
-// by the dedicated action endpoints, not a plain field PATCH (see
+// testCategory deliberately excluded — same call as question-bank's
+// updateQuestionPoolSchema excluding `type`: sections/questions/pools
+// already attached under this assessment implicitly assume a fixed test
+// category (see assertQuestionMatchesTestCategory below), so changing it
+// after the fact would silently invalidate that content.
+// trainingSessionId is excluded too, but for a narrower reason now that
+// it's optional at creation (item 4): it's purely an organizational label
+// with no content-invalidation risk (unlike testCategory), so there's no
+// architectural reason it couldn't be settable later — this phase simply
+// doesn't add that update path, since nothing asked for "assign a session
+// after the fact" yet. Revisit if that need actually comes up.
+// `status` is excluded too — approval-workflow concern, handled by the
+// dedicated action endpoints, not a plain field PATCH (see
 // assessments.service.ts).
 export const updateAssessmentSchema = z
   .object({

@@ -12,12 +12,16 @@ export type TrainingSessionType =
   | 'other'
 export type TrainingSessionStatus = 'scheduled' | 'completed' | 'cancelled'
 
-// Matches the raw training_sessions row shape — backend/src/modules/trainers/
-// trainers.repository.ts's listTrainingSessions is a plain
-// `db.select().from(trainingSessions)`, no join in a resolved program name.
+// Matches the raw training_sessions row shape, PLUS trainingProgramName —
+// backend/src/modules/trainers/trainers.repository.ts's listTrainingSessions
+// now joins training_programs (item 4) specifically so a session picker can
+// render a distinguishing label: two sessions from different programs can
+// share the exact same title (e.g. "Session 1"), and trainingProgramId alone
+// isn't human-readable. See CreateAssessmentPage.tsx's dropdown.
 export interface TrainingSession {
   id: string
   trainingProgramId: string
+  trainingProgramName: string
   title: string
   description: string | null
   sessionNumber: number

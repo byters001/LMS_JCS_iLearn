@@ -1,0 +1,1 @@
+ALTER TABLE "assessments" ALTER COLUMN "training_session_id" DROP NOT NULL;
