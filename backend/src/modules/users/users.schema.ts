@@ -7,6 +7,11 @@ export const listUsersQuerySchema = z
     pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
     roleSlug: z.string().min(1).optional(),
     collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    // Optional — omitted keeps the existing "everyone regardless of status"
+    // default (FacultyListPage's Deactivate/Reactivate table needs both).
+    // Callers that only want live candidates (AssignTrainerDialog's search)
+    // pass isActive=true explicitly.
+    isActive: z.coerce.boolean().optional(),
   })
   .strict();
 
@@ -45,7 +50,14 @@ export const createFacultyUserSchema = z
     // Same min-length convention as organization.schema.ts's
     // createBatchSchema commonPassword field.
     password: z.string().min(8, 'password must be at least 8 characters'),
-    collegeId: z.string().uuid('collegeId must be a valid UUID'),
+    // Optional: a faculty account's college affiliation is assigned later,
+    // via batch/training-program trainer assignment (organization module),
+    // not required up front at account creation. user_roles.college_id
+    // itself is nullable in schema.sql (NULL = global grant, same
+    // convention Super Admin's own role assignment uses) — this was an
+    // application-level constraint tightening that beyond what the data
+    // model actually requires, not a DB-enforced one.
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
   })
   .strict();
 

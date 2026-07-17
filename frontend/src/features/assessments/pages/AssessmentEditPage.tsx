@@ -106,8 +106,16 @@ export default function AssessmentEditPage() {
             <p className="text-sm text-muted-foreground">No sections yet.</p>
           ) : (
             assessment.sections.map((section) => (
-              <div key={section.id} className="overflow-hidden rounded-lg border border-border">
-                <div className="flex items-center justify-between gap-3 bg-muted/30 px-4 py-2.5">
+              <div key={section.id} className="rounded-lg border border-border">
+                {/* rounded-t-lg here (not overflow-hidden on the parent) —
+                    the parent used to clip corners via overflow-hidden,
+                    which also clipped the Attach-a-Pool/Attach-a-question
+                    Combobox's absolutely-positioned dropdown at the bottom
+                    of this card whenever it had more than a couple of
+                    matching results. Rounding each colored child directly
+                    gets the same visual corners without clipping anything
+                    that needs to render outside the card's box. */}
+                <div className="flex items-center justify-between gap-3 rounded-t-lg bg-muted/30 px-4 py-2.5">
                   <h3 className="font-medium text-brand-primary">{section.title}</h3>
                   <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">
                     {section.selectionMode === 'manual' ? 'Manual' : 'Pool'}
@@ -135,7 +143,7 @@ export default function AssessmentEditPage() {
                 </div>
 
                 {isContentEditable && (
-                  <div className="border-t border-border bg-muted/10 px-4 py-3">
+                  <div className="rounded-b-lg border-t border-border bg-muted/10 px-4 py-3">
                     <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                       {section.selectionMode === 'manual' ? 'Attach a question' : 'Attach a pool'}
                     </p>

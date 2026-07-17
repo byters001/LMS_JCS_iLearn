@@ -2,12 +2,23 @@ import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/Combobox'
+import { cn } from '@/lib/utils'
 import { useBatches, useColleges } from '@/features/organization/api'
 import { useAuthStore } from '@/store/authStore'
 import { useUpdateAssessmentBatches } from '../api'
 import type { AssessmentStatus } from '../types'
 
 const BATCH_LOCKED_STATUSES: AssessmentStatus[] = ['live', 'completed', 'archived']
+
+// Order-independent comparison — selectedIds accumulates in whatever order
+// batches were picked in, which has no relation to batchIds' (the
+// persisted prop's) order, so a plain array/JSON comparison would false-
+// positive "unsaved changes" on nothing but ordering.
+function haveSameBatchIds(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const setA = new Set(a)
+  return b.every((id) => setA.has(id))
+}
 
 // No trainingProgramId filter here — listBatchesQuerySchema supports one,
 // but resolving "the training program this assessment's training session
@@ -60,6 +71,17 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
   // form on this page (e.g. CreateAssessmentPage's useForm defaultValues) —
   // this component doesn't re-sync mid-session if the parent refetches.
   const [selectedIds, setSelectedIds] = useState<string[]>(batchIds)
+
+  // Item 8A follow-up: picking a batch only ever updated this local state —
+  // nothing persisted until "Save Batches" was clicked separately, and
+  // there was no visual difference between "picked, not yet saved" and
+  // "actually saved." That's exactly how two real assessments went live
+  // with zero batches attached (confirmed against the live DB). Comparing
+  // against the CURRENT batchIds prop (not a frozen initial snapshot)
+  // means this correctly clears itself once useUpdateAssessmentBatches's
+  // onSuccess invalidates the assessment query and the parent re-renders
+  // with the just-saved batchIds.
+  const hasUnsavedChanges = !haveSameBatchIds(selectedIds, batchIds)
 
   const batchesById = new Map((batches.data?.items ?? []).map((batch) => [batch.id, batch]))
 
@@ -149,11 +171,30 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
                 : 'Failed to save batches.'}
             </p>
           )}
-          {updateBatches.isSuccess && (
+          {/* Suppressed once new unsaved edits exist — otherwise a stale
+              "Saved" from a previous save would sit next to the warning
+              below, claiming the CURRENT (not-yet-persisted) selection is
+              already saved when it isn't. */}
+          {updateBatches.isSuccess && !hasUnsavedChanges && (
             <p className="text-xs font-medium text-green-600 dark:text-green-500">Saved</p>
           )}
-          <Button type="button" size="sm" disabled={updateBatches.isPending} onClick={onSave}>
-            {updateBatches.isPending ? 'Saving…' : 'Save Batches'}
+          {hasUnsavedChanges && !updateBatches.isPending && (
+            <p className="text-xs font-medium text-amber-600 dark:text-amber-500">
+              You have unsaved batch changes — click &quot;Save Batches&quot; to apply them.
+            </p>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            disabled={updateBatches.isPending}
+            onClick={onSave}
+            className={cn(
+              hasUnsavedChanges &&
+                !updateBatches.isPending &&
+                'bg-amber-500 text-white hover:bg-amber-600 focus-visible:ring-amber-500/50',
+            )}
+          >
+            {updateBatches.isPending ? 'Saving…' : hasUnsavedChanges ? 'Save Batches *' : 'Save Batches'}
           </Button>
         </div>
       )}

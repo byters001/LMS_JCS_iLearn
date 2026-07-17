@@ -89,7 +89,13 @@ async function createFacultyUser(
   if (!request.user) {
     throw new UnauthorizedError('Authentication required');
   }
-  await organizationService.findCollegeById(request.body.collegeId);
+  // collegeId is now optional (item 1) — a faculty account can be created
+  // with no college affiliation yet, assigned later via batch/training-
+  // program trainer assignment. Only validate it exists when one was
+  // actually provided.
+  if (request.body.collegeId) {
+    await organizationService.findCollegeById(request.body.collegeId);
+  }
   const user = await usersService.createFacultyUser(request.body, request.user.id);
   const response: ApiSuccessResponse<typeof user> = { success: true, data: user };
   reply.status(201).send(response);

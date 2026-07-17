@@ -162,6 +162,13 @@
       "when": 1784224842908,
       "tag": "0022_add-chatbot-permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784308571953,
+      "tag": "0023_grant-faculty-trainers-view",
+      "breakpoints": true
     }
   ]
 }

@@ -732,6 +732,27 @@ async function publishAssessment(
     );
   }
 
+  // Item 8A's live incident: an assessment reached 'live' with zero
+  // assessment_batches rows and was silently invisible to every student
+  // (listAvailableAssessments inner-joins assessment_batches — no batch
+  // means no possible match, for anyone). Gated HERE specifically, not
+  // submitAssessment/scheduleAssessment: assertBatchesEditable (above)
+  // deliberately keeps batchIds editable through draft/review/approved/
+  // scheduled — an admin scheduling now and attaching batches later, before
+  // publishing, is the intended workflow, not something to block early.
+  // publishAssessment is the one-way door: BATCH_LOCKED_STATUSES locks
+  // batchIds the instant status becomes 'live', so this is the last
+  // possible point to catch a batch-less assessment before it can never be
+  // fixed by editing batches again. Fetched once here and reused below for
+  // the notification fan-out, rather than querying listAssessmentBatchIds
+  // twice.
+  const batchIds = await assessmentsRepository.listAssessmentBatchIds(id);
+  if (batchIds.length === 0) {
+    throw new ConflictError(
+      'Cannot publish an assessment with no batches assigned — attach at least one batch first.',
+    );
+  }
+
   const { assessment: updated } = await assessmentsRepository.recordApprovalAction(id, {
     status: 'live',
     action: 'published',
@@ -741,12 +762,15 @@ async function publishAssessment(
 
   // Notification trigger (notifications module, item 6) — fired here,
   // AFTER recordApprovalAction has already committed the status flip to
-  // 'live'. batchIds resolved via this same module's own repository
-  // (listAssessmentBatchIds), not re-derived through notificationsService,
-  // to avoid a circular import (notifications.service.ts would otherwise
-  // need to import assessmentsService back just to resolve the batches for
-  // an assessment it's already been handed) — see notifications.service.ts's
-  // module comment for the full reasoning.
+  // 'live'. batchIds reused from the guard above (already fetched via this
+  // same module's own repository, listAssessmentBatchIds) rather than
+  // queried again — it can't have changed in between (batchIds is now
+  // locked the instant status flipped to 'live', two lines above) and
+  // reusing it avoids re-deriving through notificationsService, which
+  // would create a circular import (notifications.service.ts would
+  // otherwise need to import assessmentsService back just to resolve the
+  // batches for an assessment it's already been handed) — see
+  // notifications.service.ts's module comment for the full reasoning.
   //
   // Deliberately NOT awaited (fire-and-forget, item 3): publishAssessment's
   // return value/throw path below is entirely unaffected by however long
@@ -756,7 +780,6 @@ async function publishAssessment(
   // turn an already-successful publish into a failed request — the
   // `.catch()` here is a second, defense-in-depth backstop on top of
   // notifyAssessmentPublished's own internal try/catch.
-  const batchIds = await assessmentsRepository.listAssessmentBatchIds(id);
   void notificationsService.notifyAssessmentPublished(updated, batchIds).catch((err) => {
     logger.error({ err, assessmentId: id }, 'notifyAssessmentPublished rejected unexpectedly');
   });

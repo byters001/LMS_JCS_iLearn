@@ -28,6 +28,7 @@ async function list(query: ListUsersQuery): Promise<ListUsersResult> {
     pageSize: query.pageSize,
     roleSlug: query.roleSlug,
     collegeId: query.collegeId,
+    isActive: query.isActive,
   });
 
   return {

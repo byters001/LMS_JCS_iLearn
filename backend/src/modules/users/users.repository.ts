@@ -9,6 +9,7 @@ export interface ListUsersParams {
   pageSize: number;
   roleSlug?: string;
   collegeId?: string;
+  isActive?: boolean;
 }
 
 export interface ListUsersResult {
@@ -16,17 +17,18 @@ export interface ListUsersResult {
   total: number;
 }
 
-function buildListWhere(roleSlug?: string, collegeId?: string) {
+function buildListWhere(roleSlug?: string, collegeId?: string, isActive?: boolean) {
   const conditions = [isNull(users.deletedAt)];
   if (roleSlug) conditions.push(eq(roles.slug, roleSlug));
   if (collegeId) conditions.push(eq(userRoles.collegeId, collegeId));
+  if (isActive !== undefined) conditions.push(eq(users.isActive, isActive));
   return and(...conditions);
 }
 
 async function list(params: ListUsersParams): Promise<ListUsersResult> {
-  const { page, pageSize, roleSlug, collegeId } = params;
+  const { page, pageSize, roleSlug, collegeId, isActive } = params;
   const offset = (page - 1) * pageSize;
-  const where = buildListWhere(roleSlug, collegeId);
+  const where = buildListWhere(roleSlug, collegeId, isActive);
 
   const [items, totalRows] = await Promise.all([
     db

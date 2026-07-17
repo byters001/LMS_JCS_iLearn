@@ -23,7 +23,10 @@ const addFacultyFormSchema = z.object({
   fullName: z.string().min(1, 'Full name is required'),
   email: z.string().email('Must be a valid email address'),
   password: z.string().min(8, 'Must be at least 8 characters'),
-  collegeId: z.string().min(1, 'Select a college'),
+  // Optional — see backend users.schema.ts's createFacultyUserSchema
+  // comment: college affiliation is assigned later via batch/training-
+  // program trainer assignment, not required at account creation.
+  collegeId: z.string().optional(),
 })
 
 type AddFacultyFormValues = z.infer<typeof addFacultyFormSchema>
@@ -68,9 +71,10 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
   }
 
   const onSubmit = handleSubmit((values) => {
-    createFacultyUser.mutate(values, {
-      onSuccess: () => handleClose(false),
-    })
+    createFacultyUser.mutate(
+      { ...values, collegeId: values.collegeId || undefined },
+      { onSuccess: () => handleClose(false) },
+    )
   })
 
   return (
@@ -79,7 +83,8 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
         <DialogHeader>
           <DialogTitle>Add Faculty</DialogTitle>
           <DialogDescription>
-            Creates a new Faculty account for the selected college.
+            Creates a new Faculty account. College affiliation is optional here — it can be
+            assigned later via batch or training-program trainer assignment.
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +121,9 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-brand-primary">College</p>
+            <p className="text-sm font-medium text-brand-primary">
+              College <span className="text-muted-foreground">(optional)</span>
+            </p>
             <Combobox
               id="facultyCollegePicker"
               options={collegeOptions}
@@ -125,7 +132,7 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
                 setCollegeId(value)
                 setValue('collegeId', value, { shouldValidate: true })
               }}
-              placeholder="Select a college…"
+              placeholder="Select a college — can be assigned later…"
               isLoading={colleges.isPending}
               isError={colleges.isError}
               errorMessage="Failed to load colleges."

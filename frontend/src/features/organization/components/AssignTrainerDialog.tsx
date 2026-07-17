@@ -39,8 +39,11 @@ export function AssignTrainerDialog({
   const [stagedTrainerIds, setStagedTrainerIds] = useState<string[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  // isActive: true — a deactivated faculty account shouldn't be assignable
+  // to a batch going forward, on either Super Admin's or Faculty's own view
+  // (this dialog is shared by both callers, no separate query per role).
   const trainers = useUsers(
-    { roleSlug: 'faculty', page: 1, pageSize: TRAINER_PICKER_PAGE_SIZE },
+    { roleSlug: 'faculty', isActive: true, page: 1, pageSize: TRAINER_PICKER_PAGE_SIZE },
     { enabled: open },
   )
   const assignedTrainers = useBatchTrainers(batchId, {
