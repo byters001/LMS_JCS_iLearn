@@ -150,11 +150,16 @@ async function rawChatCompletion(
       // RESEND_API_KEY.
       Authorization: `Bearer ${env.NVIDIA_API_KEY}`,
     },
+    // `tool_choice` is only valid alongside a `tools` array — NVIDIA's API
+    // rejects `tool_choice` set without `tools` (400: "When using
+    // tool_choice, tools must be set"). chatbot.service.ts's phraseAnswer
+    // call passes no `tools` at all (it's a plain text-completion request,
+    // not tool-selection), so both keys are omitted entirely rather than
+    // sending `tool_choice: 'auto'` unconditionally.
     body: JSON.stringify({
       model: env.NVIDIA_MODEL,
       messages: params.messages,
-      tools: params.tools,
-      tool_choice: params.toolChoice ?? 'auto',
+      ...(params.tools ? { tools: params.tools, tool_choice: params.toolChoice ?? 'auto' } : {}),
       // Deterministic-leaning, not random — this call's whole job is to
       // pick ONE of a small allowlisted set of functions consistently for
       // the same question, not to be creative.
