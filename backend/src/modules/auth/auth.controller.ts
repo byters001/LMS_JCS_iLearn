@@ -63,9 +63,9 @@ async function refresh(request: FastifyRequest, reply: FastifyReply): Promise<vo
 
   setRefreshTokenCookie(reply, result.refreshToken);
 
-  const response: ApiSuccessResponse<{ accessToken: string }> = {
+  const response: ApiSuccessResponse<{ accessToken: string; user: LoginResultUser }> = {
     success: true,
-    data: { accessToken: result.accessToken },
+    data: { accessToken: result.accessToken, user: result.user },
   };
   reply.status(200).send(response);
 }

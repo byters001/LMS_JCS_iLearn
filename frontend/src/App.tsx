@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ApiError } from '@/api'
+import { AuthBootstrap } from '@/features/auth/components/AuthBootstrap'
 import { AppRoutes } from '@/routes'
 
 const MAX_QUERY_RETRIES = 3
@@ -59,7 +60,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppRoutes />
+        {/* Gates the entire route tree — including /login — behind a
+            silent POST /auth/refresh attempt on boot, so a hard reload
+            with a still-valid refresh cookie lands straight on the
+            correct role dashboard instead of flashing the login form
+            first. See AuthBootstrap's own comment for why this lives here
+            rather than in main.tsx. */}
+        <AuthBootstrap>
+          <AppRoutes />
+        </AuthBootstrap>
         {/* Mount point for api/index.ts's 429 retry-with-backoff toast
             ("Too many requests, retrying…") — no Toaster existed anywhere
             in the tree yet even though sonner has been a listed dependency

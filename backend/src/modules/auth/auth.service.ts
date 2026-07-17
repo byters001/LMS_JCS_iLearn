@@ -136,7 +136,14 @@ async function login(input: LoginInput): Promise<LoginResult> {
   return { ...issueTokenPair(user.id, user.email, activeCollegeId), user: loginUser };
 }
 
-async function refresh(refreshToken: string): Promise<TokenPair> {
+// Returns the same { accessToken, refreshToken, user } shape as login() —
+// the frontend's boot-time silent refresh (CLAUDE1.md's auth flow) needs
+// `user` (roles, activeCollegeId) to land on the right role-home after a
+// hard reload, since the in-memory auth store has nothing to read yet at
+// that point. Refresh alone (just a new accessToken) was enough for the
+// existing reactive 401-retry path, which already has `user` in the store
+// from the login that started the session — but not for this boot case.
+async function refresh(refreshToken: string): Promise<LoginResult> {
   const payload = await verifyRefreshToken(refreshToken);
 
   const user = await authRepository.findUserById(payload.sub);
@@ -150,7 +157,15 @@ async function refresh(refreshToken: string): Promise<TokenPair> {
   const assignments = await authRepository.getRoleAssignmentsForUser(user.id);
   const activeCollegeId = resolveActiveCollegeId(assignments);
 
-  return issueTokenPair(user.id, user.email, activeCollegeId);
+  const refreshedUser: LoginResultUser = {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    roles: assignments.map((assignment) => assignment.role.slug),
+    activeCollegeId,
+  };
+
+  return { ...issueTokenPair(user.id, user.email, activeCollegeId), user: refreshedUser };
 }
 
 async function logout(refreshToken: string): Promise<void> {
