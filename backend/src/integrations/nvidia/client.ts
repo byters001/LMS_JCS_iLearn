@@ -122,7 +122,14 @@ function extractNvidiaErrorMessage(body: unknown, fallback: string): string {
 async function rawChatCompletion(
   params: NvidiaChatCompletionParams,
 ): Promise<NvidiaChatCompletionResponse> {
-  const url = new URL('/chat/completions', env.NVIDIA_BASE_URL);
+  // NVIDIA_BASE_URL already includes a path segment ('/v1'), unlike
+  // JUDGE0_BASE_URL (root-only) which integrations/judge0/client.ts's own
+  // `new URL(path, base)` pattern was written for. A leading-slash path
+  // passed as the second arg there resolves as absolute and discards the
+  // base's own path entirely (WHATWG URL / RFC 3986 relative-resolution
+  // rules) — silently dropping '/v1' and hitting the wrong endpoint. String
+  // concatenation avoids that.
+  const url = new URL(`${env.NVIDIA_BASE_URL.replace(/\/$/, '')}/chat/completions`);
 
   const response = await fetch(url, {
     method: 'POST',

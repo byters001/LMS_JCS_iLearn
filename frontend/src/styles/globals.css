@@ -129,3 +129,12 @@
     @apply font-sans;
     }
 }
+
+@keyframes blob-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(16px, -12px); }
+}
+
+.animate-blob-drift {
+  animation: blob-drift 10s ease-in-out infinite;
+}
