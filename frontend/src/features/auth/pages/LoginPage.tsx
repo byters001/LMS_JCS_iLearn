@@ -1,23 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Code2,
-  Eye,
-  EyeOff,
-  GraduationCap,
-  Lock,
-  Mail,
-  ShieldCheck,
-  LayoutDashboard,
-} from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { getRoleHomePath } from '@/routes/roles'
 import { useLogin } from '../api'
+import styles from './LoginPage.module.css'
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -26,16 +15,158 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>
 
-const capabilities = [
-  { icon: Code2, label: 'Judge0-powered coding' },
-  { icon: LayoutDashboard, label: 'Role-based dashboards' },
-  { icon: ShieldCheck, label: 'Real-time proctoring' },
-]
+// Segment-hop path the football travels along, expressed as fractions of the
+// left panel's own size — ported 1:1 from jcs-ilearn-login-football.html so
+// it still lands on the dotless-ı target regardless of viewport size.
+function buildSegments(panelWidth: number, panelHeight: number, endX: number, endY: number) {
+  const startX = panelWidth * 0.9
+  const startY = panelHeight * 0.92
+  return [
+    { x0: startX, y0: startY, x1: panelWidth * 0.74, y1: panelHeight * 0.66, peak: 70, size: 26, dur: 520 },
+    {
+      x0: panelWidth * 0.74,
+      y0: panelHeight * 0.66,
+      x1: panelWidth * 0.55,
+      y1: panelHeight * 0.46,
+      peak: 80,
+      size: 22,
+      dur: 480,
+    },
+    {
+      x0: panelWidth * 0.55,
+      y0: panelHeight * 0.46,
+      x1: panelWidth * 0.34,
+      y1: panelHeight * 0.3,
+      peak: 65,
+      size: 18,
+      dur: 440,
+    },
+    { x0: panelWidth * 0.34, y0: panelHeight * 0.3, x1: endX, y1: endY, peak: 50, size: 9, dur: 420 },
+  ]
+}
+
+function easeOutQuad(t: number) {
+  return 1 - (1 - t) * (1 - t)
+}
+
+// Animates the football hopping from the bottom-right of the brand panel up
+// to the dotless-ı in "ıLearn", then settles into a spin — becoming the dot
+// on the i. Ported from the source HTML's vanilla-JS IIFE; kept as one
+// imperative rAF loop (not React state per frame) since it drives raw
+// style.left/top/width on a ref, matching the original's DOM approach and
+// avoiding a re-render on every animation frame.
+function useFootballAnimation(
+  leftRef: React.RefObject<HTMLDivElement | null>,
+  ballRef: React.RefObject<HTMLDivElement | null>,
+  targetRef: React.RefObject<HTMLSpanElement | null>,
+) {
+  useEffect(() => {
+    let cancelled = false
+    let rafId = 0
+    let settleTimeoutId = 0
+    let startTimeoutId = 0
+
+    function run() {
+      const left = leftRef.current
+      const ball = ballRef.current
+      const target = targetRef.current
+      if (cancelled || !left || !ball || !target) return
+
+      const panelRect = left.getBoundingClientRect()
+      const targetRect = target.getBoundingClientRect()
+
+      const endX = targetRect.left + targetRect.width / 2 - panelRect.left
+      const endY = targetRect.top - panelRect.top - 6
+
+      const segments = buildSegments(panelRect.width, panelRect.height, endX, endY)
+
+      ball.style.opacity = '1'
+      let segIndex = 0
+      let segStart = performance.now()
+
+      function frame(now: number) {
+        if (cancelled || !ball) return
+        const seg = segments[segIndex]!
+        let t = (now - segStart) / seg.dur
+        if (t > 1) t = 1
+
+        const x = seg.x0 + (seg.x1 - seg.x0) * easeOutQuad(t)
+        const straightY = seg.y0 + (seg.y1 - seg.y0) * t
+        const y = straightY - seg.peak * 4 * t * (1 - t)
+        const prevSize = segIndex === 0 ? 26 : segments[segIndex - 1]!.size
+        const size = prevSize + (seg.size - prevSize) * t
+
+        ball.style.left = `${x - size / 2}px`
+        ball.style.top = `${y - size / 2}px`
+        ball.style.width = `${size}px`
+        ball.style.height = `${size}px`
+
+        if (t < 1) {
+          rafId = requestAnimationFrame(frame)
+        } else if (segIndex < segments.length - 1) {
+          segIndex++
+          segStart = now
+          rafId = requestAnimationFrame(frame)
+        } else {
+          settle()
+        }
+      }
+
+      function settle() {
+        if (cancelled || !ball) return
+        const wobbles = [
+          { dy: -6, dur: 120 },
+          { dy: 0, dur: 110 },
+          { dy: -3, dur: 100 },
+          { dy: 0, dur: 90 },
+        ]
+        let i = 0
+        const baseTop = Number.parseFloat(ball.style.top)
+
+        function nextWobble() {
+          if (cancelled || !ball) return
+          if (i >= wobbles.length) {
+            ball.classList.add(styles.spin!)
+            return
+          }
+          const w = wobbles[i]!
+          ball.style.transition = `top ${w.dur}ms ease-out`
+          ball.style.top = `${baseTop + w.dy}px`
+          i++
+          settleTimeoutId = window.setTimeout(nextWobble, w.dur)
+        }
+        nextWobble()
+      }
+
+      rafId = requestAnimationFrame(frame)
+    }
+
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (!cancelled) startTimeoutId = window.setTimeout(run, 400)
+      })
+    } else {
+      startTimeoutId = window.setTimeout(run, 700)
+    }
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(rafId)
+      window.clearTimeout(settleTimeoutId)
+      window.clearTimeout(startTimeoutId)
+    }
+  }, [leftRef, ballRef, targetRef])
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const login = useLogin()
   const [showPassword, setShowPassword] = useState(false)
+
+  const leftRef = useRef<HTMLDivElement>(null)
+  const ballRef = useRef<HTMLDivElement>(null)
+  const dotTargetRef = useRef<HTMLSpanElement>(null)
+  useFootballAnimation(leftRef, ballRef, dotTargetRef)
 
   const {
     register,
@@ -53,148 +184,118 @@ export default function LoginPage() {
   })
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 h-96 w-96 animate-blob-drift rounded-full bg-brand-accent/50 blur-3xl" />
-        <div
-          className="absolute -right-24 top-1/4 h-80 w-80 animate-blob-drift rounded-full bg-brand-primary/60 blur-3xl"
-          style={{ animationDelay: '3s' }}
-        />
-        <div
-          className="absolute bottom-0 left-1/4 h-72 w-72 animate-blob-drift rounded-full bg-brand-accent/40 blur-3xl"
-          style={{ animationDelay: '6s' }}
-        />
-        <div
-          className="absolute -bottom-24 -right-16 h-64 w-64 animate-blob-drift rounded-full bg-brand-gradient-to/60 blur-3xl"
-          style={{ animationDelay: '1.5s' }}
-        />
+    <div className={styles.wrap}>
+      <div className={styles.left} ref={leftRef}>
+        <div className={styles.football} ref={ballRef} />
+        <div>
+          <div className={styles.brandRow}>
+            <div className={styles.mark}>
+              <img src="/jcs-logo.png" alt="JCS iLearn logo" />
+            </div>
+            <div>
+              <div className={styles.brandName}>
+                JCS <span ref={dotTargetRef} className={styles.dotTarget}>ı</span>Learn
+              </div>
+              <div className={styles.brandTag}>Assessment platform</div>
+            </div>
+          </div>
+
+          <div className={styles.hero}>
+            <div className={styles.eyebrow}>System status — operational</div>
+            <div className={styles.hiLine}>
+              H<span className={styles.iBlink}>I</span>
+            </div>
+            <h1>
+              Proctored assessments,
+              <br />
+              graded the instant
+              <br />
+              they end
+            </h1>
+            <p>
+              MCQ, coding, and psychometric tests under live proctoring — with
+              placement-readiness analytics the moment a test wraps up.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.leftFooter}>
+          <span>© 2026 JCS iLearn</span>
+          <span>Secure assessment platform</span>
+        </div>
       </div>
 
-      <div className="relative flex min-h-screen w-full items-center justify-center px-4 py-12">
-        <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl shadow-black/30 backdrop-blur-2xl">
-          <div className="h-[3px] w-full bg-gradient-to-r from-brand-accent to-brand-primary" />
+      <div className={styles.right}>
+        <div className={styles.formCol}>
+          <div className={styles.formHead}>
+            <div className={styles.eyebrowLight}>Welcome back</div>
+            <h2>Sign in to your account</h2>
+            <p>Enter your credentials to access your dashboard.</p>
+          </div>
 
-          <div className="p-8 sm:p-10">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
-                <GraduationCap className="h-6 w-6 text-white" />
+          <form onSubmit={onSubmit} noValidate>
+            <div className={styles.field}>
+              <label htmlFor="email">Email</label>
+              <div className={styles.inputLine}>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  {...register('email')}
+                />
               </div>
-              <span className="text-base font-semibold text-white">JCS iLearn</span>
+              {errors.email && <p className={styles.fieldError}>{errors.email.message}</p>}
             </div>
 
-            <h1 className="mt-6 text-2xl font-bold tracking-tight text-white">
-              Sign in to JCS iLearn
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-white/70">
-              The placement-training platform where students take MCQ, coding, and
-              psychometric assessments under live proctoring, and faculty get instant
-              grading with placement-readiness analytics the moment a test wraps up.
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {capabilities.map(({ icon: Icon, label }) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur-md"
+            <div className={styles.field}>
+              <label htmlFor="password">Password</label>
+              <div className={styles.inputLine}>
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  {...register('password')}
+                />
+                <button
+                  type="button"
+                  className={styles.icon}
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </span>
-              ))}
+                  {showPassword ? 'hide' : 'show'}
+                </button>
+              </div>
+              {errors.password && <p className={styles.fieldError}>{errors.password.message}</p>}
             </div>
 
-            <div className="mt-6 border-t border-white/10 pt-6">
-              <p className="text-xs font-semibold tracking-widest text-white/80 uppercase">
-                Welcome back
+            <div className={styles.rowBetween}>
+              <label className={styles.remember}>
+                <input type="checkbox" /> Remember me
+              </label>
+              <a className={styles.forgot} href="#">
+                Forgot password?
+              </a>
+            </div>
+
+            {login.isError && (
+              <p className={styles.formError}>
+                {login.error instanceof ApiError ? login.error.message : 'Login failed. Please try again.'}
               </p>
+            )}
 
-              <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-sm font-medium text-white/90">
-                    Email
-                  </label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/50" />
-                    <Input
-                      id="email"
-                      type="email"
-                      autoComplete="email"
-                      className="h-11 rounded-xl border-white/20 bg-white/10 pl-10 text-white placeholder:text-white/40 focus-visible:ring-brand-accent/50"
-                      placeholder="you@example.com"
-                      {...register('email')}
-                    />
-                  </div>
-                  {errors.email && (
-                    <p className="text-sm text-red-300">{errors.email.message}</p>
-                  )}
-                </div>
+            <button className={styles.btnSignin} type="submit" disabled={login.isPending}>
+              {login.isPending ? 'Signing in…' : 'Sign in'}
+              <span className={styles.arrow}>→</span>
+            </button>
 
-                <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-sm font-medium text-white/90">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/50" />
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      className="h-11 rounded-xl border-white/20 bg-white/10 pr-10 pl-10 text-white placeholder:text-white/40 focus-visible:ring-brand-accent/50"
-                      placeholder="••••••••"
-                      {...register('password')}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-white/50 hover:text-white/80"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.password && (
-                    <p className="text-sm text-red-300">{errors.password.message}</p>
-                  )}
-                </div>
+            <div className={styles.dividerNote}>Access is restricted to registered institutions</div>
+          </form>
 
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2 text-white/70">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-white/30 bg-white/10 accent-brand-accent"
-                    />
-                    Remember me
-                  </label>
-                  <a href="#" className="text-white/70 hover:text-white">
-                    Forgot password?
-                  </a>
-                </div>
-
-                {login.isError && (
-                  <p className="text-sm text-red-300">
-                    {login.error instanceof ApiError
-                      ? login.error.message
-                      : 'Login failed. Please try again.'}
-                  </p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={login.isPending}
-                  className="h-11 w-full rounded-xl bg-brand-accent text-white hover:bg-brand-accent/90"
-                >
-                  {login.isPending ? 'Signing in…' : 'Sign in'}
-                </Button>
-              </form>
-            </div>
-
-            <p className="mt-6 text-center text-xs text-white/50">
-              © 2026 JCS iLearn · Secure assessment platform
-            </p>
+          <div className={styles.foot}>
+            <span>v2.1.0</span>
+            <span>Need help? Contact admin</span>
           </div>
         </div>
       </div>

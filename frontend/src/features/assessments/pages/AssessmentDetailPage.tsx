@@ -93,7 +93,7 @@ export default function AssessmentDetailPage() {
       </Link>
 
       <div className="mt-3 max-w-xl rounded-lg border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-brand-primary">{assessment.title}</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">{assessment.title}</h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {TEST_CATEGORY_LABELS[assessment.testCategory] ?? assessment.testCategory}
         </p>

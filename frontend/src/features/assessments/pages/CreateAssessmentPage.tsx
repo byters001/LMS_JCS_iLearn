@@ -145,7 +145,7 @@ export default function CreateAssessmentPage() {
       </Link>
 
       <div className="mt-3 rounded-lg border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-brand-primary">Create Assessment</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Assessment</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Sections, questions, question pools, and batch assignment are all configured on the
           next screen once this assessment exists as a draft.

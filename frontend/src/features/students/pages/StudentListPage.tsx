@@ -1,7 +1,9 @@
 import { ChevronDown, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import {
   Table,
@@ -24,15 +26,9 @@ const COLLEGE_PAGE_SIZE = 100
 function StatusBadge({ status }: { status: string }) {
   const isActive = status === 'active'
   return (
-    <span
-      className={
-        isActive
-          ? 'rounded-full bg-brand-accent/10 px-2 py-0.5 text-xs font-medium text-brand-accent'
-          : 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-      }
-    >
+    <Badge variant={isActive ? undefined : 'secondary'} className={isActive ? 'bg-brand-accent/10 text-brand-accent' : undefined}>
       {status}
-    </span>
+    </Badge>
   )
 }
 
@@ -52,13 +48,13 @@ function StatCard({
   iconClassName: string
 }) {
   return (
-    <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+    <Card className="p-4">
       <div className="flex items-center gap-3">
         <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-full', iconClassName)}>
           <Icon className="size-5" />
         </div>
         <div>
-          <p className="text-2xl font-semibold text-brand-primary">
+          <p className="font-heading text-2xl font-semibold text-foreground">
             {value === undefined ? (
               <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
             ) : (
@@ -68,7 +64,7 @@ function StatCard({
           <p className="text-sm text-muted-foreground">{label}</p>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -114,7 +110,7 @@ export default function StudentListPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-brand-primary">Students</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">Students</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Every student profile across your platform, browsable college by college.
         </p>
@@ -182,12 +178,12 @@ export default function StudentListPage() {
                   aria-expanded={isSelected}
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
-                    'rounded-xl border bg-background p-4 text-left shadow-sm transition-shadow hover:shadow-md',
+                    'rounded-xl border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md',
                     isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-medium text-brand-primary">{college.name}</p>
+                    <p className="truncate font-medium text-foreground">{college.name}</p>
                     <ChevronDown
                       className={cn(
                         'size-4 shrink-0 text-muted-foreground transition-transform',
@@ -195,7 +191,7 @@ export default function StudentListPage() {
                       )}
                     />
                   </div>
-                  <p className="mt-2 text-2xl font-semibold text-brand-primary">
+                  <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
                     {count === undefined ? (
                       <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
                     ) : (

@@ -73,7 +73,7 @@ export default function CreatePoolPage() {
       </Link>
 
       <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-brand-primary">Create Question Pool</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Question Pool</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Creates an empty pool — add criteria rows on the next screen to define what it draws.
         </p>

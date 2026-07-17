@@ -41,7 +41,7 @@ const NAV_ITEMS = [
 
 const NAV_LINK_CLASSNAME = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'flex items-center gap-2.5 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors',
+    'flex items-center gap-2.5 rounded-md border-l-4 px-3 py-2 font-heading text-sm font-medium tracking-tight transition-colors',
     isActive
       ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
       : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
@@ -67,7 +67,7 @@ function SidebarNav() {
           <Collapsible key={item.label} defaultOpen={isChildActive}>
             <CollapsibleTrigger
               className={cn(
-                'group flex w-full items-center gap-2.5 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors',
+                'group flex w-full items-center gap-2.5 rounded-md border-l-4 px-3 py-2 font-heading text-sm font-medium tracking-tight transition-colors',
                 isChildActive
                   ? 'border-transparent text-brand-primary'
                   : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
@@ -109,8 +109,8 @@ function AdminLayout() {
           `sticky top-0 h-screen` rather than `fixed` + manual margin on the
           content column: it keeps the sidebar pinned during scroll without
           needing a matching padding-left value kept in sync elsewhere. */}
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-background">
-        <div className="flex h-16 shrink-0 items-center border-b border-border px-4">
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+        <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
           {/* logo.jpeg is a 1600x1600 square canvas with the actual wordmark
               centered in a thin horizontal band (heavy white padding
               top/bottom) — object-cover on a wide/short box crops to just
@@ -123,7 +123,7 @@ function AdminLayout() {
 
         {/* User block pinned to the bottom — also where the "Welcome back"
             greeting lives (see UserMenu.tsx's `greeting` prop). */}
-        <div className="shrink-0 border-t border-border p-4">
+        <div className="shrink-0 border-t border-sidebar-border p-4">
           <UserMenu
             name={user?.fullName ?? ''}
             email={user?.email ?? ''}

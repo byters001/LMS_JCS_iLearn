@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import type { AssessmentStatus } from '../types'
 
 // Shared by AssessmentListPage and AssessmentEditPage — extracted here once
@@ -27,14 +27,9 @@ const STATUS_STYLES: Record<AssessmentStatus, string> = {
 
 export function AssessmentStatusBadge({ status }: { status: AssessmentStatus }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-        STATUS_STYLES[status],
-      )}
-    >
+    <Badge className={STATUS_STYLES[status]}>
       {status === 'live' && <span className="size-1.5 rounded-full bg-white" />}
       {STATUS_LABELS[status] ?? status}
-    </span>
+    </Badge>
   )
 }

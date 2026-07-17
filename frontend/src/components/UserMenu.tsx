@@ -43,7 +43,7 @@ export function UserMenu({ name, email, onLogout, isLoggingOut, greeting }: User
           {getInitials(name)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-brand-primary">{name}</p>
+          <p className="truncate font-heading text-sm font-medium text-brand-primary">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{email}</p>
         </div>
       </div>

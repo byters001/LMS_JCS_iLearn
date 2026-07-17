@@ -37,7 +37,7 @@ export default function MyAttemptsListPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-brand-primary">Your Attempt History</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Attempt History</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Every past and in-progress attempt across all your assessments.
         </p>

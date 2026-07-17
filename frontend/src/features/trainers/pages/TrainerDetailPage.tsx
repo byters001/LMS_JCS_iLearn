@@ -93,7 +93,7 @@ export default function TrainerDetailPage() {
       {performance.data && (
         <>
           <div>
-            <h1 className="text-xl font-semibold text-brand-primary">{performance.data.fullName}</h1>
+            <h1 className="font-heading text-xl font-semibold text-brand-primary">{performance.data.fullName}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Assigned batches and performance trend across them.
             </p>

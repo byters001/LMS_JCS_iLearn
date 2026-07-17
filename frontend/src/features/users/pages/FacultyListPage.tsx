@@ -57,7 +57,7 @@ export default function FacultyListPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-brand-primary">Faculty</h1>
+          <h1 className="font-heading text-xl font-semibold text-brand-primary">Faculty</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Faculty accounts across the platform.
           </p>

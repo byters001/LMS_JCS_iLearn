@@ -48,7 +48,7 @@ export default function AssessmentListPage() {
     <div className="p-6">
       <div className="mb-6 flex items-baseline justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-brand-primary">Assessments</h1>
+          <h1 className="font-heading text-xl font-semibold text-brand-primary">Assessments</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Every assessment across the platform, at every stage of the approval workflow.
           </p>

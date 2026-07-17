@@ -85,7 +85,7 @@ export default function CreateBatchPage() {
       </Link>
 
       <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-brand-primary">Create Batch</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Batch</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           A batch is a training cohort within an existing training program.
         </p>

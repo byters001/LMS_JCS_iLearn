@@ -1,7 +1,9 @@
+import { Clock } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
 import type { Assessment } from '../types'
@@ -18,24 +20,20 @@ const TEST_CATEGORY_LABELS: Record<Assessment['testCategory'], string> = {
 function StatusBadge({ status }: { status: Assessment['status'] }) {
   if (status === 'live') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-brand-accent px-2.5 py-0.5 text-xs font-semibold text-white">
+      <Badge className="bg-brand-accent text-white">
         <span className="size-1.5 rounded-full bg-white" />
         Live
-      </span>
+      </Badge>
     )
   }
   if (status === 'scheduled') {
     return (
-      <span className="rounded-full border border-brand-primary/30 px-2.5 py-0.5 text-xs font-medium text-brand-primary">
+      <Badge variant="outline" className="border-brand-primary/30 text-brand-primary">
         Scheduled
-      </span>
+      </Badge>
     )
   }
-  return (
-    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      {status}
-    </span>
-  )
+  return <Badge variant="secondary">{status}</Badge>
 }
 
 function formatStartDate(startAt: string | null): string | null {
@@ -46,45 +44,45 @@ function formatStartDate(startAt: string | null): string | null {
   })
 }
 
-// Left-border accent by status — live/scheduled are the two states a
-// student actually needs to scan for quickly (everything else falls back to
-// the neutral border), matching StatusBadge's own live/scheduled/other split.
-const STATUS_ACCENT: Partial<Record<Assessment['status'], string>> = {
-  live: 'border-l-brand-accent',
-  scheduled: 'border-l-brand-primary',
-}
-
 function AssessmentCard({ assessment }: { assessment: Assessment }) {
   const startDate = formatStartDate(assessment.startAt)
+  const durationLabel = assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'
 
   return (
     <Link
       to={`/student/assessments/${assessment.id}`}
-      className={cn(
-        'block rounded-lg border border-l-4 border-border bg-background p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2',
-        STATUS_ACCENT[assessment.status] ?? 'border-l-border',
-      )}
+      className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-brand-primary">{assessment.title}</h3>
+        <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>
         <StatusBadge status={assessment.status} />
       </div>
 
-      <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {TEST_CATEGORY_LABELS[assessment.testCategory]}
-      </p>
-
       {assessment.description && (
-        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{assessment.description}</p>
+        <p className="line-clamp-2 text-sm text-muted-foreground">{assessment.description}</p>
       )}
 
-      <div className="mt-3 space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
-        <p>{assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}</p>
-        {assessment.status === 'scheduled' && startDate && <p>Starts: {startDate}</p>}
-        <p>
-          Max attempts: {assessment.maxAttempts}
-        </p>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Clock className="size-3.5" />
+        <span>{durationLabel}</span>
+        {assessment.status === 'scheduled' && startDate && <span>· Starts {startDate}</span>}
       </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <Badge variant="secondary">{TEST_CATEGORY_LABELS[assessment.testCategory]}</Badge>
+        <Badge variant="outline">
+          {assessment.maxAttempts} attempt{assessment.maxAttempts === 1 ? '' : 's'}
+        </Badge>
+      </div>
+
+      <span
+        className={cn(
+          buttonVariants({ variant: 'default' }),
+          'mt-1 h-9 w-full group-hover:bg-primary/90',
+        )}
+      >
+        {assessment.status === 'live' ? 'Start now' : 'View details'}
+      </span>
     </Link>
   )
 }
@@ -101,7 +99,7 @@ export default function StudentAssessmentsPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-brand-primary">Your Assessments</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Assessments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Live and upcoming assessments for your batch.
         </p>

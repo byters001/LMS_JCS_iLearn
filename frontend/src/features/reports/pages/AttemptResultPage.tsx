@@ -46,7 +46,7 @@ export default function AttemptResultPage() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-brand-primary">{attempt.assessmentTitle}</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">{attempt.assessmentTitle}</h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Attempt #{attempt.attemptNumber}
           {attempt.isRetake ? ' · Retake' : ''}

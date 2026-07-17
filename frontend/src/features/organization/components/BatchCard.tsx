@@ -1,4 +1,6 @@
 import { ChevronDown, MoreVertical } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,17 +13,9 @@ import type { Batch } from '../types'
 
 function StatusBadge({ status }: { status: Batch['status'] }) {
   if (status === 'active') {
-    return (
-      <span className="shrink-0 rounded-full bg-brand-accent/10 px-2 py-0.5 text-xs font-medium text-brand-accent">
-        active
-      </span>
-    )
+    return <Badge className="shrink-0 bg-brand-accent/10 text-brand-accent">active</Badge>
   }
-  return (
-    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-      {status}
-    </span>
-  )
+  return <Badge variant="secondary" className="shrink-0">{status}</Badge>
 }
 
 export interface BatchCardMenuItem {
@@ -61,7 +55,7 @@ export function BatchCard({
   onSelect,
 }: BatchCardProps) {
   return (
-    <div
+    <Card
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
       aria-expanded={onSelect ? (isSelected ?? false) : undefined}
@@ -77,9 +71,9 @@ export function BatchCard({
           : undefined
       }
       className={cn(
-        'rounded-xl border bg-background p-4 shadow-sm transition-shadow hover:shadow-md',
+        'gap-3 p-4 transition-shadow hover:shadow-md',
         onSelect ? 'cursor-pointer' : undefined,
-        isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
+        isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : undefined,
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -126,7 +120,7 @@ export function BatchCard({
           )}
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {batch.studentCount} student{batch.studentCount === 1 ? '' : 's'}
           {batch.maxStudents ? ` / ${batch.maxStudents} max` : ''}
@@ -143,6 +137,6 @@ export function BatchCard({
           </div>
         )}
       </div>
-    </div>
+    </Card>
   )
 }

@@ -100,7 +100,7 @@ export default function MyBatchesPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-brand-primary">My Batches</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">My Batches</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Batches you're currently assigned to as a trainer.
         </p>

@@ -288,7 +288,7 @@ export default function PoolDetailPage() {
       </Link>
 
       <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-brand-primary">{pool.data.name}</h1>
+        <h1 className="font-heading text-xl font-semibold text-brand-primary">{pool.data.name}</h1>
         {pool.data.description && (
           <p className="mt-1 text-sm text-muted-foreground">{pool.data.description}</p>
         )}

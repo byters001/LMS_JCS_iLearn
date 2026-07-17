@@ -1,14 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 @config "../../tailwind.config.js";
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Inter Variable', sans-serif;
+    --font-heading: 'Space Grotesk Variable', sans-serif;
+    --font-mono: 'JetBrains Mono Variable', monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,73 +52,79 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Palette lifted from the login page (jcs-ilearn-login-football.html):
+   black #211D8C, panel #2A25A0, line #4A44C4, line-soft #332CAD,
+   white #FAFAF7, white-dim #C7C4EE, white-faint #8B85D6. Primary = the deep
+   indigo/violet black; backgrounds/cards stay light neutral (a faint violet
+   tint behind white cards, HackerRank-style); accents use the violet-blue
+   line color. */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --background: #f5f4fb;
+    --foreground: #211d8c;
+    --card: #ffffff;
+    --card-foreground: #211d8c;
+    --popover: #ffffff;
+    --popover-foreground: #211d8c;
+    --primary: #211d8c;
+    --primary-foreground: #fafaf7;
+    --secondary: #ece9fa;
+    --secondary-foreground: #211d8c;
+    --muted: #eeecf9;
+    --muted-foreground: #6d68a6;
+    --accent: #e7e4fa;
+    --accent-foreground: #332cad;
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --border: #e2dff5;
+    --input: #e2dff5;
+    --ring: #4a44c4;
+    --chart-1: #4a44c4;
+    --chart-2: #211d8c;
+    --chart-3: #8b85d6;
+    --chart-4: #332cad;
+    --chart-5: #c7c4ee;
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: #ffffff;
+    --sidebar-foreground: #211d8c;
+    --sidebar-primary: #211d8c;
+    --sidebar-primary-foreground: #fafaf7;
+    --sidebar-accent: #ece9fa;
+    --sidebar-accent-foreground: #211d8c;
+    --sidebar-border: #e2dff5;
+    --sidebar-ring: #4a44c4;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --background: #211d8c;
+    --foreground: #fafaf7;
+    --card: #2a25a0;
+    --card-foreground: #fafaf7;
+    --popover: #2a25a0;
+    --popover-foreground: #fafaf7;
+    --primary: #fafaf7;
+    --primary-foreground: #211d8c;
+    --secondary: #332cad;
+    --secondary-foreground: #fafaf7;
+    --muted: #332cad;
+    --muted-foreground: #8b85d6;
+    --accent: #332cad;
+    --accent-foreground: #fafaf7;
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --border: #4a44c44d;
+    --input: #4a44c440;
+    --ring: #8b85d6;
+    --chart-1: #8b85d6;
+    --chart-2: #c7c4ee;
+    --chart-3: #4a44c4;
+    --chart-4: #fafaf7;
+    --chart-5: #332cad;
+    --sidebar: #211d8c;
+    --sidebar-foreground: #fafaf7;
+    --sidebar-primary: #fafaf7;
+    --sidebar-primary-foreground: #211d8c;
+    --sidebar-accent: #332cad;
+    --sidebar-accent-foreground: #fafaf7;
+    --sidebar-border: #4a44c44d;
+    --sidebar-ring: #8b85d6;
 }
 
 @layer base {

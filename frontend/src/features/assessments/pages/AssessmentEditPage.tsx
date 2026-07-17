@@ -63,7 +63,7 @@ export default function AssessmentEditPage() {
       <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-brand-primary">{assessment.title}</h1>
+            <h1 className="font-heading text-xl font-semibold text-brand-primary">{assessment.title}</h1>
             <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {TEST_CATEGORY_LABELS[assessment.testCategory]}
             </p>
