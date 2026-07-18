@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
+import PerformanceAnalyticsSection from '@/features/reports/components/PerformanceAnalyticsSection'
 import { cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
 import type { Assessment } from '../types'
@@ -98,6 +99,8 @@ export default function StudentAssessmentsPage() {
 
   return (
     <div className="p-6">
+      <PerformanceAnalyticsSection />
+
       <div className="mb-6">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Assessments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
