@@ -53,10 +53,30 @@ export interface CreateBatchInput {
   commonPassword: string
 }
 
+export type CollegeStatus = 'active' | 'expired' | 'archived'
+
+// Expanded (item 10 tier 1) from the original id/name/code-only shape once
+// CollegeListPage needed the real columns to display/edit — matches
+// backend/src/db/schema/organization.schema.ts's colleges table exactly
+// (InferSelectModel via db/types.ts's College), minus deletedAt (GET
+// /colleges already filters soft-deleted rows out server-side, so a row
+// reaching the frontend is never actually deleted — carrying the column
+// here would only ever be null noise).
 export interface College {
   id: string
   name: string
   code: string
+  logoUrl: string | null
+  address: string | null
+  contactEmail: string | null
+  contactPhone: string | null
+  contractStartDate: string | null
+  contractEndDate: string | null
+  status: CollegeStatus
+  createdAt: string
+  updatedAt: string
+  createdBy: string | null
+  updatedBy: string | null
 }
 
 export interface ListCollegesParams {
@@ -71,11 +91,47 @@ export interface ListCollegesResponse {
   pageSize: number
 }
 
+// Matches createCollegeSchema exactly (.strict()) — status is deliberately
+// absent here (schema.sql defaults it to 'active' at creation; there is no
+// create-time override).
+export interface CreateCollegeInput {
+  name: string
+  code: string
+  logoUrl?: string
+  address?: string
+  contactEmail?: string
+  contactPhone?: string
+  contractStartDate?: string
+  contractEndDate?: string
+}
+
+// Matches updateCollegeSchema exactly (.strict(), all fields optional,
+// backend rejects an empty body) — status IS editable here, the one field
+// create doesn't accept.
+export interface UpdateCollegeInput {
+  name?: string
+  code?: string
+  logoUrl?: string
+  address?: string
+  contactEmail?: string
+  contactPhone?: string
+  contractStartDate?: string
+  contractEndDate?: string
+  status?: CollegeStatus
+}
+
+// Expanded the same way College was above — matches db/types.ts's
+// Department (InferSelectModel) exactly, minus deletedAt for the same
+// "never actually reaches the frontend" reason.
 export interface Department {
   id: string
   collegeId: string
   name: string
   code: string | null
+  createdAt: string
+  updatedAt: string
+  createdBy: string | null
+  updatedBy: string | null
 }
 
 export interface ListDepartmentsParams {
@@ -89,6 +145,22 @@ export interface ListDepartmentsResponse {
   total: number
   page: number
   pageSize: number
+}
+
+// Matches createDepartmentSchema exactly — collegeId is required (a
+// department can't exist unscoped).
+export interface CreateDepartmentInput {
+  collegeId: string
+  name: string
+  code?: string
+}
+
+// Matches updateDepartmentSchema exactly — collegeId deliberately excluded
+// (re-parenting a department to a different college isn't part of this
+// schema; confirmed by reading the real backend schema, not assumed).
+export interface UpdateDepartmentInput {
+  name?: string
+  code?: string
 }
 
 export type TrainingProgramStatus = 'planned' | 'ongoing' | 'completed' | 'archived'

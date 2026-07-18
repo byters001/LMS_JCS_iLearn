@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Presentation, Search, UserCog, Users } from 'lucide-react'
+import { BarChart3, BookOpen, Building2, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Presentation, Search, UserCog, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -17,6 +17,11 @@ import { useAuthStore } from '@/store/authStore'
 // /admin/pools are real, already-built routes, not placeholders.
 const NAV_ITEMS = [
   { type: 'link' as const, to: '/admin', label: 'Students', end: true, icon: Users },
+  // Item 10 tier 1 — platform structure (colleges + their departments, the
+  // latter reached via a Tab inside CollegeListPage itself, not a second
+  // nav item). Super-Admin-only by the route's own RequireRole placement,
+  // matching every other item in this list.
+  { type: 'link' as const, to: '/admin/colleges', label: 'Colleges', end: true, icon: Building2 },
   { type: 'link' as const, to: '/admin/batches', label: 'Batches', end: true, icon: BookOpen },
   { type: 'link' as const, to: '/admin/faculty', label: 'Faculty', end: true, icon: UserCog },
   // Phase 5, Super-Admin-only (brief §3.7) — which trainer works in which

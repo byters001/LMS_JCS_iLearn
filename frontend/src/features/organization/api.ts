@@ -6,7 +6,11 @@ import type {
   AssignBatchTrainerInput,
   Batch,
   BatchTrainer,
+  College,
   CreateBatchInput,
+  CreateCollegeInput,
+  CreateDepartmentInput,
+  Department,
   ListBatchesParams,
   ListBatchesResponse,
   ListBatchTrainersParams,
@@ -18,6 +22,8 @@ import type {
   ListMyBatchesParams,
   ListTrainingProgramsParams,
   ListTrainingProgramsResponse,
+  UpdateCollegeInput,
+  UpdateDepartmentInput,
 } from './types'
 
 function listBatches(params: ListBatchesParams): Promise<ListBatchesResponse> {
@@ -78,6 +84,54 @@ export function useColleges(params: ListCollegesParams) {
   })
 }
 
+// --- College CRUD (item 10 tier 1 — was picker-only, GET-only, before this) ---
+
+function createCollege(input: CreateCollegeInput): Promise<College> {
+  return api.post<College>('/colleges', input)
+}
+
+export function useCreateCollege() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createCollege,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'colleges', 'list'] })
+    },
+  })
+}
+
+function updateCollege(id: string, input: UpdateCollegeInput): Promise<College> {
+  return api.patch<College>(`/colleges/${id}`, input)
+}
+
+export function useUpdateCollege() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateCollegeInput }) =>
+      updateCollege(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'colleges', 'list'] })
+    },
+  })
+}
+
+// Soft delete (colleges.deleted_at) — see CollegeListPage.tsx's own comment
+// on why this is still gated behind a dependent-department check client-side
+// despite the backend accepting the call unconditionally.
+function deleteCollege(id: string): Promise<void> {
+  return api.delete<void>(`/colleges/${id}`)
+}
+
+export function useDeleteCollege() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteCollege,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'colleges', 'list'] })
+    },
+  })
+}
+
 function listDepartments(params: ListDepartmentsParams): Promise<ListDepartmentsResponse> {
   return api.get<ListDepartmentsResponse>('/departments', { params })
 }
@@ -88,6 +142,55 @@ export function useDepartments(params: ListDepartmentsParams, options?: { enable
     queryFn: () => listDepartments(params),
     placeholderData: keepPreviousData,
     enabled: options?.enabled,
+  })
+}
+
+// --- Department CRUD (item 10 tier 1) ---
+
+function createDepartment(input: CreateDepartmentInput): Promise<Department> {
+  return api.post<Department>('/departments', input)
+}
+
+export function useCreateDepartment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createDepartment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'departments', 'list'] })
+    },
+  })
+}
+
+function updateDepartment(id: string, input: UpdateDepartmentInput): Promise<Department> {
+  return api.patch<Department>(`/departments/${id}`, input)
+}
+
+export function useUpdateDepartment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateDepartmentInput }) =>
+      updateDepartment(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'departments', 'list'] })
+    },
+  })
+}
+
+// Soft delete (departments.deleted_at) — same dependent-check-before-delete
+// reasoning as useDeleteCollege above, this time against training_programs
+// (departments.id is training_programs.department_id, NOT NULL) rather than
+// departments — see DepartmentListPage.tsx's own comment.
+function deleteDepartment(id: string): Promise<void> {
+  return api.delete<void>(`/departments/${id}`)
+}
+
+export function useDeleteDepartment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteDepartment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'departments', 'list'] })
+    },
   })
 }
 

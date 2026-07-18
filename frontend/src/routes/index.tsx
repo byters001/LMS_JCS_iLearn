@@ -17,6 +17,7 @@ import QuestionDetailPage from '@/features/question-bank/pages/QuestionDetailPag
 import QuestionListPage from '@/features/question-bank/pages/QuestionListPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
 import BatchListPage from '@/features/organization/pages/BatchListPage'
+import CollegeListPage from '@/features/organization/pages/CollegeListPage'
 import CreateBatchPage from '@/features/organization/pages/CreateBatchPage'
 import MyBatchesPage from '@/features/organization/pages/MyBatchesPage'
 import FacultyListPage from '@/features/users/pages/FacultyListPage'
@@ -144,6 +145,13 @@ export function AppRoutes() {
         <Route element={<RequireRole roles={['super_admin']} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<StudentListPage />} />
+            {/* Item 10 tier 1 — platform-structure management (colleges +
+                departments), Super-Admin-only by placement in this same
+                RequireRole block, not a separate guard. Single route/nav
+                entry: Departments lives as a Tab inside CollegeListPage
+                itself (see that file's own comment), not a second nested
+                route the way pools/questions below are. */}
+            <Route path="colleges" element={<CollegeListPage />} />
             {/* Admin's full cross-college batch management (create, assign
                 trainers, toggle active). Trainer's own scoped view is the
                 separate /trainer/batches route above, backed by
