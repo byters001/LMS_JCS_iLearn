@@ -53,6 +53,19 @@ export interface CreateBatchInput {
   commonPassword: string
 }
 
+// Matches updateBatchSchema exactly (.strict(), all fields optional) —
+// status IS in the real backend schema here too, but EditBatchDialog.tsx
+// deliberately never sends it: batches.toggle_active (BatchCard's own
+// Switch) already owns that concern via its own dedicated permission
+// ('batches.toggle_active', super_admin-only), and item 10 tier 2's own
+// scope is explicitly "Edit (name/maxStudents...)" — folding status into
+// the same form would create two UI paths to the same field.
+export interface UpdateBatchInput {
+  name?: string
+  maxStudents?: number
+  status?: BatchStatus
+}
+
 export type CollegeStatus = 'active' | 'expired' | 'archived'
 
 // Expanded (item 10 tier 1) from the original id/name/code-only shape once

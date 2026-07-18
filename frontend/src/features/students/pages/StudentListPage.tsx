@@ -1,21 +1,11 @@
 import { ChevronDown, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
-import { ApiError } from '@/api'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { useColleges } from '@/features/organization/api'
 import { cn } from '@/lib/utils'
 import { useStudentCountsByCollege, useStudentProfiles } from '../api'
+import { StudentRosterTable } from '../components/StudentRosterTable'
 
 const PAGE_SIZE = 20
 // Colleges are a platform-wide, slow-growing entity, not paginated in the UI
@@ -23,19 +13,10 @@ const PAGE_SIZE = 20
 // as BatchListPage.tsx's own COLLEGE_PICKER_PAGE_SIZE.
 const COLLEGE_PAGE_SIZE = 100
 
-function StatusBadge({ status }: { status: string }) {
-  const isActive = status === 'active'
-  return (
-    <Badge variant={isActive ? undefined : 'secondary'} className={isActive ? 'bg-brand-accent/10 text-brand-accent' : undefined}>
-      {status}
-    </Badge>
-  )
-}
-
-// Reuses the exact accent colors StatusBadge above already uses for
-// 'active'/'archived' (brand-accent / muted) — no new colors invented, per
-// CLAUDE1.md's "never invent brand colors" rule. Total gets brand-primary,
-// matching its role as the headline number.
+// Reuses the exact accent colors StudentRosterTable's own StatusBadge
+// already uses for 'active'/'archived' (brand-accent / muted) — no new
+// colors invented, per CLAUDE1.md's "never invent brand colors" rule.
+// Total gets brand-primary, matching its role as the headline number.
 function StatCard({
   label,
   value,
@@ -71,6 +52,7 @@ function StatCard({
 export default function StudentListPage() {
   const [selectedCollegeId, setSelectedCollegeId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [includeArchived, setIncludeArchived] = useState(false)
 
   // Platform-wide, not scoped to the selected college: this row is meant to
   // orient the user BEFORE they pick a college (and stays stable while
@@ -99,13 +81,9 @@ export default function StudentListPage() {
   }
 
   const students = useStudentProfiles(
-    { collegeId: selectedCollegeId ?? '', page, pageSize: PAGE_SIZE },
+    { collegeId: selectedCollegeId ?? '', page, pageSize: PAGE_SIZE, includeArchived },
     { enabled: selectedCollegeId !== null },
   )
-
-  const totalPages = students.data
-    ? Math.max(1, Math.ceil(students.data.total / students.data.pageSize))
-    : 1
 
   return (
     <div className="space-y-6 p-6">
@@ -225,94 +203,14 @@ export default function StudentListPage() {
                 Students at {selectedCollege.name}
               </h2>
 
-              {students.isPending && (
-                <div className="space-y-2" role="status" aria-label="Loading students">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
-                  ))}
-                </div>
-              )}
-
-              {students.isError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                  {students.error instanceof ApiError
-                    ? students.error.message
-                    : 'Failed to load students. Please try again.'}
-                </div>
-              )}
-
-              {students.data && (
-                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/40 hover:bg-muted/40">
-                        <TableHead className="pl-4">Name</TableHead>
-                        <TableHead>Roll Number</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>College</TableHead>
-                        <TableHead className="pr-4">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {students.data.items.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                            No students found for this college yet.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        students.data.items.map((student) => (
-                          <TableRow key={student.id} className="hover:bg-muted/30">
-                            <TableCell className="pl-4 font-medium text-brand-primary">
-                              {student.fullName ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {student.rollNumber ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {student.departmentName ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {student.collegeName ?? '—'}
-                            </TableCell>
-                            <TableCell className="pr-4">
-                              <StatusBadge status={student.status} />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-
-                  <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
-                    <p className="text-sm text-muted-foreground">
-                      Page {students.data.page} of {totalPages} &middot; {students.data.total} student
-                      {students.data.total === 1 ? '' : 's'}
-                      {students.isFetching ? ' · refreshing…' : ''}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                        disabled={page <= 1 || students.isFetching}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                        disabled={page >= totalPages || students.isFetching}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <StudentRosterTable
+                studentsQuery={students}
+                page={page}
+                onPageChange={setPage}
+                includeArchived={includeArchived}
+                onIncludeArchivedChange={setIncludeArchived}
+                emptyMessage="No students found for this college yet."
+              />
             </>
           )}
         </CollapsibleContent>

@@ -11,6 +11,8 @@ import type {
   ExportStudentsParams,
   ListStudentProfilesParams,
   ListStudentProfilesResponse,
+  StudentProfile,
+  UpdateStudentProfileInput,
 } from './types'
 
 function listStudentProfiles(
@@ -63,6 +65,50 @@ export function useStudentCountsByCollege(collegeIds: string[]) {
   })
 
   return { countsByCollegeId }
+}
+
+// --- Single-student edit / archive (item 10 tier 2) ---
+// Was entirely missing before this — GET-only (list), no update/archive
+// hook existed despite the backend already having real PATCH/DELETE
+// /student-profiles/:id routes (confirmed by the item 10 audit).
+
+function updateStudentProfile(
+  id: string,
+  input: UpdateStudentProfileInput,
+): Promise<StudentProfile> {
+  return api.patch<StudentProfile>(`/student-profiles/${id}`, input)
+}
+
+export function useUpdateStudentProfile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateStudentProfileInput }) =>
+      updateStudentProfile(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students', 'list'] })
+    },
+  })
+}
+
+// DELETE /student-profiles/:id — archives (student_profiles.status ->
+// 'archived'), never a real row delete (see students.repository.ts's
+// archiveStudentProfile: an UPDATE, no deleted_at column exists on this
+// table at all — confirmed directly against schema.sql). One-directional:
+// throws ConflictError if the student is already archived. Reactivating
+// uses useUpdateStudentProfile with {status: 'active'} instead (see that
+// type's own comment).
+function archiveStudentProfile(id: string): Promise<void> {
+  return api.delete<void>(`/student-profiles/${id}`)
+}
+
+export function useArchiveStudentProfile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: archiveStudentProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students', 'list'] })
+    },
+  })
 }
 
 // --- Bulk student creation (Phase 3) ---

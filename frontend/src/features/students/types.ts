@@ -30,6 +30,26 @@ export interface StudentProfile {
   collegeName: string | null
 }
 
+// Matches backend's updateStudentProfileSchema exactly (.strict(), all
+// fields optional, backend rejects an empty body) — userId/collegeId/
+// departmentId are deliberately absent (students.repository.ts's own
+// comment: "a department transfer is a deliberate action, not a casual
+// profile edit; not exposed in this phase"). status IS included here even
+// though item 10 tier 2's dedicated Archive action uses DELETE
+// /student-profiles/:id instead — this is the only path back from
+// 'archived' to 'active' (the DELETE route is one-directional, confirmed
+// by reading students.service.ts's archiveStudentProfile: it throws
+// ConflictError if already archived, no un-archive branch), so
+// EditStudentDialog's Reactivate button uses this same PATCH with just
+// {status: 'active'}.
+export interface UpdateStudentProfileInput {
+  rollNumber?: string
+  photoUrl?: string
+  contactEmailAlt?: string
+  contactPhone?: string
+  status?: StudentStatus
+}
+
 // Matches backend/src/modules/students/students.schema.ts's
 // listStudentProfilesQuerySchema.
 export interface ListStudentProfilesParams {

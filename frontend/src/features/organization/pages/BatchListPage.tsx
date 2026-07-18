@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/authStore'
 import { useBatches, useColleges, useDepartments, useToggleBatchActive } from '../api'
 import { AssignTrainerDialog } from '../components/AssignTrainerDialog'
 import { BatchCard } from '../components/BatchCard'
+import { DeleteBatchDialog } from '../components/DeleteBatchDialog'
+import { EditBatchDialog } from '../components/EditBatchDialog'
 import type { Batch } from '../types'
 
 const PAGE_SIZE = 20
@@ -27,6 +29,8 @@ export default function BatchListPage() {
   const [addStudentsBatch, setAddStudentsBatch] = useState<Batch | null>(null)
   const [downloadCsvBatch, setDownloadCsvBatch] = useState<Batch | null>(null)
   const [assignTrainerBatch, setAssignTrainerBatch] = useState<Batch | null>(null)
+  const [editBatch, setEditBatch] = useState<Batch | null>(null)
+  const [deleteBatch, setDeleteBatch] = useState<Batch | null>(null)
 
   const colleges = useColleges({ page: 1, pageSize: COLLEGE_PICKER_PAGE_SIZE })
   const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
@@ -135,6 +139,8 @@ export default function BatchListPage() {
                   { label: 'Add Students', onSelect: () => setAddStudentsBatch(batch) },
                   { label: 'Download CSV', onSelect: () => setDownloadCsvBatch(batch) },
                   { label: 'Assign Trainer', onSelect: () => setAssignTrainerBatch(batch) },
+                  { label: 'Edit', onSelect: () => setEditBatch(batch) },
+                  { label: 'Delete', onSelect: () => setDeleteBatch(batch) },
                 ]}
                 showActiveToggle={isSuperAdmin}
                 isTogglingActive={toggleActive.isPending}
@@ -211,6 +217,26 @@ export default function BatchListPage() {
           open={assignTrainerBatch !== null}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) setAssignTrainerBatch(null)
+          }}
+        />
+      )}
+
+      {editBatch && (
+        <EditBatchDialog
+          batch={editBatch}
+          open={editBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setEditBatch(null)
+          }}
+        />
+      )}
+
+      {deleteBatch && (
+        <DeleteBatchDialog
+          batch={deleteBatch}
+          open={deleteBatch !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setDeleteBatch(null)
           }}
         />
       )}

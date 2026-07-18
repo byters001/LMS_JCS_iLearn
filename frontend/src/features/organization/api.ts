@@ -22,6 +22,7 @@ import type {
   ListMyBatchesParams,
   ListTrainingProgramsParams,
   ListTrainingProgramsResponse,
+  UpdateBatchInput,
   UpdateCollegeInput,
   UpdateDepartmentInput,
 } from './types'
@@ -54,6 +55,44 @@ export function useCreateBatch() {
     mutationFn: createBatch,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization', 'batches', 'list'] })
+    },
+  })
+}
+
+// --- Batch edit / delete (item 10 tier 2) ---
+// Both routes were already real on the backend (confirmed by the item 10
+// audit) — PATCH/DELETE /batches/:id — just never called from the
+// frontend.
+
+function updateBatch(id: string, input: UpdateBatchInput): Promise<Batch> {
+  return api.patch<Batch>(`/batches/${id}`, input)
+}
+
+export function useUpdateBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateBatchInput }) => updateBatch(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'batches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['organization', 'batches', 'mine'] })
+    },
+  })
+}
+
+// Soft delete (batches.deleted_at) — see DeleteBatchDialog.tsx's own
+// comment for why this is still gated behind a dependent-student check
+// client-side despite the backend accepting the call unconditionally.
+function deleteBatch(id: string): Promise<void> {
+  return api.delete<void>(`/batches/${id}`)
+}
+
+export function useDeleteBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteBatch,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'batches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['organization', 'batches', 'mine'] })
     },
   })
 }

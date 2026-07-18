@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { AddFacultyDialog } from '../components/AddFacultyDialog'
+import { EditFacultyDialog } from '../components/EditFacultyDialog'
 import { useUpdateUser, useUsers } from '../api'
 import type { SafeUser } from '../types'
 
@@ -41,6 +42,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 export default function FacultyListPage() {
   const [page, setPage] = useState(1)
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [editUser, setEditUser] = useState<SafeUser | null>(null)
 
   const faculty = useUsers({ roleSlug: 'faculty', page, pageSize: PAGE_SIZE })
   const updateUser = useUpdateUser()
@@ -110,19 +112,24 @@ export default function FacultyListPage() {
                       <StatusBadge isActive={user.isActive} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={updateUser.isPending}
-                        onClick={() => handleToggleActive(user)}
-                        className={
-                          user.isActive
-                            ? 'border-destructive text-destructive hover:bg-destructive/5'
-                            : 'border-brand-primary text-brand-primary hover:bg-brand-primary/5'
-                        }
-                      >
-                        {user.isActive ? 'Deactivate' : 'Reactivate'}
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setEditUser(user)}>
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={updateUser.isPending}
+                          onClick={() => handleToggleActive(user)}
+                          className={
+                            user.isActive
+                              ? 'border-destructive text-destructive hover:bg-destructive/5'
+                              : 'border-brand-primary text-brand-primary hover:bg-brand-primary/5'
+                          }
+                        >
+                          {user.isActive ? 'Deactivate' : 'Reactivate'}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -168,6 +175,16 @@ export default function FacultyListPage() {
       )}
 
       <AddFacultyDialog open={isAddOpen} onOpenChange={setIsAddOpen} />
+
+      {editUser && (
+        <EditFacultyDialog
+          user={editUser}
+          open={editUser !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setEditUser(null)
+          }}
+        />
+      )}
     </div>
   )
 }

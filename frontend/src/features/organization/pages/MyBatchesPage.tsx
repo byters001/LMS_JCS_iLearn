@@ -17,6 +17,7 @@ import { AssessmentStatusBadge } from '@/features/assessments/components/Assessm
 import type { AssessmentStatus } from '@/features/assessments/types'
 import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
 import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
+import { StudentRosterTable } from '@/features/students/components/StudentRosterTable'
 import { useStudentProfiles } from '@/features/students/api'
 import { useMyBatches } from '../api'
 import { BatchCard } from '../components/BatchCard'
@@ -24,26 +25,6 @@ import type { Batch } from '../types'
 
 const PAGE_SIZE = 20
 const STUDENTS_PAGE_SIZE = 20
-
-// Same active/archived accent colors StudentListPage's own StatusBadge
-// uses — not duplicating the component itself since it lives in a
-// different feature folder (students/ vs organization/) and this page
-// shouldn't reach into another feature's page-local component, but the
-// colors/shape are identical per fix-doc item 6's "same columns" requirement.
-function StudentStatusBadge({ status }: { status: string }) {
-  const isActive = status === 'active'
-  return (
-    <span
-      className={
-        isActive
-          ? 'rounded-full bg-brand-accent/10 px-2 py-0.5 text-xs font-medium text-brand-accent'
-          : 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-      }
-    >
-      {status}
-    </span>
-  )
-}
 
 // Trainer's "My Batches" — backed by GET /batches/mine (self-scoped
 // server-side by the caller's own id via batch_trainers, not a client-side
@@ -67,6 +48,11 @@ function StudentStatusBadge({ status }: { status: string }) {
 // pre-filled — same query-param pre-fill pattern CreateQuestionPage's
 // ?type=&difficulty= already established, reusing that page's existing
 // per-student table + charts instead of duplicating them here.
+//
+// item 10 tier 2 — the Students tab's table (Edit/Archive actions) is now
+// StudentRosterTable, shared verbatim with StudentListPage.tsx rather than
+// forked a second time (see that component's own module comment for the
+// full "why one shared component" + archive-safety reasoning).
 export default function MyBatchesPage() {
   const [page, setPage] = useState(1)
   const [addStudentsBatch, setAddStudentsBatch] = useState<Batch | null>(null)
@@ -75,6 +61,7 @@ export default function MyBatchesPage() {
   // selectedId/page state shape as StudentListPage's college browser.
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null)
   const [studentsPage, setStudentsPage] = useState(1)
+  const [includeArchivedStudents, setIncludeArchivedStudents] = useState(false)
   const batches = useMyBatches({ page, pageSize: PAGE_SIZE })
 
   const totalPages = batches.data
@@ -106,13 +93,14 @@ export default function MyBatchesPage() {
   // listStudentProfiles), no new endpoint needed, useStudentProfiles
   // already accepts batchId alongside collegeId.
   const students = useStudentProfiles(
-    { batchId: selectedBatchId ?? '', page: studentsPage, pageSize: STUDENTS_PAGE_SIZE },
+    {
+      batchId: selectedBatchId ?? '',
+      page: studentsPage,
+      pageSize: STUDENTS_PAGE_SIZE,
+      includeArchived: includeArchivedStudents,
+    },
     { enabled: selectedBatchId !== null },
   )
-
-  const studentsTotalPages = students.data
-    ? Math.max(1, Math.ceil(students.data.total / students.data.pageSize))
-    : 1
 
   // item 10 part 1 — participation ratio per assessment assigned to the
   // selected batch (analytics.service.ts's new getBatchAssessmentParticipation,
@@ -221,95 +209,14 @@ export default function MyBatchesPage() {
                   Students in {selectedBatch.name}
                 </h2>
 
-                {students.isPending && (
-                  <div className="space-y-2" role="status" aria-label="Loading students">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
-                    ))}
-                  </div>
-                )}
-
-                {students.isError && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                    {students.error instanceof ApiError
-                      ? students.error.message
-                      : 'Failed to load students. Please try again.'}
-                  </div>
-                )}
-
-                {students.data && (
-                  <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/40 hover:bg-muted/40">
-                          <TableHead className="pl-4">Name</TableHead>
-                          <TableHead>Roll Number</TableHead>
-                          <TableHead>Department</TableHead>
-                          <TableHead>College</TableHead>
-                          <TableHead className="pr-4">Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {students.data.items.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                              No students enrolled in this batch yet.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          students.data.items.map((student) => (
-                            <TableRow key={student.id} className="hover:bg-muted/30">
-                              <TableCell className="pl-4 font-medium text-brand-primary">
-                                {student.fullName ?? '—'}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {student.rollNumber ?? '—'}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {student.departmentName ?? '—'}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {student.collegeName ?? '—'}
-                              </TableCell>
-                              <TableCell className="pr-4">
-                                <StudentStatusBadge status={student.status} />
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-
-                    <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
-                      <p className="text-sm text-muted-foreground">
-                        Page {students.data.page} of {studentsTotalPages} &middot; {students.data.total}{' '}
-                        student
-                        {students.data.total === 1 ? '' : 's'}
-                        {students.isFetching ? ' · refreshing…' : ''}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                          disabled={studentsPage <= 1 || students.isFetching}
-                          onClick={() => setStudentsPage((p) => Math.max(1, p - 1))}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                          disabled={studentsPage >= studentsTotalPages || students.isFetching}
-                          onClick={() => setStudentsPage((p) => Math.min(studentsTotalPages, p + 1))}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <StudentRosterTable
+                  studentsQuery={students}
+                  page={studentsPage}
+                  onPageChange={setStudentsPage}
+                  includeArchived={includeArchivedStudents}
+                  onIncludeArchivedChange={setIncludeArchivedStudents}
+                  emptyMessage="No students enrolled in this batch yet."
+                />
               </TabsContent>
 
               {/* item 10 part 1 — one row per scheduled/live/completed
