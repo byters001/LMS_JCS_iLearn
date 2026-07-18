@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useFieldArray, useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,17 @@ const DIFFICULTY_OPTIONS: Array<{ value: QuestionDifficulty; label: string }> = 
 ]
 
 const CODING_LANGUAGE_KEYS = Object.keys(CODING_LANGUAGE_LABELS) as CodingLanguageKey[]
+
+const TYPE_VALUES = TYPE_OPTIONS.map((option) => option.value)
+const DIFFICULTY_VALUES = DIFFICULTY_OPTIONS.map((option) => option.value)
+
+function isQuestionType(value: string | null): value is QuestionType {
+  return value !== null && (TYPE_VALUES as string[]).includes(value)
+}
+
+function isQuestionDifficulty(value: string | null): value is QuestionDifficulty {
+  return value !== null && (DIFFICULTY_VALUES as string[]).includes(value)
+}
 
 // One flat schema covering all three types' fields (all optional except
 // the genuinely-shared required ones), with per-type requirements enforced
@@ -204,6 +215,19 @@ export default function CreateQuestionPage() {
   const topics = useTopics({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const tags = useTags({ page: 1, pageSize: PICKER_PAGE_SIZE })
 
+  // Pre-fill from QuestionListPage's drill-down "Add Question" action
+  // (?type=&difficulty=), which navigates here already knowing which
+  // type+difficulty combination the trainer/admin was just browsing.
+  // Falls back to the form's original 'mcq'/'medium' defaults when the
+  // params are absent or don't match a real enum value (e.g. this page
+  // opened directly from its plain "Create Question" entry point, which
+  // passes none).
+  const [searchParams] = useSearchParams()
+  const typeParam = searchParams.get('type')
+  const difficultyParam = searchParams.get('difficulty')
+  const prefilledType = isQuestionType(typeParam) ? typeParam : null
+  const prefilledDifficulty = isQuestionDifficulty(difficultyParam) ? difficultyParam : null
+
   const {
     register,
     handleSubmit,
@@ -215,8 +239,8 @@ export default function CreateQuestionPage() {
   } = useForm<CreateQuestionFormValues>({
     resolver: zodResolver(createQuestionFormSchema),
     defaultValues: {
-      type: 'mcq',
-      difficulty: 'medium',
+      type: prefilledType ?? 'mcq',
+      difficulty: prefilledDifficulty ?? 'medium',
       categoryId: '',
       topicIds: [],
       tagIds: [],

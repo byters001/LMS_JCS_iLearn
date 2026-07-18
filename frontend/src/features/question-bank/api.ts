@@ -29,11 +29,17 @@ function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsRespon
   return api.get<ListQuestionsResponse>('/questions', { params })
 }
 
-export function useQuestions(params: ListQuestionsParams) {
+// `options.enabled` mirrors features/students/api.ts's useStudentProfiles —
+// same "skip the fetch until a prerequisite selection exists" shape,
+// needed by QuestionListPage's type/difficulty drill-down (its level-2
+// difficulty counts and level-3 filtered list shouldn't fire before a type
+// is actually selected).
+export function useQuestions(params: ListQuestionsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['question-bank', 'questions', 'list', params],
     queryFn: () => listQuestions(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 
@@ -123,9 +129,12 @@ export function useQuestionPools(params: ListQuestionPoolsParams) {
 
 // Same enrichment shape as useQuestionsForPicker above (list has no text,
 // GET /questions/:id does) but returns full rows for QuestionListPage's
-// columns instead of one flattened combobox label.
-export function useQuestionsWithText(params: ListQuestionsParams) {
-  const list = useQuestions(params)
+// columns instead of one flattened combobox label. `options.enabled` passes
+// through to the underlying list query (see useQuestions above) — the
+// per-row detail enrichment then further gates on `list.isSuccess`, same
+// composition useStudentCountsByCollege-style hooks already rely on.
+export function useQuestionsWithText(params: ListQuestionsParams, options?: { enabled?: boolean }) {
+  const list = useQuestions(params, options)
   const ids = list.data?.items.map((q) => q.id) ?? []
 
   const details = useQueries({
