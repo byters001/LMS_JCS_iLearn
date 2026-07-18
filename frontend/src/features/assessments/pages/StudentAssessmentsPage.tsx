@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
+import LeaderboardSection from '@/features/reports/components/LeaderboardSection'
 import PerformanceAnalyticsSection from '@/features/reports/components/PerformanceAnalyticsSection'
 import { cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
@@ -173,6 +174,10 @@ export default function StudentAssessmentsPage() {
           )}
         </>
       )}
+
+      <div className="mt-6">
+        <LeaderboardSection />
+      </div>
     </div>
   )
 }

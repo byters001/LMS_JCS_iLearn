@@ -54,3 +54,35 @@ export interface MyAttemptDetail {
   attempt: MyAttemptSummary;
   questions: AttemptQuestionBreakdown[];
 }
+
+// --- Leaderboard (item 8B) ---
+//
+// Strictly batch-scoped (never cross-batch/global — see reports.service.ts's
+// getLeaderboard) and tiered by rank-within-batch percentile, not a fixed
+// score cutoff (schema.sql has no notion of one for this): top 10% =
+// platinum, next 25% = gold, next 35% = silver, remaining 30% = bronze.
+export type LeaderboardTier = 'platinum' | 'gold' | 'silver' | 'bronze';
+
+// displayName is the student's full name — deliberately exposed here
+// (unlike reports's own attempt-detail sanitization elsewhere in this
+// file): batch-mates seeing each other's name/score/rank is the entire
+// point of a leaderboard, not an incidental leak. Nothing beyond
+// name+score+rank+tier is included — no email, roll number, or other
+// student_profiles/users column.
+export interface LeaderboardEntry {
+  rank: number;
+  studentId: string;
+  displayName: string;
+  averageScorePercent: number;
+  tier: LeaderboardTier;
+  // Computed server-side (compared against the CALLER's own resolved
+  // student_profiles id) so the frontend never has to know its own
+  // studentId just to highlight "which row is me" — the authenticated
+  // user object it already holds only carries users.id, not
+  // student_profiles.id.
+  isSelf: boolean;
+}
+
+export interface LeaderboardResult {
+  entries: LeaderboardEntry[];
+}

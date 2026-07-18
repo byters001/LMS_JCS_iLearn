@@ -70,3 +70,23 @@ export interface MyAttemptDetail {
   attempt: MyAttemptSummary
   questions: AttemptQuestionBreakdown[]
 }
+
+// --- Leaderboard (item 8B) ---
+// Matches backend/src/modules/reports/reports.types.ts's LeaderboardEntry/
+// LeaderboardResult exactly. Strictly batch-scoped server-side — this
+// frontend type has no batchId/collegeId field because the endpoint never
+// accepts one; it always resolves the caller's own batch.
+export type LeaderboardTier = 'platinum' | 'gold' | 'silver' | 'bronze'
+
+export interface LeaderboardEntry {
+  rank: number
+  studentId: string
+  displayName: string
+  averageScorePercent: number
+  tier: LeaderboardTier
+  isSelf: boolean
+}
+
+export interface LeaderboardResult {
+  entries: LeaderboardEntry[]
+}

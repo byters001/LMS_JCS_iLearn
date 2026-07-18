@@ -9,6 +9,7 @@ import {
 import type { GetBatchPerformanceQuery } from './analytics.schema';
 import type {
   AttendanceByDateResult,
+  AttemptScorePercentage,
   BatchPerformanceSummary,
   FailedStudentsBatchGroup,
   FailedStudentsResult,
@@ -497,9 +498,56 @@ async function getFailedStudents(
   };
 }
 
+// --- Score percentages (item 8B, student leaderboard) ---
+//
+// Reuses analyticsRepository.sumPossibleMarksForAttempts as-is — the SAME
+// per-attempt total-possible-marks query getBatchPerformance already
+// depends on (see that repository function's own comment: a pool-based
+// section's frozen selections can draw a different question set, and
+// therefore a different total possible marks, on every attempt, so this
+// has to be resolved per-attempt, never assumed from the assessment
+// definition). Exported here — rather than left as getBatchPerformance-
+// internal plumbing — specifically so reports.service.ts's getLeaderboard
+// can call it as a cross-module SERVICE function (CLAUDE.md's boundary
+// rule: a module may call another module's service, never its
+// repository), instead of re-deriving this same SQL aggregation itself.
+//
+// A zero (or unresolvable) totalPossibleMarks is EXCLUDED from the
+// result, not returned as a 0% or Infinity — there is no meaningful
+// percentage for an attempt with no possible marks, and silently treating
+// it as 0% would drag down an average with a value that isn't a real
+// score. Callers (currently just reports.service.ts) decide what to do
+// with an attempt that doesn't come back at all.
+async function getScorePercentagesForAttempts(
+  attempts: { attemptId: string; totalScore: string }[],
+): Promise<AttemptScorePercentage[]> {
+  if (attempts.length === 0) {
+    return [];
+  }
+
+  const possibleMarksRows = await analyticsRepository.sumPossibleMarksForAttempts(
+    attempts.map((attempt) => attempt.attemptId),
+  );
+  const possibleByAttempt = new Map(
+    possibleMarksRows.map((row) => [row.attemptId, Number(row.totalPossibleMarks)]),
+  );
+
+  const results: AttemptScorePercentage[] = [];
+  for (const attempt of attempts) {
+    const possible = possibleByAttempt.get(attempt.attemptId) ?? 0;
+    if (possible <= 0) continue;
+    results.push({
+      attemptId: attempt.attemptId,
+      scorePercent: (Number(attempt.totalScore) / possible) * 100,
+    });
+  }
+  return results;
+}
+
 export const analyticsService = {
   getBatchPerformance,
   getTrainerPerformanceTrend,
   getAttendanceByDate,
   getFailedStudents,
+  getScorePercentagesForAttempts,
 };

@@ -54,6 +54,16 @@ export async function reportsRoutes(fastify: FastifyInstance): Promise<void> {
     },
     reportsController.getMyAttemptDetail,
   );
+
+  // No query/params schema — self-scoped entirely from the caller's JWT
+  // (see reports.service.ts's getLeaderboard), same "authenticate only,
+  // authorization via self-ownership in the service layer" model as the
+  // two routes above.
+  fastify.get(
+    '/reports/leaderboard',
+    { preHandler: [fastify.authenticate] },
+    reportsController.getLeaderboard,
+  );
 }
 
 export default reportsRoutes;

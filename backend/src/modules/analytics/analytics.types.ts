@@ -118,6 +118,16 @@ export interface AttendanceByDateResult {
   completedSessions: number;
 }
 
+// --- Score percentages (item 8B, student leaderboard) ---
+// One attempt's score expressed as a percentage of ITS OWN total possible
+// marks (not a fixed platform-wide scale) — see analytics.service.ts's
+// getScorePercentagesForAttempts for why this is computed per-attempt
+// rather than per-assessment.
+export interface AttemptScorePercentage {
+  attemptId: string;
+  scorePercent: number;
+}
+
 // --- Failed students (Phase 6a chatbot tool) ---
 // Reuses getBatchPerformance's own PerStudentPerformanceRow/classification
 // as-is (filtered to status === 'failed') — no separate pass/fail

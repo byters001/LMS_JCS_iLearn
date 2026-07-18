@@ -31,7 +31,15 @@ async function getMyAttemptDetail(
   reply.status(200).send(response);
 }
 
+async function getLeaderboard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await reportsService.getLeaderboard(userId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const reportsController = {
   listMyAttempts,
   getMyAttemptDetail,
+  getLeaderboard,
 };

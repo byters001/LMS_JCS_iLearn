@@ -1,3 +1,4 @@
+import { analyticsService } from '../analytics/analytics.service';
 import { studentsService } from '../students/students.service';
 import { ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
 import {
@@ -8,6 +9,9 @@ import {
 import type { AttemptIdParams, ListMyAttemptsQuery } from './reports.schema';
 import type {
   AttemptQuestionBreakdown,
+  LeaderboardEntry,
+  LeaderboardResult,
+  LeaderboardTier,
   ListMyAttemptsResult,
   MyAttemptDetail,
   MyAttemptSummary,
@@ -162,7 +166,168 @@ async function buildQuestionBreakdown(
   };
 }
 
+// --- Leaderboard (item 8B) ---
+//
+// Tiers are assigned by SCORE, not by rank position — a deliberate fix for
+// a real edge case a live test surfaced: two students tied at the exact
+// same average score % could land in different tiers under a purely
+// rank-based scheme, purely because of an arbitrary secondary sort key
+// (name). A tier is a reward/status badge shown to the user; letting an
+// arbitrary tie-break (not performance) decide who gets the better badge
+// isn't defensible, even though a differing numeric RANK for tied
+// students is normal and stays unchanged below.
+//
+// Cumulative percentage cutoffs (not four independently-rounded slice
+// sizes — see below) locate each tier BOUNDARY's rank position, then the
+// SCORE at that rank becomes the threshold everyone is compared against:
+// platinumThreshold = the score of whoever sits at the platinum cutoff
+// rank, and so on. Any student whose score is >= a threshold gets that
+// tier or better — so a student tied with the boundary score is pulled
+// into the better tier along with them, rather than split across the
+// boundary by name. This can (deliberately) make a tier's actual
+// membership slightly exceed its nominal percentage when a tie straddles
+// a cutoff — accepted, since the alternative is an arbitrary split.
+//
+// Computing the three bucket sizes as independent Math.ceil(n * pct)
+// calls (rather than cumulative) would risk the slices not summing to n
+// (rounding could leave a rank uncovered by any tier, or double-cover
+// one) — cumulative cutoffs guarantee every rank from 1..n maps to
+// exactly one boundary rank.
+const TIER_CUMULATIVE_CUTOFFS: { tier: LeaderboardTier; cumulativePercent: number }[] = [
+  { tier: 'platinum', cumulativePercent: 0.1 },
+  { tier: 'gold', cumulativePercent: 0.35 },
+  { tier: 'silver', cumulativePercent: 0.7 },
+];
+
+// scoresDescending must already be sorted highest-to-lowest — the same
+// order studentAverages is sorted into below (score first, name as the
+// tie-break) — so that "the score at cutoff rank R" means array index
+// R - 1.
+function tierThresholds(
+  scoresDescending: number[],
+): { tier: LeaderboardTier; thresholdScore: number }[] {
+  const totalRanked = scoresDescending.length;
+  return TIER_CUMULATIVE_CUTOFFS.map(({ tier, cumulativePercent }) => {
+    const cutoffRank = Math.ceil(totalRanked * cumulativePercent);
+    return { tier, thresholdScore: scoresDescending[cutoffRank - 1] };
+  });
+}
+
+function tierForScore(
+  score: number,
+  thresholds: { tier: LeaderboardTier; thresholdScore: number }[],
+): LeaderboardTier {
+  for (const { tier, thresholdScore } of thresholds) {
+    if (score >= thresholdScore) {
+      return tier;
+    }
+  }
+  return 'bronze';
+}
+
+// Strictly batch-scoped (item 8B) — resolves the CALLER's own active
+// batch id(s) via studentsService.listActiveBatchIdsForStudent, the exact
+// same lookup attempts.service.ts's assertBatchAuthorized already uses to
+// answer "which batches is this student currently in," rather than
+// accepting a batchId from the request and having to separately verify
+// the caller belongs to it. There is no code path here that can name a
+// batch the caller isn't enrolled in — never cross-batch, never global.
+//
+// A student can rarely be active in more than one batch at once (schema.sql
+// permits it — same edge case listActiveBatchIdsForStudent's own comment
+// flags); rather than arbitrarily picking just one, every batch the caller
+// is actually in is pooled into one combined ranking. This still never
+// shows a batch the caller ISN'T in, which is the actual guarantee item 8B
+// asks for — it only affects the rare multi-batch student, and degrades to
+// a single ordinary batch for everyone else.
+//
+// Scoring basis (already decided, not re-derived here): average % score
+// across the student's own completed ('submitted') attempts, each attempt
+// expressed as a percentage of ITS OWN total possible marks — reuses
+// analyticsService.getScorePercentagesForAttempts (itself reusing
+// analyticsRepository.sumPossibleMarksForAttempts) rather than duplicating
+// that per-attempt-denominator math here. Raw totalScore points are never
+// compared directly across students, for the same reason
+// TrainerDetailPage.tsx's own trend chart and item 9's dashboard chart
+// both already documented: different assessments carry different total
+// possible marks, so raw points aren't comparable, only percentages are.
+async function getLeaderboard(userId: string): Promise<LeaderboardResult> {
+  const studentId = await requireStudentProfileId(userId);
+  const batchIds = await studentsService.listActiveBatchIdsForStudent(studentId);
+
+  if (batchIds.length === 0) {
+    return { entries: [] };
+  }
+
+  const rows = await reportsRepository.listSubmittedAttemptsForBatches(batchIds);
+
+  const attemptsByStudent = new Map<
+    string,
+    { fullName: string; attempts: { attemptId: string; totalScore: string }[] }
+  >();
+  for (const row of rows) {
+    // Defensive only — see BatchSubmittedAttemptRow's own comment: a
+    // 'submitted' row always has a non-null totalScore in practice.
+    if (row.totalScore === null) continue;
+    const existing = attemptsByStudent.get(row.studentId);
+    const attempt = { attemptId: row.attemptId, totalScore: row.totalScore };
+    if (existing) {
+      existing.attempts.push(attempt);
+    } else {
+      attemptsByStudent.set(row.studentId, { fullName: row.fullName, attempts: [attempt] });
+    }
+  }
+
+  const allAttempts = [...attemptsByStudent.values()].flatMap((group) => group.attempts);
+  const percentages = await analyticsService.getScorePercentagesForAttempts(allAttempts);
+  const percentByAttempt = new Map(percentages.map((p) => [p.attemptId, p.scorePercent]));
+
+  const studentAverages: { studentId: string; fullName: string; averageScorePercent: number }[] = [];
+  for (const [candidateStudentId, group] of attemptsByStudent) {
+    const scores = group.attempts
+      .map((attempt) => percentByAttempt.get(attempt.attemptId))
+      .filter((score): score is number => score !== undefined);
+    // Every one of this student's attempts had unresolvable (zero) total
+    // possible marks — a degenerate case, excluded rather than averaged
+    // in as a false 0%.
+    if (scores.length === 0) continue;
+
+    const averageScorePercent = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    studentAverages.push({ studentId: candidateStudentId, fullName: group.fullName, averageScorePercent });
+  }
+
+  // Ties broken alphabetically by name for a deterministic, strict 1..n
+  // ranking (no joint/shared ranks) — same tie-break precedent
+  // analytics.service.ts's getBatchPerformance already uses for its own
+  // student ordering. This tie-break affects the numeric `rank` field
+  // ONLY — tier is assigned by score (see tierThresholds/tierForScore
+  // above), so it is NOT affected by which of two tied students happens
+  // to sort first here.
+  studentAverages.sort(
+    (a, b) => b.averageScorePercent - a.averageScorePercent || a.fullName.localeCompare(b.fullName),
+  );
+
+  const thresholds = tierThresholds(studentAverages.map((student) => student.averageScorePercent));
+
+  const entries: LeaderboardEntry[] = studentAverages.map((student, index) => {
+    return {
+      rank: index + 1,
+      studentId: student.studentId,
+      displayName: student.fullName,
+      // Rank/tier are computed from the FULL-precision average (above) —
+      // rounding only happens here, for display, so rounding can never
+      // itself create or hide a score tie.
+      averageScorePercent: Math.round(student.averageScorePercent * 100) / 100,
+      tier: tierForScore(student.averageScorePercent, thresholds),
+      isSelf: student.studentId === studentId,
+    };
+  });
+
+  return { entries };
+}
+
 export const reportsService = {
   listMyAttempts,
   getMyAttemptDetail,
+  getLeaderboard,
 };

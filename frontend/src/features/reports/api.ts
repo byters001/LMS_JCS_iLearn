@@ -2,7 +2,12 @@
 // This is the only file in this feature allowed to import from api/.
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { ListMyAttemptsParams, ListMyAttemptsResult, MyAttemptDetail } from './types'
+import type {
+  LeaderboardResult,
+  ListMyAttemptsParams,
+  ListMyAttemptsResult,
+  MyAttemptDetail,
+} from './types'
 
 function listMyAttempts(params: ListMyAttemptsParams): Promise<ListMyAttemptsResult> {
   return api.get<ListMyAttemptsResult>('/reports/my-attempts', { params })
@@ -25,5 +30,18 @@ export function useMyAttemptDetail(attemptId: string | undefined) {
     queryKey: ['reports', 'my-attempts', 'detail', attemptId],
     queryFn: () => getMyAttemptDetail(attemptId as string),
     enabled: Boolean(attemptId),
+  })
+}
+
+function getLeaderboard(): Promise<LeaderboardResult> {
+  return api.get<LeaderboardResult>('/reports/leaderboard')
+}
+
+// No params — self-scoped entirely server-side (the caller's own active
+// batch, resolved from their JWT). See reports.service.ts's getLeaderboard.
+export function useLeaderboard() {
+  return useQuery({
+    queryKey: ['reports', 'leaderboard'],
+    queryFn: getLeaderboard,
   })
 }

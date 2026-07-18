@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { assessments } from '../../db/schema/assessments.schema';
 import {
@@ -7,7 +7,9 @@ import {
   attemptResponses,
 } from '../../db/schema/attempts.schema';
 import { codingSubmissions } from '../../db/schema/coding.schema';
+import { users } from '../../db/schema/identity.schema';
 import { questionVersions, questions } from '../../db/schema/question-bank.schema';
+import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
 import type { Assessment, AssessmentAttempt } from '../../db/types';
 
 // reports is CLAUDE.md's explicit cross-module-QUERY exception ("their
@@ -173,9 +175,80 @@ async function findLatestCodingSubmissionCounts(
   return row;
 }
 
+// --- Leaderboard (item 8B) ---
+//
+// One row per (active batch student, submitted attempt) — an INNER join
+// throughout, deliberately unlike listMyAttempts/listBatchAttemptsForAssessment's
+// own LEFT JOIN precedent (analytics.repository.ts): a student with zero
+// submitted attempts should not appear in this result AT ALL, so the
+// leaderboard's "only students with at least 1 completed attempt"
+// requirement (item 8B) falls straight out of the join itself rather than
+// needing a separate filter step afterward.
+export interface BatchSubmittedAttemptRow {
+  studentId: string;
+  fullName: string;
+  attemptId: string;
+  // Always non-null in practice for a 'submitted' row (attempts.service.ts's
+  // submitAttempt always writes totalScore in the same call that sets
+  // status to 'submitted' — see finalizeAttempt) — typed nullable here only
+  // because the underlying column itself is nullable; reports.service.ts's
+  // getLeaderboard still guards against null defensively rather than
+  // asserting it away.
+  totalScore: string | null;
+}
+
+async function listSubmittedAttemptsForBatches(
+  batchIds: string[],
+): Promise<BatchSubmittedAttemptRow[]> {
+  if (batchIds.length === 0) {
+    return [];
+  }
+
+  // Two steps (roster, then attempts) rather than one join straight from
+  // trainingProgramStudents to assessmentAttempts: a student actively
+  // enrolled in MORE THAN ONE of the caller's own batchIds (rare, but
+  // schema.sql permits it — the same edge case students.repository.ts's
+  // listActiveBatchIdsForStudent already flags) would otherwise match
+  // trainingProgramStudents once per batch membership, duplicating every
+  // one of their attempts in the joined result. Resolving the distinct
+  // roster first removes that risk entirely, rather than de-duplicating
+  // after the fact.
+  const roster = await db
+    .selectDistinct({ studentId: trainingProgramStudents.studentId })
+    .from(trainingProgramStudents)
+    .where(
+      and(
+        inArray(trainingProgramStudents.batchId, batchIds),
+        eq(trainingProgramStudents.status, 'active'),
+      ),
+    );
+  const studentIds = roster.map((row) => row.studentId);
+  if (studentIds.length === 0) {
+    return [];
+  }
+
+  return db
+    .select({
+      studentId: studentProfiles.id,
+      fullName: users.fullName,
+      attemptId: assessmentAttempts.id,
+      totalScore: assessmentAttempts.totalScore,
+    })
+    .from(assessmentAttempts)
+    .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
+    .innerJoin(users, eq(users.id, studentProfiles.userId))
+    .where(
+      and(
+        inArray(assessmentAttempts.studentId, studentIds),
+        eq(assessmentAttempts.status, 'submitted'),
+      ),
+    );
+}
+
 export const reportsRepository = {
   listMyAttempts,
   findAttemptSummaryById,
   listAttemptQuestionBreakdown,
   findLatestCodingSubmissionCounts,
+  listSubmittedAttemptsForBatches,
 };
