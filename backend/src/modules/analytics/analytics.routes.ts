@@ -52,6 +52,23 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
     },
     analyticsController.getBatchPerformance,
   );
+
+  // item 10 part 1 — per-assessment participation ratios for one batch.
+  // No query schema: unlike getBatchPerformance (assessmentId/page/
+  // pageSize), this always returns every participation-eligible assessment
+  // assigned to the batch in one unpaginated list (see analytics.
+  // repository.ts's listAssessmentsAssignedToBatch comment — bounded by
+  // how many assessments one batch is realistically assigned, same
+  // "class-sized cohort, cheap enough" scale reasoning getBatchPerformance
+  // itself already applies to its own per-batch aggregation).
+  fastify.get<{ Params: BatchIdParams }>(
+    '/analytics/batches/:batchId/assessments',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateParams(batchIdParamsSchema)],
+    },
+    analyticsController.getBatchAssessmentParticipation,
+  );
 }
 
 export default analyticsRoutes;

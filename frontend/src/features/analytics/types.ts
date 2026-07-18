@@ -60,3 +60,27 @@ export interface GetBatchPerformanceParams {
   page?: number
   pageSize?: number
 }
+
+// --- Batch assessment participation (item 10 part 1) ---
+// Matches backend's BatchAssessmentParticipationRow/Result exactly
+// (analytics.types.ts). status/testCategory are kept as `string` here,
+// same convention this file already uses for AttendanceSessionRow-style
+// rows, rather than re-deriving the backend's Drizzle enum unions.
+export interface BatchAssessmentParticipationRow {
+  assessmentId: string
+  assessmentTitle: string
+  status: string
+  testCategory: string
+  startAt: string | null
+  endAt: string | null
+  studentsAttempted: number
+  totalStudents: number
+  participationRate: number | null
+}
+
+export interface BatchAssessmentParticipationResult {
+  batchId: string
+  batchName: string
+  totalStudents: number
+  assessments: BatchAssessmentParticipationRow[]
+}

@@ -1,13 +1,13 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
-import { assessmentSections } from '../../db/schema/assessments.schema';
+import { assessmentBatches, assessments, assessmentSections } from '../../db/schema/assessments.schema';
 import { assessmentAttempts, attemptQuestionSelections } from '../../db/schema/attempts.schema';
 import { users } from '../../db/schema/identity.schema';
 import { colleges, departments, trainingPrograms } from '../../db/schema/organization.schema';
 import { questionVersions } from '../../db/schema/question-bank.schema';
 import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
 import { trainingSessions } from '../../db/schema/trainers.schema';
-import type { AssessmentAttempt } from '../../db/types';
+import type { Assessment, AssessmentAttempt } from '../../db/types';
 
 // analytics is CLAUDE.md's explicit cross-module-QUERY exception (shared
 // with reports — "their whole purpose is cross-cutting aggregation")
@@ -185,6 +185,122 @@ async function listAssessmentActivityForBatch(batchId: string): Promise<BatchAss
     .orderBy(asc(sql`max(${assessmentAttempts.createdAt})`));
 }
 
+// --- Batch assessment participation (item 10 part 1) ---
+//
+// STATUSES_WITH_PARTICIPATION: an assessment still in draft/review/
+// approved status has never been visible to students at all (assessments.
+// repository.ts's own listAvailableAssessments only ever surfaces
+// 'scheduled'/'live' to students, and attempts.service.ts's
+// assertBatchAuthorized — the real gate on starting an attempt — can't
+// pass against anything earlier in the lifecycle either), so a draft
+// assessment would trivially show "0/Y attempted" and add noise rather
+// than a real participation signal. 'completed'/'archived' are INCLUDED
+// here even though listAvailableAssessments excludes both for students
+// (an assessment a student can no longer start is still one a trainer
+// needs to review participation on, indefinitely — this list is
+// staff-facing, not a reuse of that student-facing query) — 'archived' in
+// particular matches assessments.service.ts's own BATCH_LOCKED_STATUSES
+// grouping (['live', 'completed', 'archived']: every status once an
+// assessment has actually gone live and can carry real attempts).
+const STATUSES_WITH_PARTICIPATION: Assessment['status'][] = [
+  'scheduled',
+  'live',
+  'completed',
+  'archived',
+];
+
+export interface BatchAssignedAssessmentRow {
+  assessmentId: string;
+  title: string;
+  status: Assessment['status'];
+  testCategory: Assessment['testCategory'];
+  startAt: Date | null;
+  endAt: Date | null;
+}
+
+// assessment_batches -> assessments, staff-facing sibling of
+// assessments.repository.ts's listAvailableAssessments (that one is
+// student-facing: batchIds is an array resolved from the STUDENT's own
+// active batches, and it can only ever narrow to 'scheduled'/'live'). This
+// module already directly joins assessment_batches/assessments here
+// rather than routing through assessmentsService, matching this whole
+// file's established "analytics is CLAUDE.md's cross-module-query
+// exception" precedent (see this file's own top-of-file comment) instead
+// of repurposing a query built for a different caller/scope.
+async function listAssessmentsAssignedToBatch(batchId: string): Promise<BatchAssignedAssessmentRow[]> {
+  return db
+    .select({
+      assessmentId: assessments.id,
+      title: assessments.title,
+      status: assessments.status,
+      testCategory: assessments.testCategory,
+      startAt: assessments.startAt,
+      endAt: assessments.endAt,
+    })
+    .from(assessmentBatches)
+    .innerJoin(
+      assessments,
+      and(eq(assessments.id, assessmentBatches.assessmentId), isNull(assessments.deletedAt)),
+    )
+    .where(
+      and(
+        eq(assessmentBatches.batchId, batchId),
+        inArray(assessments.status, STATUSES_WITH_PARTICIPATION),
+      ),
+    )
+    .orderBy(desc(assessments.startAt));
+}
+
+// The batch's own active-student roster as bare ids — reused both as the
+// participation denominator (its length) and to scope the attempted-count
+// query below to students CURRENTLY active in this batch (an attempt from
+// a student since moved to another batch/withdrawn shouldn't count toward
+// THIS batch's participation). Same trainingProgramStudents.status='active'
+// filter every other analytics query in this file already applies.
+async function listActiveStudentIdsForBatch(batchId: string): Promise<string[]> {
+  const rows = await db
+    .select({ studentId: trainingProgramStudents.studentId })
+    .from(trainingProgramStudents)
+    .where(
+      and(eq(trainingProgramStudents.batchId, batchId), eq(trainingProgramStudents.status, 'active')),
+    );
+  return rows.map((row) => row.studentId);
+}
+
+export interface AttemptedCountRow {
+  assessmentId: string;
+  attemptedCount: number;
+}
+
+// Distinct-student attempt count per assessment, bounded to exactly the
+// (assessmentId, studentId) pairs analytics.service.ts's
+// getBatchAssessmentParticipation asks for — one query for every
+// assessment in the batch at once (inArray), not one query per assessment.
+// DISTINCT on studentId: a student with multiple attempts (retakes) on the
+// same assessment still counts once toward participation, not once per
+// attempt.
+async function countAttemptedStudentsByAssessment(
+  assessmentIds: string[],
+  studentIds: string[],
+): Promise<AttemptedCountRow[]> {
+  if (assessmentIds.length === 0 || studentIds.length === 0) {
+    return [];
+  }
+  return db
+    .select({
+      assessmentId: assessmentAttempts.assessmentId,
+      attemptedCount: sql<number>`count(distinct ${assessmentAttempts.studentId})`,
+    })
+    .from(assessmentAttempts)
+    .where(
+      and(
+        inArray(assessmentAttempts.assessmentId, assessmentIds),
+        inArray(assessmentAttempts.studentId, studentIds),
+      ),
+    )
+    .groupBy(assessmentAttempts.assessmentId);
+}
+
 // --- Attendance-by-date (Phase 6a chatbot tool) ---
 //
 // STATED DESIGN DECISION, not silently guessed: this schema has NO
@@ -244,5 +360,8 @@ export const analyticsRepository = {
   findAssessmentSectionsThresholdInfo,
   sumPossibleMarksForAttempts,
   listAssessmentActivityForBatch,
+  listAssessmentsAssignedToBatch,
+  listActiveStudentIdsForBatch,
+  countAttemptedStudentsByAssessment,
   listTrainingSessionsOnDate,
 };

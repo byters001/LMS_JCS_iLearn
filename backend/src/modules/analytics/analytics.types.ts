@@ -88,6 +88,36 @@ export interface BatchPerformanceSummary {
   pageSize: number;
 }
 
+// --- Batch assessment participation (item 10 part 1) ---
+// One row per assessment assigned to the batch (analytics.repository.ts's
+// listAssessmentsAssignedToBatch — 'scheduled'/'live'/'completed'/
+// 'archived' only, see that function's own STATUSES_WITH_PARTICIPATION
+// comment for why draft-lifecycle statuses are excluded). totalStudents is
+// the SAME number on every row (the batch's
+// own active roster size — see BatchAssessmentParticipationResult below),
+// repeated per-row so each row is independently meaningful without the
+// caller having to cross-reference the parent object. participationRate
+// is null (not 0/NaN) when totalStudents is 0 — an empty batch has no
+// meaningful rate, not a 0% one.
+export interface BatchAssessmentParticipationRow {
+  assessmentId: string;
+  assessmentTitle: string;
+  status: string;
+  testCategory: string;
+  startAt: string | null;
+  endAt: string | null;
+  studentsAttempted: number;
+  totalStudents: number;
+  participationRate: number | null;
+}
+
+export interface BatchAssessmentParticipationResult {
+  batchId: string;
+  batchName: string;
+  totalStudents: number;
+  assessments: BatchAssessmentParticipationRow[];
+}
+
 // --- Attendance-by-date (Phase 6a chatbot tool) ---
 // See analytics.repository.ts's listTrainingSessionsOnDate comment: this
 // reports SESSIONS held on a date, not per-student physical presence —

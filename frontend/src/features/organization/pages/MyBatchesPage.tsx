@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
@@ -10,6 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useBatchAssessmentParticipation } from '@/features/analytics/api'
+import { AssessmentStatusBadge } from '@/features/assessments/components/AssessmentStatusBadge'
+import type { AssessmentStatus } from '@/features/assessments/types'
 import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
 import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { useStudentProfiles } from '@/features/students/api'
@@ -50,6 +55,18 @@ function StudentStatusBadge({ status }: { status: string }) {
 // students.service.ts's createStudentsInBatch/exportStudentsCsv). No
 // active-toggle here: that stays a Super-Admin-only lifecycle action on
 // BatchListPage, matching the backend's batches.toggle_active permission.
+//
+// item 10 part 1 — the selected-batch reveal now holds TWO views (its
+// student roster, already built above, and its assessment participation,
+// new here), so it's switched to Tabs rather than stacking both under one
+// heading — a real "pick one of two parallel views for the same batch"
+// choice, unlike QuestionListPage's type->difficulty->list drill-down
+// (that one is genuinely sequential/hierarchical, so Collapsible-reveal
+// stayed right there). Clicking a participation row navigates to
+// BatchPerformancePage (features/analytics) with ?batchId=&assessmentId=
+// pre-filled — same query-param pre-fill pattern CreateQuestionPage's
+// ?type=&difficulty= already established, reusing that page's existing
+// per-student table + charts instead of duplicating them here.
 export default function MyBatchesPage() {
   const [page, setPage] = useState(1)
   const [addStudentsBatch, setAddStudentsBatch] = useState<Batch | null>(null)
@@ -96,6 +113,11 @@ export default function MyBatchesPage() {
   const studentsTotalPages = students.data
     ? Math.max(1, Math.ceil(students.data.total / students.data.pageSize))
     : 1
+
+  // item 10 part 1 — participation ratio per assessment assigned to the
+  // selected batch (analytics.service.ts's new getBatchAssessmentParticipation,
+  // GET /analytics/batches/:batchId/assessments).
+  const participation = useBatchAssessmentParticipation(selectedBatchId ?? undefined)
 
   return (
     <div className="space-y-6 p-6">
@@ -188,101 +210,186 @@ export default function MyBatchesPage() {
       <Collapsible open={selectedBatchId !== null}>
         <CollapsibleContent className="space-y-4">
           {selectedBatch && (
-            <>
-              <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                Students in {selectedBatch.name}
-              </h2>
+            <Tabs defaultValue="students">
+              <TabsList>
+                <TabsTrigger value="students">Students</TabsTrigger>
+                <TabsTrigger value="assessments">Assessment Participation</TabsTrigger>
+              </TabsList>
 
-              {students.isPending && (
-                <div className="space-y-2" role="status" aria-label="Loading students">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
-                  ))}
-                </div>
-              )}
+              <TabsContent value="students" className="space-y-4 pt-4">
+                <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                  Students in {selectedBatch.name}
+                </h2>
 
-              {students.isError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                  {students.error instanceof ApiError
-                    ? students.error.message
-                    : 'Failed to load students. Please try again.'}
-                </div>
-              )}
+                {students.isPending && (
+                  <div className="space-y-2" role="status" aria-label="Loading students">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
+                    ))}
+                  </div>
+                )}
 
-              {students.data && (
-                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/40 hover:bg-muted/40">
-                        <TableHead className="pl-4">Name</TableHead>
-                        <TableHead>Roll Number</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>College</TableHead>
-                        <TableHead className="pr-4">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {students.data.items.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                            No students enrolled in this batch yet.
-                          </TableCell>
+                {students.isError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                    {students.error instanceof ApiError
+                      ? students.error.message
+                      : 'Failed to load students. Please try again.'}
+                  </div>
+                )}
+
+                {students.data && (
+                  <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                          <TableHead className="pl-4">Name</TableHead>
+                          <TableHead>Roll Number</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>College</TableHead>
+                          <TableHead className="pr-4">Status</TableHead>
                         </TableRow>
-                      ) : (
-                        students.data.items.map((student) => (
-                          <TableRow key={student.id} className="hover:bg-muted/30">
-                            <TableCell className="pl-4 font-medium text-brand-primary">
-                              {student.fullName ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {student.rollNumber ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {student.departmentName ?? '—'}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {student.collegeName ?? '—'}
-                            </TableCell>
-                            <TableCell className="pr-4">
-                              <StudentStatusBadge status={student.status} />
+                      </TableHeader>
+                      <TableBody>
+                        {students.data.items.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                              No students enrolled in this batch yet.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          students.data.items.map((student) => (
+                            <TableRow key={student.id} className="hover:bg-muted/30">
+                              <TableCell className="pl-4 font-medium text-brand-primary">
+                                {student.fullName ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {student.rollNumber ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {student.departmentName ?? '—'}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {student.collegeName ?? '—'}
+                              </TableCell>
+                              <TableCell className="pr-4">
+                                <StudentStatusBadge status={student.status} />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
 
-                  <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
-                    <p className="text-sm text-muted-foreground">
-                      Page {students.data.page} of {studentsTotalPages} &middot; {students.data.total}{' '}
-                      student
-                      {students.data.total === 1 ? '' : 's'}
-                      {students.isFetching ? ' · refreshing…' : ''}
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                        disabled={studentsPage <= 1 || students.isFetching}
-                        onClick={() => setStudentsPage((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                        disabled={studentsPage >= studentsTotalPages || students.isFetching}
-                        onClick={() => setStudentsPage((p) => Math.min(studentsTotalPages, p + 1))}
-                      >
-                        Next
-                      </Button>
+                    <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+                      <p className="text-sm text-muted-foreground">
+                        Page {students.data.page} of {studentsTotalPages} &middot; {students.data.total}{' '}
+                        student
+                        {students.data.total === 1 ? '' : 's'}
+                        {students.isFetching ? ' · refreshing…' : ''}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                          disabled={studentsPage <= 1 || students.isFetching}
+                          onClick={() => setStudentsPage((p) => Math.max(1, p - 1))}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                          disabled={studentsPage >= studentsTotalPages || students.isFetching}
+                          onClick={() => setStudentsPage((p) => Math.min(studentsTotalPages, p + 1))}
+                        >
+                          Next
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
+                )}
+              </TabsContent>
+
+              {/* item 10 part 1 — one row per scheduled/live/completed
+                  assessment assigned to this batch, with its participation
+                  ratio (analytics.service.ts's getBatchAssessmentParticipation).
+                  Clicking a row is the "drill into one assessment" step:
+                  navigates to BatchPerformancePage pre-filled via
+                  ?batchId=&assessmentId=, which reuses getBatchPerformance's
+                  existing per-student table + Pass/Fail pie chart + score
+                  histogram — none of that is rebuilt here. */}
+              <TabsContent value="assessments" className="space-y-4 pt-4">
+                <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                  Assessment Participation — {selectedBatch.name}
+                </h2>
+
+                {participation.isPending && (
+                  <div className="space-y-2" role="status" aria-label="Loading assessment participation">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
+                    ))}
+                  </div>
+                )}
+
+                {participation.isError && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                    {participation.error instanceof ApiError
+                      ? participation.error.message
+                      : 'Failed to load assessment participation. Please try again.'}
+                  </div>
+                )}
+
+                {participation.data && (
+                  <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                          <TableHead className="pl-4">Assessment</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Attempted / Total</TableHead>
+                          <TableHead className="pr-4">Participation</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {participation.data.assessments.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                              No scheduled, live, or completed assessments assigned to this batch yet.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          participation.data.assessments.map((row) => (
+                            <TableRow key={row.assessmentId} className="hover:bg-muted/30">
+                              <TableCell className="pl-4 font-medium">
+                                <Link
+                                  to={`/trainer/analytics?batchId=${selectedBatch.id}&assessmentId=${row.assessmentId}`}
+                                  className="text-brand-primary hover:underline"
+                                >
+                                  {row.assessmentTitle}
+                                </Link>
+                              </TableCell>
+                              <TableCell>
+                                <AssessmentStatusBadge status={row.status as AssessmentStatus} />
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {row.studentsAttempted} / {row.totalStudents}
+                              </TableCell>
+                              <TableCell className="pr-4 text-muted-foreground">
+                                {row.participationRate !== null
+                                  ? `${Math.round(row.participationRate * 100)}%`
+                                  : '—'}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </CollapsibleContent>
       </Collapsible>

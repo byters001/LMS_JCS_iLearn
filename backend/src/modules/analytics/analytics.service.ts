@@ -10,6 +10,8 @@ import type { GetBatchPerformanceQuery } from './analytics.schema';
 import type {
   AttendanceByDateResult,
   AttemptScorePercentage,
+  BatchAssessmentParticipationResult,
+  BatchAssessmentParticipationRow,
   BatchPerformanceSummary,
   FailedStudentsBatchGroup,
   FailedStudentsResult,
@@ -315,6 +317,67 @@ async function getBatchPerformance(
   };
 }
 
+// --- Batch assessment participation (item 10 part 1) ---
+//
+// Module ownership: analytics, not trainers — this is cross-cutting
+// aggregation over assessments/attempts/students for ONE batch (exactly
+// getBatchPerformance's own shape of problem, just one level up: "which
+// assessment" instead of "which student"), and CLAUDE.md carves analytics
+// out as the explicit exception allowed to query across module
+// boundaries for exactly this reason. trainers.service.ts's Phase 5
+// getTrainerPerformance is the precedent for HOW a Faculty-facing feature
+// should compose this, not WHERE the aggregation itself lives — that
+// function doesn't compute anything itself, it resolves which batches a
+// trainer owns (organizationService) and then calls INTO
+// analyticsService.getTrainerPerformanceTrend for the actual numbers. This
+// function is that same "analytics does the aggregation" role for item
+// 10 — MyBatchesPage calls it directly for one already-known batchId
+// (the trainer picked it from their own /batches/mine list), so there's
+// no separate trainers.service.ts wrapper needed the way Phase 5's
+// multi-batch trainer dashboard needed one.
+//
+// Reuses assertCanAccessBatch as-is (same Faculty-own-college-only /
+// Super-Admin-unrestricted scoping getBatchPerformance already enforces)
+// — no separate authorization concept invented for this endpoint.
+async function getBatchAssessmentParticipation(
+  batchId: string,
+  activeCollegeId: string | null,
+): Promise<BatchAssessmentParticipationResult> {
+  await assertCanAccessBatch(batchId, activeCollegeId);
+  const batch = await organizationService.findBatchById(batchId);
+
+  const [assessmentRows, studentIds] = await Promise.all([
+    analyticsRepository.listAssessmentsAssignedToBatch(batchId),
+    analyticsRepository.listActiveStudentIdsForBatch(batchId),
+  ]);
+
+  const attemptedCounts = await analyticsRepository.countAttemptedStudentsByAssessment(
+    assessmentRows.map((row) => row.assessmentId),
+    studentIds,
+  );
+  const attemptedByAssessment = new Map(
+    attemptedCounts.map((row) => [row.assessmentId, Number(row.attemptedCount)]),
+  );
+
+  const totalStudents = studentIds.length;
+  const assessments: BatchAssessmentParticipationRow[] = assessmentRows.map((row) => {
+    const studentsAttempted = attemptedByAssessment.get(row.assessmentId) ?? 0;
+    return {
+      assessmentId: row.assessmentId,
+      assessmentTitle: row.title,
+      status: row.status,
+      testCategory: row.testCategory,
+      startAt: row.startAt ? row.startAt.toISOString() : null,
+      endAt: row.endAt ? row.endAt.toISOString() : null,
+      studentsAttempted,
+      totalStudents,
+      participationRate: totalStudents > 0 ? studentsAttempted / totalStudents : null,
+    };
+  });
+
+  return { batchId, batchName: batch.name, totalStudents, assessments };
+}
+
 // --- Trainer performance trend (Phase 5) ---
 //
 // Reuses getBatchPerformance as-is, once per (batchId, assessmentId) pair
@@ -546,6 +609,7 @@ async function getScorePercentagesForAttempts(
 
 export const analyticsService = {
   getBatchPerformance,
+  getBatchAssessmentParticipation,
   getTrainerPerformanceTrend,
   getAttendanceByDate,
   getFailedStudents,

@@ -2,7 +2,11 @@
 // This is the only file in this feature allowed to import from api/.
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
-import type { BatchPerformanceSummary, GetBatchPerformanceParams } from './types'
+import type {
+  BatchAssessmentParticipationResult,
+  BatchPerformanceSummary,
+  GetBatchPerformanceParams,
+} from './types'
 
 function getBatchPerformance(
   batchId: string,
@@ -33,5 +37,24 @@ export function useBatchPerformance(
     queryFn: () => getBatchPerformance(batchId as string, params),
     enabled: Boolean(batchId),
     placeholderData: keepPreviousData,
+  })
+}
+
+// --- Batch assessment participation (item 10 part 1) ---
+
+function getBatchAssessmentParticipation(batchId: string): Promise<BatchAssessmentParticipationResult> {
+  return api.get<BatchAssessmentParticipationResult>(`/analytics/batches/${batchId}/assessments`)
+}
+
+// No params beyond batchId — matches the backend route exactly (analytics.
+// routes.ts's GET /analytics/batches/:batchId/assessments takes no query
+// schema at all, confirmed by reading the real route, not assumed). Every
+// participation-eligible assessment assigned to the batch comes back in
+// one unpaginated list.
+export function useBatchAssessmentParticipation(batchId: string | undefined) {
+  return useQuery({
+    queryKey: ['analytics', 'batch-assessment-participation', batchId],
+    queryFn: () => getBatchAssessmentParticipation(batchId as string),
+    enabled: Boolean(batchId),
   })
 }

@@ -1,5 +1,18 @@
 import { useState } from 'react'
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { useSearchParams } from 'react-router-dom'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/Combobox'
@@ -20,11 +33,69 @@ import type { PerStudentStatus } from '../types'
 
 const STUDENT_PAGE_SIZE = 20
 const PICKER_PAGE_SIZE = 100
+// Batches are class-sized cohorts (analytics.service.ts's own "Live query
+// vs caching" comment) — one bounded fetch of every qualifying student's
+// score is cheap enough to bucket into a histogram client-side, same
+// MAX_PAGE_SIZE-for-a-full-snapshot precedent analytics.service.ts's own
+// getFailedStudents already established server-side.
+const HISTOGRAM_PAGE_SIZE = 100
+const HISTOGRAM_BIN_COUNT = 5
 
 // Validated colorblind-safe pair (dataviz skill's validate_palette.js,
 // light mode, both checks pass — CVD separation and contrast vs surface).
 const PASS_COLOR = '#16a34a'
 const FAIL_COLOR = '#dc2626'
+// Single series (a count-per-bucket histogram), not a categorical
+// comparison — dataviz skill's color-formula: one hue for a magnitude
+// encoding, no legend needed for a lone series. Reuses the app's own
+// brand-accent value (tailwind.config.js) rather than inventing a new
+// color, matching CLAUDE1.md's "never invent brand colors" rule.
+const HISTOGRAM_COLOR = '#4A44C4'
+
+interface ScoreHistogramBucket {
+  bucket: string
+  count: number
+}
+
+// Bar chart, not a dedicated "histogram" component — Recharts has none;
+// bucketing raw scores into fixed-width ranges and rendering counts via
+// BarChart/Bar is the standard way to render a histogram with this
+// library, which this codebase already uses everywhere else for charts
+// (CLAUDE1.md: "Recharts — charts, used in reports/analytics and score
+// breakdowns"). Buckets raw totalScore, not a normalized percentage —
+// same convention analytics.service.ts's own scoreDistribution (min/max/
+// median) already uses, since a pool-based section's frozen selections
+// can give different attempts different total possible marks (see that
+// file's module comment), so there is no single fixed 0–100 scale to
+// normalize against that would stay meaningful across every attempt.
+function buildScoreHistogram(scores: number[]): ScoreHistogramBucket[] {
+  if (scores.length === 0) return []
+
+  const min = Math.min(...scores)
+  const max = Math.max(...scores)
+  if (min === max) {
+    return [{ bucket: min.toFixed(1), count: scores.length }]
+  }
+
+  const binWidth = (max - min) / HISTOGRAM_BIN_COUNT
+  const bins = Array.from({ length: HISTOGRAM_BIN_COUNT }, (_, i) => ({
+    rangeStart: min + i * binWidth,
+    rangeEnd: min + (i + 1) * binWidth,
+    count: 0,
+  }))
+
+  for (const score of scores) {
+    // The max score would otherwise fall one bin past the end (each bin is
+    // a half-open [start, end) range) — clamped into the last bin instead.
+    const index = score >= max ? HISTOGRAM_BIN_COUNT - 1 : Math.floor((score - min) / binWidth)
+    bins[index].count += 1
+  }
+
+  return bins.map((bin) => ({
+    bucket: `${bin.rangeStart.toFixed(1)}–${bin.rangeEnd.toFixed(1)}`,
+    count: bin.count,
+  }))
+}
 
 const STATUS_LABELS: Record<PerStudentStatus, string> = {
   not_attempted: 'Not Attempted',
@@ -73,8 +144,15 @@ function StatTile({ label, value }: { label: string; value: string }) {
 // Combobox + useBatches pattern BatchesEditor.tsx already established,
 // rather than rebuilding a picker.
 export default function BatchPerformancePage() {
-  const [batchId, setBatchId] = useState<string | null>(null)
-  const [assessmentId, setAssessmentId] = useState<string | null>(null)
+  // Pre-fill from MyBatchesPage's "Assessment Participation" drill-down
+  // (?batchId=&assessmentId=), which already knows both ids — same
+  // query-param pre-fill shape as CreateQuestionPage's ?type=&difficulty=.
+  // Falls back to manual Combobox selection (this page's original
+  // behavior) when absent, e.g. this page opened directly from its own
+  // nav link.
+  const [searchParams] = useSearchParams()
+  const [batchId, setBatchId] = useState<string | null>(() => searchParams.get('batchId'))
+  const [assessmentId, setAssessmentId] = useState<string | null>(() => searchParams.get('assessmentId'))
   const [page, setPage] = useState(1)
 
   // GET /batches now requires collegeId, enforced server-side (Phase 2 of
@@ -107,6 +185,23 @@ export default function BatchPerformancePage() {
     page,
     pageSize: STUDENT_PAGE_SIZE,
   })
+
+  // Separate full-snapshot fetch for the histogram below — independent of
+  // the paginated table's own `page` state (a stable page:1/pageSize:100
+  // request, not re-fetched on every table page click), same "a second
+  // full-batch call for a different purpose" precedent analytics.
+  // service.ts's getFailedStudents/getTrainerPerformanceTrend already
+  // established server-side for reusing getBatchPerformance.
+  const histogramSource = useBatchPerformance(batchId ?? undefined, {
+    assessmentId: assessmentId ?? undefined,
+    page: 1,
+    pageSize: HISTOGRAM_PAGE_SIZE,
+  })
+  const histogramData = buildScoreHistogram(
+    (histogramSource.data?.students ?? [])
+      .filter((student) => student.status === 'passed' || student.status === 'failed')
+      .map((student) => Number(student.totalScore)),
+  )
 
   const batchOptions = (batches.data?.items ?? []).map((batch) => ({
     value: batch.id,
@@ -299,6 +394,42 @@ export default function BatchPerformancePage() {
                   <Legend />
                   <Tooltip formatter={(value) => `${Math.round(Number(value) * 100)}%`} />
                 </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                No graded attempts yet for this assessment — the chart will appear once at least
+                one student's attempt has been fully evaluated.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+            <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              Score Distribution
+            </h3>
+            {histogramData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={histogramData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <XAxis
+                    dataKey="bucket"
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                    tickLine={false}
+                    axisLine={{ stroke: 'var(--border)' }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={28}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'var(--muted)' }}
+                    formatter={(value) => [`${value} student${value === 1 ? '' : 's'}`, 'Count']}
+                  />
+                  <Bar dataKey="count" fill={HISTOGRAM_COLOR} radius={[4, 4, 0, 0]} maxBarSize={56} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">

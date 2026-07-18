@@ -25,6 +25,20 @@ async function getBatchPerformance(
   reply.status(200).send(response);
 }
 
+async function getBatchAssessmentParticipation(
+  request: FastifyRequest<{ Params: BatchIdParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const activeCollegeId = requireActiveCollegeId(request);
+  const result = await analyticsService.getBatchAssessmentParticipation(
+    request.params.batchId,
+    activeCollegeId,
+  );
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const analyticsController = {
   getBatchPerformance,
+  getBatchAssessmentParticipation,
 };
