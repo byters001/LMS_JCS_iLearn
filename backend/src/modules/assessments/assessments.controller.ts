@@ -35,7 +35,8 @@ async function listAssessments(
   request: FastifyRequest<{ Querystring: ListAssessmentsQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const result = await assessmentsService.listAssessments(request.query);
+  const userId = requireUserId(request);
+  const result = await assessmentsService.listAssessments(userId, request.query);
   const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
   reply.status(200).send(response);
 }

@@ -9,6 +9,7 @@ import { organizationService } from '../organization/organization.service';
 import { questionBankService } from '../question-bank/question-bank.service';
 import { studentsService } from '../students/students.service';
 import { trainersService } from '../trainers/trainers.service';
+import { getRoleAssignmentsForUser } from '../../rbac/role-assignments';
 import {
   ConflictError,
   ForbiddenError,
@@ -200,12 +201,54 @@ function assertMatchesTestCategory(
 // exposed (below) since querying "who can take this" independently of a
 // full re-fetch is legitimately useful.
 
-async function listAssessments(query: ListAssessmentsQuery): Promise<ListAssessmentsResult> {
+// Item 6 — GET /assessments is gated by 'assessments.create', a permission
+// schema.sql grants to BOTH super_admin and faculty (requireAnyPermission-
+// free single-key route — see assessments.routes.ts's ASSESSMENTS_MANAGE).
+// This was originally left unscoped for both roles as a deliberate design
+// choice: they were assumed equally trusted to see the full platform list.
+// That assumption doesn't hold for faculty in practice (a trainer could see
+// every assessment platform-wide, not just their own), so this is a real
+// BEHAVIOR CHANGE for faculty, not a pure bug fix — flagging that
+// explicitly rather than presenting it as a silent correction.
+//
+// super_admin's path is required to stay completely unscoped, byte-for-
+// byte. Role identity (not the shared assessments.create permission
+// itself, which can't distinguish the two roles) is what decides the
+// branch — getRoleAssignmentsForUser is queried fresh rather than trusting
+// permissionCache, since permission KEYS don't carry role SLUG identity at
+// all (confirmed: rbac/permission-cache.ts stores PermissionKey[], never a
+// role). Returns undefined for a super_admin caller (assessmentsRepository.
+// listAssessments treats undefined as "no filter, run the original query
+// unchanged" — see that function's own comment) and a real batch id array
+// (possibly empty) for anyone else who reached this far, which given this
+// route's own permission gate can only be faculty.
+async function resolveAssessmentListBatchScope(userId: string): Promise<string[] | undefined> {
+  const roleAssignments = await getRoleAssignmentsForUser(userId);
+  const isSuperAdmin = roleAssignments.some(
+    (assignment) => assignment.role.slug === 'super_admin',
+  );
+  if (isSuperAdmin) {
+    return undefined;
+  }
+
+  const trainerBatchAssignments = await organizationService.listBatchAssignmentsForTrainers([
+    userId,
+  ]);
+  return trainerBatchAssignments.map((assignment) => assignment.batchId);
+}
+
+async function listAssessments(
+  userId: string,
+  query: ListAssessmentsQuery,
+): Promise<ListAssessmentsResult> {
+  const batchIds = await resolveAssessmentListBatchScope(userId);
+
   const { items, total } = await assessmentsRepository.listAssessments({
     trainingSessionId: query.trainingSessionId,
     status: query.status,
     testCategory: query.testCategory,
     search: query.search,
+    batchIds,
     page: query.page,
     pageSize: query.pageSize,
   });

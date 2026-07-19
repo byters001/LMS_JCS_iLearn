@@ -27,6 +27,16 @@ export interface ListAssessmentsParams {
   status?: 'draft' | 'review' | 'approved' | 'scheduled' | 'live' | 'completed' | 'archived';
   testCategory?: 'mcq' | 'coding' | 'psychometric' | 'mixed';
   search?: string;
+  // Item 6 (faculty batch-scoping) — undefined means "unscoped," and takes
+  // this function down the EXACT SAME code path (plain select, no join, no
+  // distinct) it ran before this fix, byte-for-byte. Only assessments.
+  // service.ts's caller ever sets this, and only for a non-super_admin
+  // caller; super_admin always passes undefined, matching the explicit
+  // requirement that super_admin's query path stay completely unscoped.
+  // An empty array is the real "faculty assigned to zero batches" case —
+  // short-circuits to no results, same "empty batchIds -> skip the query"
+  // precedent listAvailableAssessments below already established.
+  batchIds?: string[];
   page: number;
   pageSize: number;
 }
@@ -36,7 +46,9 @@ export interface ListAssessmentsResult {
   total: number;
 }
 
-function buildAssessmentsWhere(params: Omit<ListAssessmentsParams, 'page' | 'pageSize'>) {
+function buildAssessmentsWhere(
+  params: Omit<ListAssessmentsParams, 'page' | 'pageSize' | 'batchIds'>,
+) {
   const conditions = [isNull(assessments.deletedAt)];
   if (params.trainingSessionId) {
     conditions.push(eq(assessments.trainingSessionId, params.trainingSessionId));
@@ -50,10 +62,43 @@ function buildAssessmentsWhere(params: Omit<ListAssessmentsParams, 'page' | 'pag
 }
 
 async function listAssessments(params: ListAssessmentsParams): Promise<ListAssessmentsResult> {
-  const { page, pageSize, ...filters } = params;
+  const { page, pageSize, batchIds, ...filters } = params;
   const offset = (page - 1) * pageSize;
   const where = buildAssessmentsWhere(filters);
 
+  if (batchIds !== undefined) {
+    // Faculty path (item 6) — same join/selectDistinct shape as
+    // listAvailableAssessments below, applied to the staff query's own
+    // filters instead of the student-facing status restriction.
+    if (batchIds.length === 0) {
+      return { items: [], total: 0 };
+    }
+
+    const scopedWhere = and(where, inArray(assessmentBatches.batchId, batchIds));
+
+    const [items, totalRows] = await Promise.all([
+      db
+        .selectDistinct({ assessment: assessments })
+        .from(assessments)
+        .innerJoin(assessmentBatches, eq(assessmentBatches.assessmentId, assessments.id))
+        .where(scopedWhere)
+        .orderBy(desc(assessments.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(distinct ${assessments.id})` })
+        .from(assessments)
+        .innerJoin(assessmentBatches, eq(assessmentBatches.assessmentId, assessments.id))
+        .where(scopedWhere),
+    ]);
+
+    return {
+      items: items.map((row) => row.assessment),
+      total: Number(totalRows[0]?.count ?? 0),
+    };
+  }
+
+  // Super_admin path — UNCHANGED from before item 6, same query every line.
   const [items, totalRows] = await Promise.all([
     db
       .select()
