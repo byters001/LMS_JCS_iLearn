@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useColleges } from '../api'
 import { CollegeFormDialog } from '../components/CollegeFormDialog'
 import { DeleteCollegeDialog } from '../components/DeleteCollegeDialog'
+import { TrainingProgramFormDialog } from '../components/TrainingProgramFormDialog'
 import DepartmentListPage from './DepartmentListPage'
 import type { College, CollegeStatus } from '../types'
 
@@ -48,6 +49,7 @@ export default function CollegeListPage() {
   const [page, setPage] = useState(1)
   const [formCollege, setFormCollege] = useState<College | null | undefined>(undefined)
   const [deleteCollege, setDeleteCollege] = useState<College | null>(null)
+  const [programCollege, setProgramCollege] = useState<College | null>(null)
 
   const colleges = useColleges({ page, pageSize: PAGE_SIZE })
 
@@ -129,6 +131,14 @@ export default function CollegeListPage() {
                             <Button
                               variant="outline"
                               size="sm"
+                              className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                              onClick={() => setProgramCollege(college)}
+                            >
+                              New Program
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => setFormCollege(college)}
                             >
                               Edit
@@ -204,6 +214,17 @@ export default function CollegeListPage() {
           open={deleteCollege !== null}
           onOpenChange={(nextOpen) => {
             if (!nextOpen) setDeleteCollege(null)
+          }}
+        />
+      )}
+
+      {programCollege && (
+        <TrainingProgramFormDialog
+          collegeId={programCollege.id}
+          collegeName={programCollege.name}
+          open={programCollege !== null}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) setProgramCollege(null)
           }}
         />
       )}

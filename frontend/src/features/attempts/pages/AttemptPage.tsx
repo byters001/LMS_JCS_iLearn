@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import type { ListAvailableAssessmentsResponse } from '@/features/assessments/types'
 import { useAttempt, useAttemptQuestions, useSubmitAttempt } from '../api'
@@ -10,6 +11,27 @@ import { McqQuestion } from '../components/McqQuestion'
 import { PsychometricQuestion } from '../components/PsychometricQuestion'
 import { QuestionNavigator } from '../components/QuestionNavigator'
 import { SubmitAttemptButton } from '../components/SubmitAttemptButton'
+
+// Item 4 — same pattern as features/assessments/pages/AssessmentDetailPage.tsx's
+// describeStartAttemptError: read the real ApiError.code/.message instead of
+// collapsing every failure (attempt not found, not yours, not a student, a
+// genuine network/500) into one identical string. NOT_FOUND/FORBIDDEN get a
+// student-facing rewording of the backend's own message (which is written
+// for a developer reading a response body, not a student mid-assessment);
+// every other code falls through to the backend's own message as-is, same
+// "it's already specific and safe to show" call the sibling function makes.
+function describeAttemptLoadError(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return "Couldn't load this attempt. Please refresh, or contact your trainer if this persists."
+  }
+  if (error.code === 'NOT_FOUND') {
+    return "This attempt couldn't be found — it may have been removed. Contact your trainer if this persists."
+  }
+  if (error.code === 'FORBIDDEN') {
+    return "You don't have access to this attempt — contact your trainer if you believe this is a mistake."
+  }
+  return error.message
+}
 
 // Part 3: real answer submission (per-question Save/Run-Submit, wired in
 // McqQuestion/PsychometricQuestion/CodingQuestion) and final submit — both
@@ -76,12 +98,16 @@ export default function AttemptPage() {
   }
 
   if (attemptQuery.isError || questionsQuery.isError || !questionsQuery.data) {
+    // Whichever query actually failed — both are real ApiErrors by the time
+    // they reach here (see api/index.ts's response interceptor). Neither
+    // being set (just !questionsQuery.data with no error) is a distinct,
+    // genuinely error-less edge case, not something describeAttemptLoadError
+    // has a real error to describe — falls through to its own instanceof
+    // guard's generic string instead.
+    const loadError = attemptQuery.error ?? questionsQuery.error
     return (
       <div className="p-6">
-        <p className="text-sm text-destructive">
-          Couldn&apos;t load this attempt. Please refresh, or contact your trainer if this
-          persists.
-        </p>
+        <p className="text-sm text-destructive">{describeAttemptLoadError(loadError)}</p>
       </div>
     )
   }

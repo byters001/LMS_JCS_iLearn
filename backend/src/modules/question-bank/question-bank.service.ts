@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   CodingQuestionDetails,
   CodingTestCase,
@@ -12,6 +13,7 @@ import type {
   QuestionVersion,
 } from '../../db/types';
 import { organizationService } from '../organization/organization.service';
+import { STORAGE_BUCKET, storageService } from '../../integrations/supabase';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { questionBankRepository } from './question-bank.repository';
 import type {
@@ -1044,6 +1046,40 @@ async function resolveQuestionPool(questionPoolId: string): Promise<ResolvedQues
   };
 }
 
+// --- Question/option images (item 2) ---
+//
+// Not tied to an existing question/version id (unlike users.service.ts's
+// uploadAvatar, which writes STORAGE_BUCKET.AVATARS at a deterministic
+// `${userId}/avatar` path and immediately persists the URL onto that user's
+// row) — a question is created with its content (including options/images)
+// in ONE atomic call (createQuestionWithVersion), so there is no question/
+// version id yet at the moment a trainer picks an image while filling out
+// the create form. question_options.option_image_url and question_images.
+// image_url are both already plain TEXT columns with no FK to a "pending
+// upload" table (confirmed against db/schema/question-bank.schema.ts), so
+// this mirrors that: upload straight into STORAGE_BUCKET.QUESTION_IMAGES
+// under a per-uploader path and hand back the public URL, which the
+// frontend then includes as a plain imageUrl string in the create/version
+// payload exactly like any other field — no schema change, no move/staging
+// step needed. Uploads that get discarded before the question is ever
+// submitted become orphaned storage objects; sweeping those up is exactly
+// what jobs/temp-storage-purge.job.ts is reserved for (currently a stub —
+// out of scope here, this only adds the upload path it would eventually
+// clean up after).
+async function uploadQuestionImage(
+  file: Buffer,
+  contentType: string,
+  uploadedBy: string,
+): Promise<string> {
+  const extension = contentType.split('/')[1] ?? 'bin';
+  const path = `${uploadedBy}/${randomUUID()}.${extension}`;
+
+  await storageService.upload(STORAGE_BUCKET.QUESTION_IMAGES, path, file, contentType);
+
+  const { url } = storageService.getPublicUrl(STORAGE_BUCKET.QUESTION_IMAGES, path);
+  return url;
+}
+
 export const questionBankService = {
   listQuestionCategories,
   findQuestionCategoryById,
@@ -1102,4 +1138,5 @@ export const questionBankService = {
   updateQuestionPoolCriteria,
   deleteQuestionPoolCriteria,
   resolveQuestionPool,
+  uploadQuestionImage,
 };

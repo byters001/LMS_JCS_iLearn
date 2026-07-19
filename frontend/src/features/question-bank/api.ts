@@ -212,6 +212,26 @@ export function useTags(params: ListQuestionTagsParams) {
   })
 }
 
+// --- Question/option image upload (item 2) ---
+//
+// Not tied to a question id — see backend's question-bank.service.ts
+// uploadQuestionImage comment for why (a question's content, including its
+// options/images, is created in ONE atomic POST /questions call, so there's
+// no id yet at the point a trainer picks a file on the create form). FormData,
+// not JSON — axios sets the multipart Content-Type boundary automatically
+// as long as it's never set by hand here (same reasoning CLAUDE1.md's own
+// "file uploads go through the backend module's multipart endpoint" rule
+// assumes).
+function uploadQuestionImage(file: File): Promise<{ imageUrl: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post<{ imageUrl: string }>('/questions/images', formData)
+}
+
+export function useUploadQuestionImage() {
+  return useMutation({ mutationFn: uploadQuestionImage })
+}
+
 // --- Question creation (this phase) ---
 
 function createQuestion(input: CreateQuestionInput): Promise<QuestionWithCurrentVersion> {

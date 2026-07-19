@@ -45,9 +45,34 @@ export interface ListQuestionsResponse {
   pageSize: number
 }
 
-// The version-scoped content GET /questions/:id joins in — only the fields
-// the picker needs (questionText for the label/search), not the full
-// options/images/codingDetails/testCases/psychometric* payload.
+// A question_options row as GET /questions/:id actually returns it — this
+// is the STAFF-facing preview (QuestionDetailPage), not the sanitized
+// test-taker shape features/attempts/types.ts's AttemptOption uses, so
+// isCorrect is included here on purpose (matches backend's real
+// QuestionOption row, confirmed against db/schema/question-bank.schema.ts).
+export interface QuestionOptionContent {
+  id: string
+  optionText: string
+  imageUrl: string | null
+  isCorrect: boolean
+  sortOrder: number
+}
+
+// A question_images row — question-level illustrative images, applies to
+// any question type.
+export interface QuestionImageContent {
+  id: string
+  imageUrl: string
+  caption: string | null
+  sortOrder: number
+}
+
+// The version-scoped content GET /questions/:id joins in. Item 2 expanded
+// this from text/marks-only to also carry options/images (both already
+// returned by the backend's QuestionVersionWithContent — see
+// question-bank.types.ts on the backend — this type had just never been
+// widened to match), so QuestionDetailPage can actually render uploaded
+// images/options instead of silently dropping them.
 export interface QuestionVersionContent {
   id: string
   questionId: string
@@ -55,6 +80,8 @@ export interface QuestionVersionContent {
   questionText: string
   marks: string
   isActiveVersion: boolean
+  options: QuestionOptionContent[]
+  images: QuestionImageContent[]
 }
 
 // Matches backend's QuestionWithCurrentVersion — the questions row plus its
@@ -180,6 +207,14 @@ export interface QuestionOptionInput {
   sortOrder?: number
 }
 
+// Matches backend's questionImageInputSchema exactly (.strict()) —
+// question-level illustrative image, applies to any question type.
+export interface QuestionImageInput {
+  imageUrl: string
+  caption?: string
+  sortOrder?: number
+}
+
 export interface CodingQuestionDetailsInput {
   problemStatement: string
   inputFormat?: string
@@ -235,6 +270,7 @@ export interface CreateQuestionInput {
   questionText: string
   marks?: number
   options?: QuestionOptionInput[]
+  images?: QuestionImageInput[]
   codingDetails?: CodingQuestionDetailsInput
   testCases?: CodingTestCaseInput[]
   psychometricDetails?: PsychometricDetailsInput

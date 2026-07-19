@@ -344,6 +344,23 @@ export async function questionBankRoutes(fastify: FastifyInstance): Promise<void
     questionBankController.createQuestion,
   );
 
+  // Item 2 — multipart file upload, not JSON: reuses the existing
+  // multipart/form-data mechanism users.routes.ts's POST /users/:id/avatar
+  // already established (see question-bank.controller.ts's
+  // uploadQuestionImage for the exact same fail-fast-MIME-check-then-buffer
+  // shape). No preValidation body schema here for the same reason avatar
+  // upload has none — there's no JSON body to validate, just a file.
+  // Deliberately NOT nested under /questions/:id — see
+  // question-bank.service.ts's uploadQuestionImage for why this can't be
+  // tied to a question id yet at upload time.
+  fastify.post(
+    '/questions/images',
+    {
+      preHandler: [fastify.authenticate, QUESTION_BANK_MANAGE],
+    },
+    questionBankController.uploadQuestionImage,
+  );
+
   // Metadata only (category/difficulty/college) — never touches version
   // content. See createQuestionVersion below for content edits.
   fastify.patch<{ Params: QuestionIdParams; Body: UpdateQuestionInput }>(

@@ -22,6 +22,33 @@ function getClientErrorStatusCode(error: Error): number | undefined {
 export default fp(async function errorHandlerPlugin(fastify: FastifyInstance) {
   fastify.setErrorHandler((error: Error, request: FastifyRequest, reply: FastifyReply) => {
     if (error instanceof AppError) {
+      // Item 4 fix: this branch previously sent the response and returned
+      // with NO logger call at all — every AppError thrown anywhere in the
+      // app (NotFoundError, ForbiddenError, ConflictError, etc; this is
+      // NOT specific to the attempts module) left zero trace in the server
+      // log. That's a systemic gap, not an attempts-only one, since this is
+      // the ONE place every AppError from every module funnels through —
+      // same "fix it where it actually is" reasoning as this codebase's
+      // .strict()/z.coerce.boolean() audits. warn, not error: an AppError
+      // is an expected, handled outcome (a real 404/403/409), not an
+      // unhandled fault — the true 500 branch below already uses
+      // logger.error for that distinction, and the raw-4xx branch above
+      // already uses logger.warn for the same "client fault, not an
+      // incident" reasoning this mirrors. userId is included when the
+      // request got far enough to authenticate (request.user is only set
+      // by fastify.authenticate — see plugins/authenticate.plugin.ts);
+      // absent (not null) for routes where auth itself is what failed.
+      logger.warn(
+        {
+          err: error,
+          reqId: request.id,
+          method: request.method,
+          url: request.url,
+          userId: request.user?.id,
+        },
+        'Handled application error',
+      );
+
       const response: ApiErrorResponse = {
         success: false,
         error: {

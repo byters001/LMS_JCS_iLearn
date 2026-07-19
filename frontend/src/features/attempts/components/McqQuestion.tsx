@@ -54,6 +54,19 @@ export function McqQuestion({ attemptId, question }: McqQuestionProps) {
         </span>
       </div>
 
+      {question.images && question.images.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          {question.images.map((image) => (
+            <img
+              key={image.id}
+              src={image.imageUrl}
+              alt={image.caption ?? ''}
+              className="h-32 w-auto max-w-full rounded-md border border-border object-contain"
+            />
+          ))}
+        </div>
+      )}
+
       <div className="mt-5 space-y-2.5">
         {question.options.map((option) => (
           <label

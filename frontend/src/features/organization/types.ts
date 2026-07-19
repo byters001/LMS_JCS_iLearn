@@ -200,6 +200,19 @@ export interface ListTrainingProgramsResponse {
   pageSize: number
 }
 
+// Matches createTrainingProgramSchema exactly (.strict()) — departmentId is
+// required (a training program can't exist unscoped from a department,
+// mirroring CreateDepartmentInput's own collegeId requirement above).
+export interface CreateTrainingProgramInput {
+  collegeId: string
+  departmentId: string
+  academicYearId?: string
+  name: string
+  description?: string
+  startDate?: string
+  endDate?: string
+}
+
 // Matches backend/src/modules/organization/organization.repository.ts's
 // batchTrainers row shape exactly — this endpoint returns the raw
 // batch_trainers row (no joined trainer name/email); the picker/list UI

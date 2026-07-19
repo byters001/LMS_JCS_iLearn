@@ -7,6 +7,7 @@ import { ApiError } from '@/api'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
 import { Button } from '@/components/ui/button'
 import { useColleges, useCreateBatch, useTrainingPrograms } from '../api'
+import { TrainingProgramFormDialog } from '../components/TrainingProgramFormDialog'
 
 const inputClassName =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
@@ -39,11 +40,14 @@ export default function CreateBatchPage() {
   const createBatch = useCreateBatch()
 
   const [collegeId, setCollegeId] = useState<string | null>(null)
+  const [showCreateProgram, setShowCreateProgram] = useState(false)
   const colleges = useColleges({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const collegeOptions: ComboboxOption[] = (colleges.data?.items ?? []).map((college) => ({
     value: college.id,
     label: college.name,
   }))
+  const selectedCollegeName =
+    colleges.data?.items.find((college) => college.id === collegeId)?.name ?? ''
 
   const trainingPrograms = useTrainingPrograms(
     { collegeId: collegeId ?? '', page: 1, pageSize: PICKER_PAGE_SIZE },
@@ -108,9 +112,23 @@ export default function CreateBatchPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary" htmlFor="trainingProgramId">
-              Training Program
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-brand-primary" htmlFor="trainingProgramId">
+                Training Program
+              </label>
+              {/* Item 1 — lets the admin create a training program without
+                  leaving this flow, instead of forcing a trip to a separate
+                  screen. Disabled until a college is picked since
+                  TrainingProgramFormDialog needs a collegeId to scope to. */}
+              <button
+                type="button"
+                className="text-xs font-medium text-brand-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+                disabled={collegeId === null}
+                onClick={() => setShowCreateProgram(true)}
+              >
+                + New Program
+              </button>
+            </div>
             <Combobox
               id="trainingProgramId"
               options={trainingProgramOptions}
@@ -195,6 +213,18 @@ export default function CreateBatchPage() {
           </Button>
         </form>
       </div>
+
+      {collegeId !== null && (
+        <TrainingProgramFormDialog
+          collegeId={collegeId}
+          collegeName={selectedCollegeName}
+          open={showCreateProgram}
+          onOpenChange={setShowCreateProgram}
+          onCreated={(program) =>
+            setValue('trainingProgramId', program.id, { shouldValidate: true })
+          }
+        />
+      )}
     </div>
   )
 }

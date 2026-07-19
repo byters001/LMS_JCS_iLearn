@@ -10,6 +10,7 @@ import type {
   CreateBatchInput,
   CreateCollegeInput,
   CreateDepartmentInput,
+  CreateTrainingProgramInput,
   Department,
   ListBatchesParams,
   ListBatchesResponse,
@@ -22,6 +23,7 @@ import type {
   ListMyBatchesParams,
   ListTrainingProgramsParams,
   ListTrainingProgramsResponse,
+  TrainingProgram,
   UpdateBatchInput,
   UpdateCollegeInput,
   UpdateDepartmentInput,
@@ -253,6 +255,24 @@ export function useTrainingPrograms(
     queryFn: () => listTrainingPrograms(params),
     placeholderData: keepPreviousData,
     enabled: options?.enabled,
+  })
+}
+
+// --- Training program create (item 1 — inline creation from Colleges page
+// and the Batch creation training-program picker; list/get already existed
+// via useTrainingPrograms above, create never had a frontend caller). ---
+
+function createTrainingProgram(input: CreateTrainingProgramInput): Promise<TrainingProgram> {
+  return api.post<TrainingProgram>('/training-programs', input)
+}
+
+export function useCreateTrainingProgram() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createTrainingProgram,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'training-programs', 'list'] })
+    },
   })
 }
 

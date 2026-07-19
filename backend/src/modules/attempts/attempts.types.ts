@@ -43,6 +43,17 @@ export interface SanitizedOption {
   sortOrder: number;
 }
 
+// question_images row, sanitized: nothing to strip (no scoring metadata on
+// this table at all — see db/schema/question-bank.schema.ts's questionImages),
+// so this carries every column through as-is. Applies to any question type,
+// unlike SanitizedOption/SanitizedPsychometricOption below.
+export interface SanitizedImage {
+  id: string;
+  imageUrl: string;
+  caption: string | null;
+  sortOrder: number;
+}
+
 // Psychometric option, sanitized: trait_weight is deliberately omitted.
 // Confirmed directly against schema.sql's psychometric_options columns
 // (id, question_version_id, option_text, trait_weight, sort_order) — no
@@ -111,6 +122,7 @@ export interface SanitizedSavedResponse {
 // submit-code call has happened) — absent, not null, for an untouched one.
 export interface AttemptQuestionContent extends FrozenAttemptQuestion {
   type: 'mcq' | 'coding' | 'psychometric';
+  images?: SanitizedImage[];
   options?: SanitizedOption[];
   psychometricOptions?: SanitizedPsychometricOption[];
   coding?: SanitizedCodingContent;

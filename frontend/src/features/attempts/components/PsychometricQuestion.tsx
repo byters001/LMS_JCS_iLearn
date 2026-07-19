@@ -64,6 +64,19 @@ export function PsychometricQuestion({ attemptId, question }: PsychometricQuesti
         </span>
       </div>
 
+      {question.images && question.images.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          {question.images.map((image) => (
+            <img
+              key={image.id}
+              src={image.imageUrl}
+              alt={image.caption ?? ''}
+              className="h-32 w-auto max-w-full rounded-md border border-border object-contain"
+            />
+          ))}
+        </div>
+      )}
+
       {/* A connected track behind the points, not five isolated buttons —
           reads as one scale being picked from (classic Likert presentation)
           rather than a row of unrelated choices. */}

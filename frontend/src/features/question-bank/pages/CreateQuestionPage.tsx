@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
 import { cn } from '@/lib/utils'
 import { useCategories, useCreateQuestion, useTags, useTopics } from '../api'
+import { ImageUploadField } from '../components/ImageUploadField'
 import { CODING_LANGUAGE_LABELS } from '../types'
 import type { CodingLanguageKey, CreateQuestionInput, QuestionDifficulty, QuestionType } from '../types'
 
@@ -79,11 +80,16 @@ const createQuestionFormSchema = z
     tagIds: z.array(z.string()),
     questionText: z.string().min(1, 'Question text is required'),
     marks: optionalPositiveNumberString,
+    // Question-level illustrative image (item 2) — applies to any question
+    // type, not just mcq, so it lives alongside questionText/marks above
+    // rather than inside the mcq-only `options` block below.
+    questionImageUrl: z.string().optional(),
     // --- mcq ---
     options: z.array(
       z.object({
         optionText: z.string(),
         isCorrect: z.boolean(),
+        imageUrl: z.string().optional(),
       }),
     ),
     // --- coding ---
@@ -246,9 +252,10 @@ export default function CreateQuestionPage() {
       tagIds: [],
       questionText: '',
       marks: '',
+      questionImageUrl: undefined,
       options: [
-        { optionText: '', isCorrect: false },
-        { optionText: '', isCorrect: false },
+        { optionText: '', isCorrect: false, imageUrl: undefined },
+        { optionText: '', isCorrect: false, imageUrl: undefined },
       ],
       problemStatement: '',
       inputFormat: '',
@@ -273,6 +280,7 @@ export default function CreateQuestionPage() {
   const topicIds = watch('topicIds')
   const tagIds = watch('tagIds')
   const supportedLanguages = watch('supportedLanguages')
+  const questionImageUrl = watch('questionImageUrl')
 
   const categoryOptions: ComboboxOption[] = (categories.data?.items ?? []).map((c) => ({
     value: c.id,
@@ -314,10 +322,19 @@ export default function CreateQuestionPage() {
       tagIds: values.tagIds.length > 0 ? values.tagIds : undefined,
     }
 
+    if (values.questionImageUrl) {
+      payload.images = [{ imageUrl: values.questionImageUrl, sortOrder: 0 }]
+    }
+
     if (values.type === 'mcq') {
       payload.options = values.options
         .filter((o) => o.optionText.trim().length > 0)
-        .map((o, index) => ({ optionText: o.optionText, isCorrect: o.isCorrect, sortOrder: index }))
+        .map((o, index) => ({
+          optionText: o.optionText,
+          isCorrect: o.isCorrect,
+          imageUrl: o.imageUrl || undefined,
+          sortOrder: index,
+        }))
     }
 
     if (values.type === 'coding') {
@@ -421,6 +438,17 @@ export default function CreateQuestionPage() {
             )}
           </div>
 
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-brand-primary">
+              Question Image <span className="text-muted-foreground">(optional)</span>
+            </p>
+            <ImageUploadField
+              label="Question Image"
+              value={questionImageUrl}
+              onChange={(url) => setValue('questionImageUrl', url)}
+            />
+          </div>
+
           <div className="w-40 space-y-1.5">
             <label htmlFor="marks" className="text-sm font-medium text-brand-primary">
               Marks <span className="text-muted-foreground">(default 1)</span>
@@ -493,6 +521,12 @@ export default function CreateQuestionPage() {
                     placeholder={`Option ${index + 1}`}
                     className={inputClassName}
                     {...register(`options.${index}.optionText`)}
+                  />
+                  <ImageUploadField
+                    label="Image"
+                    value={watch(`options.${index}.imageUrl`)}
+                    onChange={(url) => setValue(`options.${index}.imageUrl`, url)}
+                    className="shrink-0"
                   />
                   <button
                     type="button"

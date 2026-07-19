@@ -354,6 +354,19 @@ async function buildRenderableQuestion(
     enriched.savedResponse = savedResponse;
   }
 
+  // Question-level illustrative images (question_images — diagrams/code
+  // screenshots/etc attached to the question text itself) apply regardless
+  // of type, unlike options/psychometricOptions/coding below — set here,
+  // once, ahead of the per-type branching. caption/sortOrder are as safe to
+  // expose as the image itself (no scoring metadata involved, same category
+  // as coding_question_details' fields further down).
+  enriched.images = version.images.map((image) => ({
+    id: image.id,
+    imageUrl: image.imageUrl,
+    caption: image.caption,
+    sortOrder: image.sortOrder,
+  }));
+
   if (question.type === 'mcq') {
     enriched.options = version.options.map((option) => ({
       id: option.id,

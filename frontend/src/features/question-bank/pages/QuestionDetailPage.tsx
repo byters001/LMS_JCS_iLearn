@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useQuestionDetail } from '../api'
 import { DeleteQuestionDialog } from '../components/DeleteQuestionDialog'
 import { EditQuestionDialog } from '../components/EditQuestionDialog'
@@ -109,6 +110,71 @@ export default function QuestionDetailPage() {
           </div>
         </dl>
       </div>
+
+      {/* Item 2 — this section didn't exist before: QuestionDetailPage was
+          minimal by design (see this file's module comment), which meant an
+          uploaded question/option image had nowhere on the frontend to ever
+          render for a staff preview. Read-only; content editing still goes
+          through the separate, not-yet-built version-creation flow (see
+          EditQuestionDialog.tsx's own comment on why it stays metadata-only). */}
+      {question.currentVersion &&
+        (question.currentVersion.images.length > 0 ||
+          question.currentVersion.options.length > 0) && (
+          <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+            <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              Content
+            </h2>
+
+            {question.currentVersion.images.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-3">
+                {question.currentVersion.images.map((image) => (
+                  <figure key={image.id} className="w-32">
+                    <img
+                      src={image.imageUrl}
+                      alt={image.caption ?? ''}
+                      className="h-24 w-32 rounded-md object-cover"
+                    />
+                    {image.caption && (
+                      <figcaption className="mt-1 text-xs text-muted-foreground">
+                        {image.caption}
+                      </figcaption>
+                    )}
+                  </figure>
+                ))}
+              </div>
+            )}
+
+            {question.currentVersion.options.length > 0 && (
+              <ul className="mt-4 space-y-2">
+                {question.currentVersion.options.map((option) => (
+                  <li
+                    key={option.id}
+                    className={cn(
+                      'flex items-center gap-3 rounded-md border p-2.5 text-sm',
+                      option.isCorrect
+                        ? 'border-green-600/30 bg-green-600/5'
+                        : 'border-border',
+                    )}
+                  >
+                    <span className="flex-1 text-brand-primary">{option.optionText}</span>
+                    {option.imageUrl && (
+                      <img
+                        src={option.imageUrl}
+                        alt=""
+                        className="size-12 shrink-0 rounded object-cover"
+                      />
+                    )}
+                    {option.isCorrect && (
+                      <span className="shrink-0 text-xs font-medium text-green-700 dark:text-green-400">
+                        Correct
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
       <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">

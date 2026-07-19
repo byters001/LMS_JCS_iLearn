@@ -46,6 +46,15 @@ export interface AttemptOption {
   sortOrder: number
 }
 
+// Question-level illustrative image (item 2) — applies to any question
+// type, matches backend's SanitizedImage exactly.
+export interface AttemptImage {
+  id: string
+  imageUrl: string
+  caption: string | null
+  sortOrder: number
+}
+
 // Confirmed against live backend responses: a psychometric question can
 // have zero seeded options (empty array, not omitted/null) — components
 // rendering this must treat an empty array as "no options configured yet"
@@ -93,6 +102,10 @@ interface AttemptQuestionBase {
   questionText: string
   marks: string
   sortOrder: number
+  // Question-level illustrative images — applies regardless of `type`,
+  // unlike options/psychometricOptions/coding below (see backend's
+  // buildRenderableQuestion, which sets this ahead of the per-type branch).
+  images?: AttemptImage[]
   // Present only once this question has been touched by at least one
   // save/submit call — absent (not null) for an untouched question. Used
   // both to pre-fill a reloaded page's already-answered questions and to

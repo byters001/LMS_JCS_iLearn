@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { UnauthorizedError } from '../../shared/errors/app-error';
+import { STORAGE_BUCKET, STORAGE_BUCKET_CONFIG } from '../../integrations/supabase';
+import { UnauthorizedError, ValidationError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { questionBankService } from './question-bank.service';
 import type {
@@ -220,6 +221,40 @@ async function createQuestion(
   const createdBy = requireUserId(request);
   const question = await questionBankService.createQuestion(request.body, createdBy);
   const response: ApiSuccessResponse<typeof question> = { success: true, data: question };
+  reply.status(201).send(response);
+}
+
+// multipart/form-data, not JSON — mirrors users.controller.ts's
+// uploadAvatar exactly (fail-fast MIME check here, buffer the file, hand
+// off to the service). Not scoped to a :id — see question-bank.service.ts's
+// uploadQuestionImage for why (no question/version exists yet at the point
+// a trainer picks an image on the create form).
+async function uploadQuestionImage(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const uploadedBy = requireUserId(request);
+
+  const multipartFile = await request.file();
+  if (!multipartFile) {
+    throw new ValidationError('No file uploaded');
+  }
+
+  const contentType = multipartFile.mimetype;
+  const { allowedMimeTypes } = STORAGE_BUCKET_CONFIG[STORAGE_BUCKET.QUESTION_IMAGES];
+
+  if (!allowedMimeTypes.includes(contentType)) {
+    throw new ValidationError(`Content type "${contentType}" is not allowed for question images`, {
+      allowedMimeTypes,
+    });
+  }
+
+  const fileBuffer = await multipartFile.toBuffer();
+
+  const imageUrl = await questionBankService.uploadQuestionImage(
+    fileBuffer,
+    contentType,
+    uploadedBy,
+  );
+
+  const response: ApiSuccessResponse<{ imageUrl: string }> = { success: true, data: { imageUrl } };
   reply.status(201).send(response);
 }
 
@@ -682,6 +717,7 @@ export const questionBankController = {
   listQuestions,
   getQuestionById,
   createQuestion,
+  uploadQuestionImage,
   updateQuestion,
   deleteQuestion,
   listQuestionVersions,

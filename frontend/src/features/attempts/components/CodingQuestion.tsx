@@ -62,6 +62,18 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
     return (
       <div>
         <p className="text-base text-brand-primary">{question.questionText}</p>
+        {question.images && question.images.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {question.images.map((image) => (
+              <img
+                key={image.id}
+                src={image.imageUrl}
+                alt={image.caption ?? ''}
+                className="h-32 w-auto max-w-full rounded-md border border-border object-contain"
+              />
+            ))}
+          </div>
+        )}
         <p className="mt-5 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
           This coding question hasn&apos;t had its problem statement authored yet. Contact your
           trainer if this persists.
@@ -84,6 +96,19 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
         <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-brand-primary">
           {coding.problemStatement}
         </p>
+
+        {question.images && question.images.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-3">
+            {question.images.map((image) => (
+              <img
+                key={image.id}
+                src={image.imageUrl}
+                alt={image.caption ?? ''}
+                className="h-32 w-auto max-w-full rounded-md border border-border object-contain"
+              />
+            ))}
+          </div>
+        )}
 
         {coding.inputFormat && (
           <>
