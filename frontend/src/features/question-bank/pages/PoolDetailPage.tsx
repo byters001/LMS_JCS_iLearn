@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,12 @@ import {
   useTags,
   useTopics,
 } from '../api'
-import type { QuestionDifficulty } from '../types'
+import { DeleteCriterionDialog } from '../components/DeleteCriterionDialog'
+import { DeletePoolDialog } from '../components/DeletePoolDialog'
+import { EditCriterionDialog } from '../components/EditCriterionDialog'
+import { EditPoolDialog } from '../components/EditPoolDialog'
+import { TagFilterChips } from '../components/TagFilterChips'
+import type { QuestionDifficulty, QuestionPoolCriterion } from '../types'
 
 const inputClassName =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
@@ -58,63 +64,6 @@ const addCriterionFormSchema = z.object({
 })
 
 type AddCriterionFormValues = z.infer<typeof addCriterionFormSchema>
-
-// Same chip-list multi-select shape as CreateQuestionPage.tsx's
-// MultiSelectChips (Combobox to add + removable chips) — reimplemented
-// locally rather than imported since that component isn't exported and
-// this is the only other call site; a shared/components extraction isn't
-// warranted for two internal usages of a small, feature-local pattern.
-function TagFilterChips({
-  options,
-  selectedIds,
-  onChange,
-  isLoading,
-  isError,
-}: {
-  options: ComboboxOption[]
-  selectedIds: string[]
-  onChange: (ids: string[]) => void
-  isLoading: boolean
-  isError: boolean
-}) {
-  const optionsById = new Map(options.map((o) => [o.value, o.label]))
-  const addOptions = options.filter((o) => !selectedIds.includes(o.value))
-
-  return (
-    <div className="space-y-1.5">
-      {selectedIds.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {selectedIds.map((id) => (
-            <li
-              key={id}
-              className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-brand-primary"
-            >
-              <span>{optionsById.get(id) ?? id}</span>
-              <button
-                type="button"
-                aria-label={`Remove ${optionsById.get(id) ?? id}`}
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => onChange(selectedIds.filter((existing) => existing !== id))}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Combobox
-        options={addOptions}
-        value={null}
-        onSelect={(value) => onChange([...selectedIds, value])}
-        placeholder="Search tags to add…"
-        isLoading={isLoading}
-        isError={isError}
-        errorMessage="Failed to load tags."
-        emptyMessage={isLoading ? 'Loading…' : 'No tags found.'}
-      />
-    </div>
-  )
-}
 
 function AddCriterionForm({ poolId }: { poolId: string }) {
   const addCriterion = useAddCriterion(poolId)
@@ -254,11 +203,16 @@ function AddCriterionForm({ poolId }: { poolId: string }) {
 // explicitly, and again after adding/adjusting criteria.
 export default function PoolDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const pool = usePoolDetail(id)
   const criteria = usePoolCriteria(id)
   const topics = useTopics({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const tags = useTags({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const resolution = useResolvePool(id ?? '')
+  const [isEditPoolOpen, setIsEditPoolOpen] = useState(false)
+  const [isDeletePoolOpen, setIsDeletePoolOpen] = useState(false)
+  const [editingCriterion, setEditingCriterion] = useState<QuestionPoolCriterion | null>(null)
+  const [deletingCriterion, setDeletingCriterion] = useState<QuestionPoolCriterion | null>(null)
 
   if (pool.isLoading) {
     return (
@@ -288,10 +242,29 @@ export default function PoolDetailPage() {
       </Link>
 
       <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">{pool.data.name}</h1>
-        {pool.data.description && (
-          <p className="mt-1 text-sm text-muted-foreground">{pool.data.description}</p>
-        )}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-heading text-xl font-semibold text-brand-primary">
+              {pool.data.name}
+            </h1>
+            {pool.data.description && (
+              <p className="mt-1 text-sm text-muted-foreground">{pool.data.description}</p>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsEditPoolOpen(true)}>
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive text-destructive hover:bg-destructive/5"
+              onClick={() => setIsDeletePoolOpen(true)}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
         <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-muted-foreground">Type</dt>
@@ -325,23 +298,45 @@ export default function PoolDetailPage() {
               (criteria.data ?? []).map((criterion) => (
                 <div
                   key={criterion.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border px-4 py-2.5 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-border px-4 py-2.5 text-sm"
                 >
-                  <span className="font-medium text-brand-primary">
-                    {DIFFICULTY_LABELS[criterion.difficulty]}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Requires {criterion.countRequired}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Topic: {criterion.topicId ? (topicNameById.get(criterion.topicId) ?? '—') : 'Any'}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Tags:{' '}
-                    {criterion.tagFilter && criterion.tagFilter.length > 0
-                      ? criterion.tagFilter.map((tagId) => tagNameById.get(tagId) ?? tagId).join(', ')
-                      : 'Any'}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="font-medium text-brand-primary">
+                      {DIFFICULTY_LABELS[criterion.difficulty]}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Requires {criterion.countRequired}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Topic:{' '}
+                      {criterion.topicId ? (topicNameById.get(criterion.topicId) ?? '—') : 'Any'}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Tags:{' '}
+                      {criterion.tagFilter && criterion.tagFilter.length > 0
+                        ? criterion.tagFilter
+                            .map((tagId) => tagNameById.get(tagId) ?? tagId)
+                            .join(', ')
+                        : 'Any'}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingCriterion(criterion)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive text-destructive hover:bg-destructive/5"
+                      onClick={() => setDeletingCriterion(criterion)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
@@ -461,6 +456,37 @@ export default function PoolDetailPage() {
           </div>
         )}
       </div>
+
+      <EditPoolDialog pool={pool.data} open={isEditPoolOpen} onOpenChange={setIsEditPoolOpen} />
+
+      <DeletePoolDialog
+        pool={pool.data}
+        open={isDeletePoolOpen}
+        onOpenChange={setIsDeletePoolOpen}
+        onDeleted={() => navigate('..')}
+      />
+
+      {editingCriterion && (
+        <EditCriterionDialog
+          poolId={pool.data.id}
+          criterion={editingCriterion}
+          open={Boolean(editingCriterion)}
+          onOpenChange={(open) => {
+            if (!open) setEditingCriterion(null)
+          }}
+        />
+      )}
+
+      {deletingCriterion && (
+        <DeleteCriterionDialog
+          poolId={pool.data.id}
+          criterion={deletingCriterion}
+          open={Boolean(deletingCriterion)}
+          onOpenChange={(open) => {
+            if (!open) setDeletingCriterion(null)
+          }}
+        />
+      )}
     </div>
   )
 }

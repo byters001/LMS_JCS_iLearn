@@ -23,6 +23,9 @@ import type {
   QuestionWithCurrentVersion,
   QuestionWithText,
   ResolvedQuestionPool,
+  UpdatePoolCriterionInput,
+  UpdatePoolInput,
+  UpdateQuestionInput,
 } from './types'
 
 function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsResponse> {
@@ -225,6 +228,48 @@ export function useCreateQuestion() {
   })
 }
 
+// --- Question edit / delete (item 10 tier 3a) ---
+// Metadata only (category/difficulty/college) — see UpdateQuestionInput's
+// own comment in types.ts for why content editing stays out of scope here.
+// Both routes were already real on the backend (confirmed by the item 10
+// audit) — PATCH/DELETE /questions/:id — just never called from the
+// frontend.
+
+function updateQuestion(id: string, input: UpdateQuestionInput): Promise<Question> {
+  return api.patch<Question>(`/questions/${id}`, input)
+}
+
+export function useUpdateQuestion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateQuestionInput }) =>
+      updateQuestion(id, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['question-bank', 'questions', 'detail', variables.id],
+      })
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
+  })
+}
+
+// Soft delete (questions.deleted_at) — see DeleteQuestionDialog.tsx's own
+// comment for the orphaning-safety read (no blocking guard needed here,
+// unlike pools — see that file for the full reasoning).
+function deleteQuestion(id: string): Promise<void> {
+  return api.delete<void>(`/questions/${id}`)
+}
+
+export function useDeleteQuestion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteQuestion,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
+  })
+}
+
 // --- Approval workflow (this phase) ---
 // draft/rejected --submit--> pending_review --approve--> approved
 //                                            \--reject--> rejected --submit--> pending_review
@@ -302,6 +347,47 @@ export function useCreatePool() {
   })
 }
 
+// --- Pool edit / delete (item 10 tier 3a) ---
+// name/description only — see UpdatePoolInput's own comment in types.ts
+// for the full field-scope reasoning.
+
+function updatePool(id: string, input: UpdatePoolInput): Promise<QuestionPool> {
+  return api.patch<QuestionPool>(`/question-pools/${id}`, input)
+}
+
+export function useUpdatePool() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdatePoolInput }) => updatePool(id, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['question-bank', 'question-pools', 'detail', variables.id],
+      })
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'question-pools', 'list'] })
+    },
+  })
+}
+
+// Soft delete (question_pools.deleted_at) — see DeletePoolDialog.tsx's own
+// comment for why this IS gated behind a dependent-assessment check
+// client-side, unlike questions — a pool still attached to a live
+// assessment section would break that assessment's attempt-start flow
+// entirely (resolveQuestionPool 404s on a soft-deleted pool), not just a
+// discoverability inconvenience.
+function deletePool(id: string): Promise<void> {
+  return api.delete<void>(`/question-pools/${id}`)
+}
+
+export function useDeletePool() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deletePool,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'question-pools', 'list'] })
+    },
+  })
+}
+
 // GET /question-pools/:id — the bare pool row (name/description/type/
 // category), same shape/naming convention as useQuestionDetail above. Kept
 // separate from useResolvePool below: this is a cheap, safe-to-auto-fetch
@@ -349,6 +435,54 @@ export function useAddCriterion(poolId: string) {
       // stale (missing a whole slice of the pool) — drop any cached result
       // rather than let PoolDetailPage show a preview that predates the
       // pool's current criteria set.
+      queryClient.removeQueries({
+        queryKey: ['question-bank', 'question-pools', 'resolve', poolId],
+      })
+    },
+  })
+}
+
+// --- Pool criteria edit / delete (item 10 tier 3a — was add-only) ---
+// Both invalidate the same criteria list + drop any stale resolution
+// preview, same reasoning as useAddCriterion above (adding, editing, or
+// removing a criterion all equally change what the pool would draw next).
+
+function updateCriterion(
+  poolId: string,
+  criteriaId: string,
+  input: UpdatePoolCriterionInput,
+): Promise<QuestionPoolCriterion> {
+  return api.patch<QuestionPoolCriterion>(`/question-pools/${poolId}/criteria/${criteriaId}`, input)
+}
+
+export function useUpdateCriterion(poolId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ criteriaId, input }: { criteriaId: string; input: UpdatePoolCriterionInput }) =>
+      updateCriterion(poolId, criteriaId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['question-bank', 'question-pools', 'criteria', poolId],
+      })
+      queryClient.removeQueries({
+        queryKey: ['question-bank', 'question-pools', 'resolve', poolId],
+      })
+    },
+  })
+}
+
+function deleteCriterion(poolId: string, criteriaId: string): Promise<void> {
+  return api.delete<void>(`/question-pools/${poolId}/criteria/${criteriaId}`)
+}
+
+export function useDeleteCriterion(poolId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (criteriaId: string) => deleteCriterion(poolId, criteriaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['question-bank', 'question-pools', 'criteria', poolId],
+      })
       queryClient.removeQueries({
         queryKey: ['question-bank', 'question-pools', 'resolve', poolId],
       })

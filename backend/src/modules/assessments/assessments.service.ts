@@ -16,7 +16,7 @@ import {
   ValidationError,
 } from '../../shared/errors/app-error';
 import { logger } from '../../logger';
-import { assessmentsRepository } from './assessments.repository';
+import { assessmentsRepository, type PoolUsageRow } from './assessments.repository';
 import type {
   AssessmentApprovalActionInput,
   CreateAssessmentInput,
@@ -538,6 +538,15 @@ async function deleteAssessmentSectionPool(
   await assessmentsRepository.deleteAssessmentSectionPool(poolLinkId);
 }
 
+// item 10 tier 3a — pure passthrough, no existence check on poolId: this
+// is a reverse lookup ("who uses this pool"), not a resource fetch, so a
+// poolId belonging to no assessment (or not existing at all) legitimately
+// just means an empty list, not a 404. See assessments.schema.ts's
+// poolUsageParamsSchema comment for what this backs.
+async function listAssessmentsUsingPool(poolId: string): Promise<PoolUsageRow[]> {
+  return assessmentsRepository.listAssessmentsUsingPool(poolId);
+}
+
 // --- Resolve: "get this section's actual questions right now" ---
 //
 // This is the operation the task asked about explicitly — branches on
@@ -825,6 +834,7 @@ export const assessmentsService = {
   listAssessmentSectionPools,
   createAssessmentSectionPool,
   deleteAssessmentSectionPool,
+  listAssessmentsUsingPool,
   resolveSectionQuestions,
   findFullAssessment,
   submitAssessment,

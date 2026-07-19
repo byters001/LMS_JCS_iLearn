@@ -531,6 +531,37 @@ async function deleteAssessmentSectionPool(id: string): Promise<boolean> {
   return deleted.length > 0;
 }
 
+export interface PoolUsageRow {
+  assessmentId: string;
+  assessmentTitle: string;
+}
+
+// item 10 tier 3a — reverse lookup: every non-deleted assessment currently
+// referencing this pool via ANY of its sections (assessment_section_pools
+// -> assessment_sections -> assessments). Backs PoolDetailPage's delete
+// guard — see assessments.schema.ts's poolUsageParamsSchema comment for the
+// full "why this needs to exist at all" reasoning. selectDistinct on the
+// assessment (not the section) since the same assessment could attach this
+// pool to more than one section — a caller wants "which assessments", not
+// "how many section-pool links."
+async function listAssessmentsUsingPool(poolId: string): Promise<PoolUsageRow[]> {
+  return db
+    .selectDistinct({
+      assessmentId: assessments.id,
+      assessmentTitle: assessments.title,
+    })
+    .from(assessmentSectionPools)
+    .innerJoin(
+      assessmentSections,
+      eq(assessmentSections.id, assessmentSectionPools.assessmentSectionId),
+    )
+    .innerJoin(
+      assessments,
+      and(eq(assessments.id, assessmentSections.assessmentId), isNull(assessments.deletedAt)),
+    )
+    .where(eq(assessmentSectionPools.questionPoolId, poolId));
+}
+
 // --- Assessment approval history ---
 // Same transactional status+history pattern as question-bank's
 // recordApprovalAction (Part 3) — see that file's comment for why the two
@@ -638,6 +669,7 @@ export const assessmentsRepository = {
   findAssessmentSectionPoolById,
   createAssessmentSectionPool,
   deleteAssessmentSectionPool,
+  listAssessmentsUsingPool,
   recordApprovalAction,
   listApprovalHistory,
 };

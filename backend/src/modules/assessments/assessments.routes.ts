@@ -16,6 +16,7 @@ import {
   listAssessmentApprovalHistoryQuerySchema,
   listAssessmentsQuerySchema,
   listAvailableAssessmentsQuerySchema,
+  poolUsageParamsSchema,
   scheduleAssessmentSchema,
   updateAssessmentQuestionSchema,
   updateAssessmentSchema,
@@ -32,6 +33,7 @@ import {
   type ListAssessmentApprovalHistoryQuery,
   type ListAssessmentsQuery,
   type ListAvailableAssessmentsQuery,
+  type PoolUsageParams,
   type ScheduleAssessmentInput,
   type UpdateAssessmentInput,
   type UpdateAssessmentQuestionInput,
@@ -331,6 +333,23 @@ export async function assessmentsRoutes(fastify: FastifyInstance): Promise<void>
       preValidation: validateParams(assessmentSectionPoolIdParamsSchema),
     },
     assessmentsController.deleteAssessmentSectionPool,
+  );
+
+  // item 10 tier 3a — reverse lookup backing PoolDetailPage's delete guard
+  // (question-bank.routes.ts's own DELETE /question-pools/:id has no such
+  // check server-side; see assessments.schema.ts's poolUsageParamsSchema
+  // comment for why this lives here instead of on question-bank, and why
+  // it's needed at all). Not nested under /assessments/:id — this isn't
+  // scoped to one assessment, it answers "which assessments (if any) use
+  // this pool," so a bare /assessments/pools/:poolId/usage path is the
+  // honest shape for what it actually returns.
+  fastify.get<{ Params: PoolUsageParams }>(
+    '/assessments/pools/:poolId/usage',
+    {
+      preHandler: [fastify.authenticate, ASSESSMENTS_MANAGE],
+      preValidation: validateParams(poolUsageParamsSchema),
+    },
+    assessmentsController.listAssessmentsUsingPool,
   );
 
   // --- Resolve ---

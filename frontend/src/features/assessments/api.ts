@@ -17,6 +17,7 @@ import type {
   ListAssessmentsResult,
   ListAvailableAssessmentsParams,
   ListAvailableAssessmentsResponse,
+  PoolUsageRow,
   ScheduleAssessmentInput,
   UpdateAssessmentInput,
 } from './types'
@@ -267,5 +268,24 @@ export function usePublishAssessment(id: string) {
       queryClient.invalidateQueries({ queryKey: ['assessments', 'detail', id] })
       queryClient.invalidateQueries({ queryKey: ['assessments', 'list'] })
     },
+  })
+}
+
+// --- Pool usage (item 10 tier 3a) ---
+// GET /assessments/pools/:poolId/usage — see PoolUsageRow's own comment in
+// types.ts for why this lives here instead of question-bank/api.ts. Only
+// ever called from question-bank's DeletePoolDialog, gated on `enabled` so
+// it doesn't fire until that dialog is actually open (same "only query
+// when the guard is actually needed" shape DeleteCollegeDialog.tsx/
+// DeleteBatchDialog.tsx already established).
+function listAssessmentsUsingPool(poolId: string): Promise<PoolUsageRow[]> {
+  return api.get<PoolUsageRow[]>(`/assessments/pools/${poolId}/usage`)
+}
+
+export function useAssessmentsUsingPool(poolId: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['assessments', 'pool-usage', poolId],
+    queryFn: () => listAssessmentsUsingPool(poolId),
+    enabled: options?.enabled,
   })
 }

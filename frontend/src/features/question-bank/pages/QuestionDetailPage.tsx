@@ -1,6 +1,10 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { Button } from '@/components/ui/button'
 import { useQuestionDetail } from '../api'
+import { DeleteQuestionDialog } from '../components/DeleteQuestionDialog'
+import { EditQuestionDialog } from '../components/EditQuestionDialog'
 import { QuestionStatusBadge } from '../components/QuestionStatusBadge'
 import { QuestionWorkflowActions } from '../components/QuestionWorkflowActions'
 import type { QuestionDifficulty, QuestionType } from '../types'
@@ -29,7 +33,10 @@ function formatDate(value: string): string {
 // explicitly read-only with no click-through of its own.
 export default function QuestionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { data: question, isLoading, isError, error } = useQuestionDetail(id)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -60,7 +67,23 @@ export default function QuestionDetailPage() {
           <p className="text-base text-brand-primary">
             {question.currentVersion?.questionText ?? '—'}
           </p>
-          <QuestionStatusBadge status={question.status} />
+          <div className="flex shrink-0 items-center gap-2">
+            <QuestionStatusBadge status={question.status} />
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-destructive text-destructive hover:bg-destructive/5"
+            onClick={() => setIsDeleteOpen(true)}
+          >
+            Delete
+          </Button>
         </div>
 
         <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
@@ -95,6 +118,15 @@ export default function QuestionDetailPage() {
           <QuestionWorkflowActions questionId={question.id} status={question.status} />
         </div>
       </div>
+
+      <EditQuestionDialog question={question} open={isEditOpen} onOpenChange={setIsEditOpen} />
+
+      <DeleteQuestionDialog
+        question={question}
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onDeleted={() => navigate('..')}
+      />
     </div>
   )
 }

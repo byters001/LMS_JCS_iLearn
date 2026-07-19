@@ -239,3 +239,16 @@ export interface ScheduleAssessmentInput {
   endAt: string
   notes?: string
 }
+
+// --- Pool usage (item 10 tier 3a) ---
+// Matches backend's PoolUsageRow exactly (assessments.repository.ts) —
+// backs PoolDetailPage's (question-bank feature) delete guard. Lives here,
+// not in question-bank/types.ts, because the endpoint itself is owned by
+// the assessments module (assessments.schema.ts's poolUsageParamsSchema
+// comment explains why) — same cross-feature hook consumption precedent
+// as MyBatchesPage (organization feature) already using this exact
+// features/assessments/api.ts file for its own participation view.
+export interface PoolUsageRow {
+  assessmentId: string
+  assessmentTitle: string
+}

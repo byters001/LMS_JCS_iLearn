@@ -15,6 +15,7 @@ import type {
   ListAssessmentApprovalHistoryQuery,
   ListAssessmentsQuery,
   ListAvailableAssessmentsQuery,
+  PoolUsageParams,
   ScheduleAssessmentInput,
   UpdateAssessmentInput,
   UpdateAssessmentQuestionInput,
@@ -278,6 +279,16 @@ async function deleteAssessmentSectionPool(
   reply.status(204).send();
 }
 
+// item 10 tier 3a — PoolDetailPage's delete guard.
+async function listAssessmentsUsingPool(
+  request: FastifyRequest<{ Params: PoolUsageParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const assessments = await assessmentsService.listAssessmentsUsingPool(request.params.poolId);
+  const response: ApiSuccessResponse<typeof assessments> = { success: true, data: assessments };
+  reply.status(200).send(response);
+}
+
 // --- Resolve ---
 
 async function resolveSectionQuestions(
@@ -400,6 +411,7 @@ export const assessmentsController = {
   listAssessmentSectionPools,
   createAssessmentSectionPool,
   deleteAssessmentSectionPool,
+  listAssessmentsUsingPool,
   resolveSectionQuestions,
   submitAssessment,
   approveAssessment,

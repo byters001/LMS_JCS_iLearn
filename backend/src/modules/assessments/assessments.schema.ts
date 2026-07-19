@@ -105,6 +105,22 @@ export const assessmentIdParamsSchema = z
   })
   .strict();
 
+// --- Pool usage (item 10 tier 3a) ---
+// Backs PoolDetailPage's delete guard: assessment_section_pools.
+// question_pool_id is ON DELETE RESTRICT (schema.sql's own comment on that
+// column: "a pool in active use by a scheduled/live assessment section
+// can't be silently deleted out from under it") — but question-bank's
+// deleteQuestionPool is a soft delete (deleted_at), which never issues a
+// literal SQL DELETE, so that RESTRICT can never actually fire. This read
+// endpoint lets the frontend check real usage before calling DELETE
+// /question-pools/:id, closing that gap client-side the same way every
+// other tier's delete guards do.
+export const poolUsageParamsSchema = z
+  .object({
+    poolId: z.string().uuid('poolId must be a valid UUID'),
+  })
+  .strict();
+
 // --- Assessment sections ---
 
 export const createAssessmentSectionSchema = z
@@ -239,6 +255,7 @@ export type ListAvailableAssessmentsQuery = z.infer<typeof listAvailableAssessme
 export type CreateAssessmentInput = z.infer<typeof createAssessmentSchema>;
 export type UpdateAssessmentInput = z.infer<typeof updateAssessmentSchema>;
 export type AssessmentIdParams = z.infer<typeof assessmentIdParamsSchema>;
+export type PoolUsageParams = z.infer<typeof poolUsageParamsSchema>;
 
 export type CreateAssessmentSectionInput = z.infer<typeof createAssessmentSectionSchema>;
 export type UpdateAssessmentSectionInput = z.infer<typeof updateAssessmentSectionSchema>;

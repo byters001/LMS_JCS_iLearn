@@ -243,6 +243,22 @@ export interface CreateQuestionInput {
   tagIds?: string[]
 }
 
+// Matches backend's updateQuestionSchema exactly (.strict(), all fields
+// optional, backend rejects an empty body) — metadata only (category/
+// difficulty/college), never question CONTENT (question_text/marks/
+// options/etc, which lives on question_versions and is governed by a
+// completely different mutability rule — see EditQuestionDialog.tsx's own
+// comment on why that boundary stays exactly where QuestionDetailPage.tsx
+// already drew it). type is deliberately excluded, matching the backend
+// exactly — changing a question's type after it may already have
+// type-specific version content (coding details, MCQ options, etc.) would
+// silently mismatch that content against the new type.
+export interface UpdateQuestionInput {
+  categoryId?: string | null
+  difficulty?: QuestionDifficulty
+  collegeId?: string | null
+}
+
 // Enriched row for QuestionListPage — same two-step "list then fetch each
 // row's text" shape as api.ts's useQuestionsForPicker (GET /questions has
 // no question text and no search param; see that hook's comment for the
@@ -302,6 +318,27 @@ export interface CreatePoolCriterionInput {
   difficulty: QuestionDifficulty
   topicId?: string
   tagFilter?: string[]
+  countRequired?: number
+}
+
+// Matches updateQuestionPoolSchema exactly (.strict(), all fields
+// optional) — name/description only exposed by EditPoolDialog.tsx per
+// item 10 tier 3a's explicit scope, even though the real schema also
+// accepts collegeId/categoryId (type is the one field genuinely excluded
+// backend-side too: question-bank.schema.ts's own comment — changing a
+// pool's type after criteria rows already exist against it would silently
+// invalidate those rows' intent).
+export interface UpdatePoolInput {
+  name?: string
+  description?: string | null
+}
+
+// Matches updateQuestionPoolCriteriaSchema exactly (.strict(), all fields
+// optional, backend rejects an empty body).
+export interface UpdatePoolCriterionInput {
+  difficulty?: QuestionDifficulty
+  topicId?: string | null
+  tagFilter?: string[] | null
   countRequired?: number
 }
 
