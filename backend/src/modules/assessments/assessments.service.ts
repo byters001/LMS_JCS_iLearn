@@ -553,11 +553,26 @@ async function listAssessmentsUsingPool(poolId: string): Promise<PoolUsageRow[]>
 // selection_mode rather than being a simple join in both cases. The 'pool'
 // branch calls question-bank's resolveQuestionPool (Part 3) per attached
 // pool rather than duplicating its query logic here.
-async function resolveSectionQuestions(
-  assessmentId: string,
-  sectionId: string,
+//
+// Item 5c fix: split out of what used to be the one and only
+// resolveSectionQuestions(assessmentId, sectionId) — that function always
+// re-fetched the section via findAssessmentSectionById (itself an extra
+// findAssessmentById existence-check on top), even when EVERY caller that
+// resolves more than one section (findFullAssessment below,
+// attempts.service.ts's startAttempt) had already loaded the full section
+// list moments earlier via listAssessmentSections. Confirmed live via this
+// session's item 5b/5c instrumentation: GET /assessments/:id/full on a
+// real 3-pool-section assessment took 2.8s across 31 queries; a large
+// fraction of those were this exact redundant per-section re-fetch,
+// multiplied by section count. resolveQuestionsForSection takes the
+// already-loaded section directly and does none of that re-validation —
+// safe, because listAssessmentSections/findAssessmentWithBatches already
+// proved the assessment (and therefore every section under it) exists
+// before either bulk caller ever reaches this function.
+async function resolveQuestionsForSection(
+  section: AssessmentSection,
 ): Promise<ResolvedSectionQuestions> {
-  const section = await findAssessmentSectionById(assessmentId, sectionId);
+  const sectionId = section.id;
 
   if (section.selectionMode === 'manual') {
     const rows = await assessmentsRepository.listAssessmentQuestionsWithContent(sectionId);
@@ -596,12 +611,26 @@ async function resolveSectionQuestions(
   return { section, questions, poolResolutions };
 }
 
+// Public single-section API (GET /assessments/:id/sections/:sectionId/resolve)
+// — the caller here has NOT already loaded the section, so this is exactly
+// the original resolveSectionQuestions behavior: validate + fetch, then
+// resolve. findFullAssessment/startAttempt below deliberately do NOT call
+// this — see resolveQuestionsForSection's own comment for why.
+async function resolveSectionQuestions(
+  assessmentId: string,
+  sectionId: string,
+): Promise<ResolvedSectionQuestions> {
+  const section = await findAssessmentSectionById(assessmentId, sectionId);
+  return resolveQuestionsForSection(section);
+}
+
 // --- Full fetch: assessment + sections + resolved questions in one call ---
 //
 // Pure composition — reuses findAssessmentWithBatches, listAssessmentSections,
-// and resolveSectionQuestions exactly as they already exist (same function
-// GET /sections/:sectionId/resolve calls, one section at a time). No new
-// query, no duplicated pool/manual branching logic.
+// and resolveQuestionsForSection exactly as they already exist (same
+// resolution logic GET /sections/:sectionId/resolve uses, one section at a
+// time — see that function's own comment on why THIS caller skips the
+// redundant re-fetch it would otherwise do).
 async function findFullAssessment(id: string): Promise<FullAssessment> {
   const assessment = await findAssessmentWithBatches(id);
   const sections = await listAssessmentSections(id);
@@ -609,7 +638,7 @@ async function findFullAssessment(id: string): Promise<FullAssessment> {
   const sectionsWithResolvedQuestions: AssessmentSectionWithResolvedQuestions[] =
     await Promise.all(
       sections.map(async (section) => {
-        const { questions, poolResolutions } = await resolveSectionQuestions(id, section.id);
+        const { questions, poolResolutions } = await resolveQuestionsForSection(section);
         return { ...section, resolvedQuestions: questions, poolResolutions };
       }),
     );
@@ -836,6 +865,7 @@ export const assessmentsService = {
   deleteAssessmentSectionPool,
   listAssessmentsUsingPool,
   resolveSectionQuestions,
+  resolveQuestionsForSection,
   findFullAssessment,
   submitAssessment,
   approveAssessment,

@@ -243,8 +243,14 @@ async function startAttempt(
   }
 
   const sections = await assessmentsService.listAssessmentSections(assessmentId);
+  // Item 5c fix: resolveQuestionsForSection (not resolveSectionQuestions) —
+  // `sections` above already IS every section's full row, so re-fetching
+  // each one again by id (what resolveSectionQuestions does internally,
+  // plus its own redundant assessment-existence re-check) was pure waste on
+  // exactly this hot path. See assessments.service.ts's own comment on
+  // resolveQuestionsForSection for the measured before/after.
   const resolvedSections = await Promise.all(
-    sections.map((section) => assessmentsService.resolveSectionQuestions(assessmentId, section.id)),
+    sections.map((section) => assessmentsService.resolveQuestionsForSection(section)),
   );
 
   const selections: SelectionInput[] = resolvedSections.flatMap((resolved) =>

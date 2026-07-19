@@ -41,7 +41,17 @@ export function NotificationBell() {
   // unread within just the recent-list's first page would undercount once
   // there are more unread notifications than that page holds.
   const unreadQuery = useNotifications({ isRead: false, page: 1, pageSize: 1 })
-  const recentQuery = useNotifications({ page: 1, pageSize: RECENT_PAGE_SIZE })
+  // Item 5b — deferred until the dropdown is actually open: this query's
+  // data is only ever read inside the `{isOpen && (...)}` block below, but
+  // it was previously firing (and polling every 30s) unconditionally on
+  // every mount — i.e. on every authenticated page, whether or not this
+  // bell was ever clicked. `enabled: isOpen` also means it (and its polling
+  // interval) naturally starts/stops as the dropdown opens/closes, not just
+  // a one-time deferral.
+  const recentQuery = useNotifications(
+    { page: 1, pageSize: RECENT_PAGE_SIZE },
+    { enabled: isOpen },
+  )
   const markAsRead = useMarkAsRead()
 
   const unreadCount = unreadQuery.data?.total ?? 0
