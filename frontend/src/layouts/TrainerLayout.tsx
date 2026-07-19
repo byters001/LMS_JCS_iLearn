@@ -1,11 +1,11 @@
-import { BarChart3, ClipboardList, HelpCircle, Search, Layers } from 'lucide-react'
+import { BarChart3, ClipboardList, HelpCircle, Layers } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
-import { Input } from '@/components/ui/input'
 import { useLogout } from '@/features/auth/api'
 import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
+import { GlobalSearch } from '@/features/search/components/GlobalSearch'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
@@ -112,14 +112,13 @@ function TrainerLayout() {
           than the viewport instead of wrapping/scrolling within it. */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-end gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
-          <div className="relative min-w-96">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search students, assessments, questions, pools…"
-              className="w-full pl-8"
-            />
-          </div>
+          {/* Item 5a — was a bare, unwired <Input>, same dead shell as
+              AdminLayout.tsx's copy (see that file's comment). Pool results
+              will simply never appear here — GET /question-pools 403s for
+              Faculty (see this file's own module comment above on why Pools
+              isn't in the nav either) — GlobalSearch degrades that
+              per-category rather than erroring the whole widget. */}
+          <GlobalSearch basePath="/trainer" />
           <NotificationBell />
         </header>
         <main className="flex-1">

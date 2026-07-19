@@ -48,11 +48,17 @@ function listAssessments(params: ListAssessmentsParams): Promise<ListAssessments
   return api.get<ListAssessmentsResult>('/assessments', { params })
 }
 
-export function useAssessments(params: ListAssessmentsParams) {
+// `options.enabled` added for item 5a's GlobalSearch (deferred until a
+// search query actually exists), same shape as students/api.ts's
+// useStudentProfiles and question-bank/api.ts's useQuestions already use —
+// existing callers passing no options are unaffected (enabled defaults to
+// TanStack Query's own always-on behavior when undefined).
+export function useAssessments(params: ListAssessmentsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['assessments', 'list', params],
     queryFn: () => listAssessments(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 

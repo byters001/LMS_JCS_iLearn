@@ -1,12 +1,12 @@
-import { BarChart3, BookOpen, Building2, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Presentation, Search, UserCog, Users } from 'lucide-react'
+import { BarChart3, BookOpen, Building2, ChevronDown, ClipboardList, HelpCircle, Layers, Library, Presentation, UserCog, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Input } from '@/components/ui/input'
 import { useLogout } from '@/features/auth/api'
 import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
+import { GlobalSearch } from '@/features/search/components/GlobalSearch'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
@@ -145,14 +145,10 @@ function AdminLayout() {
           than the viewport instead of wrapping/scrolling within it. */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-end gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
-          <div className="relative min-w-96">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search students, assessments, questions, pools…"
-              className="w-full pl-8"
-            />
-          </div>
+          {/* Item 5a — was a bare, unwired <Input> (no value/onChange/
+              onSubmit at all — confirmed a pure visual shell before this
+              fix). GlobalSearch owns its own icon/input/dropdown now. */}
+          <GlobalSearch basePath="/admin" />
           <NotificationBell />
         </header>
         <main className="flex-1">

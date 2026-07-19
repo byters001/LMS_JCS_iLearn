@@ -25,9 +25,14 @@ export interface Question {
 }
 
 // Matches backend/src/modules/question-bank/question-bank.schema.ts's
-// listQuestionsQuerySchema exactly — confirmed by reading the real schema,
-// not assumed: categoryId/type/difficulty/collegeId/status/page/pageSize
-// only. No `search`/`q` text-search param exists.
+// listQuestionsQuerySchema exactly — categoryId/type/difficulty/collegeId/
+// status/page/pageSize/search. Item 5a correction: an earlier version of
+// this comment claimed no `search` param existed — false, confirmed by
+// reading question-bank.repository.ts's listQuestions directly, which
+// already LEFT JOINs question_versions and applies a real
+// `ilike(questionVersions.questionText, ...)` filter when search is
+// present. That comment was simply never updated after the backend gained
+// it in a later phase; this type just hadn't caught up.
 export interface ListQuestionsParams {
   page?: number
   pageSize?: number
@@ -36,6 +41,7 @@ export interface ListQuestionsParams {
   difficulty?: QuestionDifficulty
   collegeId?: string
   status?: QuestionStatus
+  search?: string
 }
 
 export interface ListQuestionsResponse {
@@ -107,13 +113,16 @@ export interface QuestionPool {
 }
 
 // Matches listQuestionPoolsQuerySchema exactly: collegeId/categoryId/type/
-// page/pageSize. No text-search param here either.
+// search/page/pageSize. search is real (item 5a: `ilike(questionPools.name,
+// ...)`, confirmed against question-bank.repository.ts) — same stale-comment
+// correction as ListQuestionsParams above.
 export interface ListQuestionPoolsParams {
   page?: number
   pageSize?: number
   collegeId?: string
   categoryId?: string
   type?: QuestionType
+  search?: string
 }
 
 export interface ListQuestionPoolsResponse {

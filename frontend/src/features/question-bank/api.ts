@@ -122,11 +122,15 @@ function listQuestionPools(params: ListQuestionPoolsParams): Promise<ListQuestio
   return api.get<ListQuestionPoolsResponse>('/question-pools', { params })
 }
 
-export function useQuestionPools(params: ListQuestionPoolsParams) {
+// `options.enabled` added for item 5a's GlobalSearch — same shape as
+// useQuestions' own options param just below; existing callers passing none
+// are unaffected.
+export function useQuestionPools(params: ListQuestionPoolsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['question-bank', 'question-pools', 'list', params],
     queryFn: () => listQuestionPools(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 

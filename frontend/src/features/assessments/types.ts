@@ -59,17 +59,20 @@ export interface ListAvailableAssessmentsResponse {
 // student-scoped, resolved from the caller's own batch membership; this is
 // the full platform-wide list, gated by the assessments.create permission
 // per assessments.routes.ts). Matches backend/assessments.schema.ts's
-// listAssessmentsQuerySchema exactly: trainingSessionId/status/testCategory
-// are all optional filters the backend already supports, kept here for
-// type completeness even though this phase's UI doesn't expose filter
-// controls yet (read-only listing only, same scope discipline as
-// StudentListPage.tsx).
+// listAssessmentsQuerySchema exactly: trainingSessionId/status/testCategory/
+// search are all optional filters the backend already supports. search was
+// missing from this type entirely until item 5a (confirmed live against
+// assessments.repository.ts: it's a real, already-wired `ilike(assessments.
+// title, ...)` filter, not a stub) — trainingSessionId/status/testCategory
+// still have no UI filter controls exposed (read-only listing only, same
+// scope discipline as StudentListPage.tsx), search now does via GlobalSearch.
 export interface ListAssessmentsParams {
   page?: number
   pageSize?: number
   trainingSessionId?: string
   status?: AssessmentStatus
   testCategory?: TestCategory
+  search?: string
 }
 
 export interface ListAssessmentsResult {

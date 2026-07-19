@@ -51,7 +51,10 @@ export interface UpdateStudentProfileInput {
 }
 
 // Matches backend/src/modules/students/students.schema.ts's
-// listStudentProfilesQuerySchema.
+// listStudentProfilesQuerySchema — including search (item 5a: real, already
+// wired against the joined users.fullName OR studentProfiles.rollNumber,
+// confirmed against students.repository.ts's buildDirectConditions; this
+// type just hadn't been extended to expose it yet).
 export interface ListStudentProfilesParams {
   page?: number
   pageSize?: number
@@ -59,6 +62,7 @@ export interface ListStudentProfilesParams {
   departmentId?: string
   batchId?: string
   includeArchived?: boolean
+  search?: string
 }
 
 // Matches backend/src/modules/students/students.types.ts's ListStudentProfilesResult.
