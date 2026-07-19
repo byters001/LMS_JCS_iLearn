@@ -169,6 +169,25 @@ export interface CreateAssessmentSectionInput {
   selectionMode?: SelectionMode
 }
 
+// Matches backend's updateAssessmentSectionSchema exactly (.strict(), all
+// fields optional, backend rejects an empty body). selectionMode is
+// deliberately excluded, matching the backend exactly — switching a
+// section between manual/pool after questions or pools are already
+// attached to it would leave orphaned assessment_questions/
+// assessment_section_pools rows with no service-layer guard preventing it
+// (see assessments.schema.ts's own comment on updateAssessmentSectionSchema).
+// Delete and recreate the section instead if the mode needs to change.
+export interface UpdateAssessmentSectionInput {
+  title?: string
+  instructions?: string | null
+  sectionOrder?: number
+  timerMinutes?: number | null
+  passingMarks?: number | null
+  negativeMarking?: boolean
+  negativeMarkingValue?: number | null
+  shuffleQuestions?: boolean
+}
+
 // One question as it will actually appear to a test-taker, regardless of
 // which selection_mode produced it — manual rows and pool-resolved rows are
 // both normalized to this same shape by the backend (see

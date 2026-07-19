@@ -1,11 +1,14 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { Button } from '@/components/ui/button'
 import { useAssessmentDetail } from '../api'
 import { AddSectionForm } from '../components/AddSectionForm'
+import { AssessmentSectionCard } from '../components/AssessmentSectionCard'
 import { AssessmentStatusBadge } from '../components/AssessmentStatusBadge'
-import { AttachPoolForm } from '../components/AttachPoolForm'
-import { AttachQuestionForm } from '../components/AttachQuestionForm'
 import { BatchesEditor } from '../components/BatchesEditor'
+import { DeleteAssessmentDialog } from '../components/DeleteAssessmentDialog'
+import { EditAssessmentDialog } from '../components/EditAssessmentDialog'
 import { WorkflowActions } from '../components/WorkflowActions'
 import type { TestCategory } from '../types'
 
@@ -32,7 +35,10 @@ function formatDate(value: string): string {
 // deliberately wider than content editing's).
 export default function AssessmentEditPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { data: assessment, isLoading, isError, error } = useAssessmentDetail(id)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -68,8 +74,31 @@ export default function AssessmentEditPage() {
               {TEST_CATEGORY_LABELS[assessment.testCategory]}
             </p>
           </div>
-          <AssessmentStatusBadge status={assessment.status} />
+          <div className="flex shrink-0 items-center gap-2">
+            <AssessmentStatusBadge status={assessment.status} />
+          </div>
         </div>
+
+        {/* Edit/delete are hidden entirely once status leaves draft — the
+            backend's assertAssessmentEditable would 409 either request, and
+            a button that can never succeed shouldn't be there to click.
+            Same convention every content-editing control on this page
+            already follows (isContentEditable below). */}
+        {isContentEditable && (
+          <div className="mt-3 flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive text-destructive hover:bg-destructive/5"
+              onClick={() => setIsDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+          </div>
+        )}
 
         <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
           <div>
@@ -106,63 +135,13 @@ export default function AssessmentEditPage() {
             <p className="text-sm text-muted-foreground">No sections yet.</p>
           ) : (
             assessment.sections.map((section) => (
-              <div key={section.id} className="rounded-lg border border-border">
-                {/* rounded-t-lg here (not overflow-hidden on the parent) —
-                    the parent used to clip corners via overflow-hidden,
-                    which also clipped the Attach-a-Pool/Attach-a-question
-                    Combobox's absolutely-positioned dropdown at the bottom
-                    of this card whenever it had more than a couple of
-                    matching results. Rounding each colored child directly
-                    gets the same visual corners without clipping anything
-                    that needs to render outside the card's box. */}
-                <div className="flex items-center justify-between gap-3 rounded-t-lg bg-muted/30 px-4 py-2.5">
-                  <h3 className="font-medium text-brand-primary">{section.title}</h3>
-                  <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">
-                    {section.selectionMode === 'manual' ? 'Manual' : 'Pool'}
-                  </span>
-                </div>
-
-                <div className="p-4">
-                  {section.resolvedQuestions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No questions yet.</p>
-                  ) : (
-                    <ul className="space-y-1.5 text-sm">
-                      {section.resolvedQuestions.map((question) => (
-                        <li
-                          key={question.questionVersionId}
-                          className="flex items-center justify-between gap-3 text-muted-foreground"
-                        >
-                          <span className="truncate">{question.questionText}</span>
-                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs">
-                            {question.marks} marks
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {isContentEditable && (
-                  <div className="rounded-b-lg border-t border-border bg-muted/10 px-4 py-3">
-                    <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                      {section.selectionMode === 'manual' ? 'Attach a question' : 'Attach a pool'}
-                    </p>
-                    {section.selectionMode === 'manual' ? (
-                      <AttachQuestionForm
-                        assessmentId={assessment.id}
-                        sectionId={section.id}
-                        testCategory={assessment.testCategory}
-                      />
-                    ) : (
-                      <AttachPoolForm
-                        assessmentId={assessment.id}
-                        sectionId={section.id}
-                        testCategory={assessment.testCategory}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
+              <AssessmentSectionCard
+                key={section.id}
+                assessmentId={assessment.id}
+                section={section}
+                testCategory={assessment.testCategory}
+                isContentEditable={isContentEditable}
+              />
             ))
           )}
         </div>
@@ -198,6 +177,15 @@ export default function AssessmentEditPage() {
           <WorkflowActions assessmentId={assessment.id} status={assessment.status} />
         </div>
       </div>
+
+      <EditAssessmentDialog assessment={assessment} open={isEditOpen} onOpenChange={setIsEditOpen} />
+
+      <DeleteAssessmentDialog
+        assessment={assessment}
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onDeleted={() => navigate('..')}
+      />
     </div>
   )
 }
