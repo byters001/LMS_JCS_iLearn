@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { trainersService } from './trainers.service';
 import type {
@@ -10,6 +11,13 @@ import type {
   TrainerProfileIdParams,
   UpdateTrainerProfileInput,
 } from './trainers.schema';
+
+function requireUserId(request: FastifyRequest): string {
+  if (!request.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+  return request.user.id;
+}
 
 async function listTrainerProfiles(
   request: FastifyRequest<{ Querystring: ListTrainerProfilesQuery }>,
@@ -89,7 +97,8 @@ async function getTrainerPerformance(
   request: FastifyRequest<{ Params: TrainerIdParams }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const result = await trainersService.getTrainerPerformance(request.params.trainerId);
+  const callerId = requireUserId(request);
+  const result = await trainersService.getTrainerPerformance(request.params.trainerId, callerId);
   const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
   reply.status(200).send(response);
 }

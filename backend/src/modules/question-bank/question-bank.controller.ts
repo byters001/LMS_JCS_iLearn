@@ -197,7 +197,8 @@ async function listQuestions(
   request: FastifyRequest<{ Querystring: ListQuestionsQuery }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const result = await questionBankService.listQuestions(request.query);
+  const userId = requireUserId(request);
+  const result = await questionBankService.listQuestions(userId, request.query);
   const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
   reply.status(200).send(response);
 }

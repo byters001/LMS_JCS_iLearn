@@ -14,6 +14,7 @@ import type {
 } from '../../db/types';
 import { organizationService } from '../organization/organization.service';
 import { STORAGE_BUCKET, storageService } from '../../integrations/supabase';
+import { userHasRole } from '../../rbac/role-assignments';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { questionBankRepository } from './question-bank.repository';
 import type {
@@ -229,7 +230,47 @@ async function deleteQuestionTag(id: string): Promise<void> {
 // and this file's module docstring-equivalent in the task response for the
 // full reasoning.
 
-async function listQuestions(query: ListQuestionsQuery): Promise<ListQuestionsResult> {
+// Item 6 (Questions audit fix) — GET /questions is gated by
+// QUESTION_BANK_MANAGE (requireAnyPermission(['questions.manage',
+// 'questions.manage_global'])), and 'questions.manage' (the "own/college"
+// tier) is faculty's grant. Before this fix, `collegeId` was a purely
+// optional, client-supplied query filter never derived from the caller's
+// identity — a faculty caller who simply omitted it saw the ENTIRE
+// platform's question bank, every college's questions, not just their own.
+// Same severity as the original assessments gap (fully unscoped, not just
+// coarsely scoped), same fix shape: super_admin stays completely unscoped;
+// everyone else (faculty, given this route's own permission gate) is
+// restricted to the global bank plus their own college(s)' questions.
+//
+// Questions are COLLEGE-scoped (questions.college_id), not batch-scoped —
+// unlike assessments, there's no assessment_batches-equivalent join
+// target. So "faculty's relevant colleges" has to be DERIVED from batch
+// assignment: organizationService.listBatchAssignmentsForTrainers already
+// resolves each assigned batch down to its owning college (batch_trainers
+// -> batches -> training_programs -> colleges, the same join
+// TrainerBatchAssignmentRow always carried), so this reuses that exact
+// call (same as assessments.service.ts's resolveAssessmentListBatchScope)
+// and just extracts .collegeId instead of .batchId, deduplicated — a
+// trainer assigned to batches across N colleges is scoped to all N, union,
+// not just their first/primary one.
+async function resolveQuestionListCollegeScope(userId: string): Promise<string[] | undefined> {
+  const isSuperAdmin = await userHasRole(userId, 'super_admin');
+  if (isSuperAdmin) {
+    return undefined;
+  }
+
+  const trainerBatchAssignments = await organizationService.listBatchAssignmentsForTrainers([
+    userId,
+  ]);
+  return [...new Set(trainerBatchAssignments.map((assignment) => assignment.collegeId))];
+}
+
+async function listQuestions(
+  userId: string,
+  query: ListQuestionsQuery,
+): Promise<ListQuestionsResult> {
+  const collegeIds = await resolveQuestionListCollegeScope(userId);
+
   const { items, total } = await questionBankRepository.listQuestions({
     categoryId: query.categoryId,
     type: query.type,
@@ -237,6 +278,7 @@ async function listQuestions(query: ListQuestionsQuery): Promise<ListQuestionsRe
     collegeId: query.collegeId,
     status: query.status,
     search: query.search,
+    collegeIds,
     page: query.page,
     pageSize: query.pageSize,
   });

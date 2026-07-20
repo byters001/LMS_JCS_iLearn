@@ -9,7 +9,7 @@ import { organizationService } from '../organization/organization.service';
 import { questionBankService } from '../question-bank/question-bank.service';
 import { studentsService } from '../students/students.service';
 import { trainersService } from '../trainers/trainers.service';
-import { getRoleAssignmentsForUser } from '../../rbac/role-assignments';
+import { userHasRole } from '../../rbac/role-assignments';
 import {
   ConflictError,
   ForbiddenError,
@@ -214,19 +214,21 @@ function assertMatchesTestCategory(
 // super_admin's path is required to stay completely unscoped, byte-for-
 // byte. Role identity (not the shared assessments.create permission
 // itself, which can't distinguish the two roles) is what decides the
-// branch — getRoleAssignmentsForUser is queried fresh rather than trusting
-// permissionCache, since permission KEYS don't carry role SLUG identity at
-// all (confirmed: rbac/permission-cache.ts stores PermissionKey[], never a
-// role). Returns undefined for a super_admin caller (assessmentsRepository.
-// listAssessments treats undefined as "no filter, run the original query
-// unchanged" — see that function's own comment) and a real batch id array
-// (possibly empty) for anyone else who reached this far, which given this
-// route's own permission gate can only be faculty.
+// branch — rbac/role-assignments.ts's userHasRole is queried fresh rather
+// than trusting permissionCache, since permission KEYS don't carry role
+// SLUG identity at all (confirmed: rbac/permission-cache.ts stores
+// PermissionKey[], never a role). Returns undefined for a super_admin
+// caller (assessmentsRepository.listAssessments treats undefined as "no
+// filter, run the original query unchanged" — see that function's own
+// comment) and a real batch id array (possibly empty) for anyone else who
+// reached this far, which given this route's own permission gate can only
+// be faculty. This exact shape (userHasRole bypass, then
+// listBatchAssignmentsForTrainers([userId]) for everyone else) is reused
+// as-is by question-bank.service.ts's resolveQuestionListCollegeScope and
+// analytics.service.ts's assertCanAccessBatch — one pattern, three
+// call sites, not three separate inventions.
 async function resolveAssessmentListBatchScope(userId: string): Promise<string[] | undefined> {
-  const roleAssignments = await getRoleAssignmentsForUser(userId);
-  const isSuperAdmin = roleAssignments.some(
-    (assignment) => assignment.role.slug === 'super_admin',
-  );
+  const isSuperAdmin = await userHasRole(userId, 'super_admin');
   if (isSuperAdmin) {
     return undefined;
   }

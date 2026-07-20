@@ -286,6 +286,13 @@ export interface ListQuestionsParams {
   collegeId?: string;
   status?: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'archived';
   search?: string;
+  // Item 6 (Questions audit fix) — undefined means "unscoped," the exact
+  // pre-fix behavior (super_admin's path). A real array (possibly empty)
+  // restricts results to the global bank (collegeId IS NULL — see
+  // buildQuestionsWhere below) PLUS any of these specific colleges' own
+  // questions. See question-bank.service.ts's resolveQuestionListCollegeScope
+  // for how a faculty caller's batch assignments resolve into this list.
+  collegeIds?: string[];
   page: number;
   pageSize: number;
 }
@@ -326,6 +333,22 @@ function buildQuestionsWhere(params: Omit<ListQuestionsParams, 'page' | 'pageSiz
   if (params.collegeId) conditions.push(eq(questions.collegeId, params.collegeId));
   if (params.status) conditions.push(eq(questions.status, params.status));
   if (params.search) conditions.push(ilike(questionVersions.questionText, `%${params.search}%`));
+  // Item 6 (Questions audit fix) — same or()-with-defense-in-depth-fallback
+  // shape question-bank.repository.ts's own resolveCriterionQuestions
+  // already established for the identical "global bank OR this caller's
+  // own college(s)" rule, reused here rather than a new formulation. An
+  // empty collegeIds array (faculty assigned to zero batches) degrades
+  // gracefully to "global bank only" — inArray(col, []) contributes nothing
+  // matching, isNull(...) still does; no separate empty-array short-circuit
+  // needed the way ListAssessmentsParams' batchIds required (that filter
+  // has no "always-visible regardless of scope" branch the way the global
+  // question bank does).
+  if (params.collegeIds !== undefined) {
+    conditions.push(
+      or(isNull(questions.collegeId), inArray(questions.collegeId, params.collegeIds)) ??
+        sql`false`,
+    );
+  }
   return and(...conditions);
 }
 

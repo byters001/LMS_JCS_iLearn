@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { analyticsService } from '../analytics/analytics.service';
 import type { AttendanceByDateResult, FailedStudentsResult } from '../analytics/analytics.types';
+import { userHasRole } from '../../rbac/role-assignments';
 import { ForbiddenError } from '../../shared/errors/app-error';
 import { studentsService, studentExportRowToCsvRow, STUDENT_EXPORT_CSV_HEADER } from '../students/students.service';
 import type { StudentExportRow } from '../students/students.repository';
@@ -101,7 +102,11 @@ const getAttendanceByDateTool = defineTool({
 // --- getFailedStudents ---
 // analytics module owns this — reuses getBatchPerformance's own pass/fail
 // classification verbatim (see analytics.service.ts's getFailedStudents),
-// no duplicated scoring logic.
+// no duplicated scoring logic. Passes context.userId (item 6 follow-up),
+// not context.activeCollegeId/context.isSuperAdmin — analyticsService.
+// getFailedStudents now does its own real batch_trainers-assignment check
+// via userId, the same as every other analytics batch-access path; it no
+// longer needs (or accepts) an activeCollegeId-derived scope.
 const getFailedStudentsTool = defineTool({
   name: 'getFailedStudents',
   description:
@@ -113,7 +118,7 @@ const getFailedStudentsTool = defineTool({
     })
     .strict(),
   execute: async (args, context) => {
-    return analyticsService.getFailedStudents(args.assessmentId, args.batchId, context.activeCollegeId);
+    return analyticsService.getFailedStudents(args.assessmentId, args.batchId, context.userId);
   },
   toCsv: (result: FailedStudentsResult) => {
     const rows = result.batches.flatMap((batch) =>
@@ -145,20 +150,34 @@ const getTrainerPerformanceTool = defineTool({
     // /trainers/:trainerId/performance) is gated by 'trainers.view', a
     // permission ONLY super_admin holds (confirmed against drizzle/
     // migrations/0003_add-trainers-permissions.sql — Faculty holds no
-    // trainers.* key at all). trainersService.getTrainerPerformance
-    // ITSELF has no internal college/caller scoping — its only real
-    // protection today IS that route-level gate. 'chatbot.query' (this
-    // whole module's own permission key) is granted to Faculty too (per
-    // this phase's own "super_admin/faculty only" requirement), so
-    // calling this service function here for a Faculty caller, unchecked,
-    // would silently grant them broader access than the equivalent HTTP
-    // endpoint does — ANY trainer's performance, ANY college. This check
-    // holds that same line inside the chatbot's call path; it is not a
-    // new, separate restriction invented for this tool alone.
-    if (!context.isSuperAdmin) {
+    // trainers.* key at all). 'chatbot.query' (this whole module's own
+    // permission key) is granted to Faculty too (per this phase's own
+    // "super_admin/faculty only" requirement), so calling this service
+    // function here for a Faculty caller, unchecked, would silently grant
+    // them broader access than the equivalent HTTP endpoint does. This
+    // check holds that same line inside the chatbot's call path; it is not
+    // a new, separate restriction invented for this tool alone.
+    //
+    // Item 6 follow-up fix: this used to read context.isSuperAdmin, a flag
+    // chatbot.controller.ts's requireContext derived as
+    // `activeCollegeId === null` — the exact same flawed heuristic
+    // analytics.service.ts's assertCanAccessBatch used to rely on, and
+    // wrong for the identical reason (a Faculty member with more than one
+    // role assignment also gets activeCollegeId === null, per
+    // auth.service.ts's resolveActiveCollegeId, and would have been
+    // wrongly treated as super_admin here). Replaced with the same real
+    // rbac/role-assignments.ts's userHasRole check every other item-6 fix
+    // uses. trainersService.getTrainerPerformance also now has its OWN real
+    // batch_trainers-based scoping downstream (via
+    // analyticsService.getTrainerPerformanceTrend's assertCanAccessBatch
+    // call, threaded through via context.userId below) — this remains a
+    // fast, clear, up-front rejection rather than relying solely on that
+    // downstream check to eventually throw.
+    const isSuperAdmin = await userHasRole(context.userId, 'super_admin');
+    if (!isSuperAdmin) {
       throw new ForbiddenError('Only Super Admin can query trainer performance via the chatbot');
     }
-    return trainersService.getTrainerPerformance(args.trainerId);
+    return trainersService.getTrainerPerformance(args.trainerId, context.userId);
   },
   toCsv: (result: TrainerPerformanceResult) => {
     if (result.trend.length === 0) return null;

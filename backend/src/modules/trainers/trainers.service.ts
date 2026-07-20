@@ -197,7 +197,19 @@ async function listTrainersOverview(
 // A trainer with zero batch assignments yet returns an empty
 // batches/trend, not a 404 — "no batches assigned" is a legitimate,
 // non-error state for a newly onboarded trainer, not a failure.
-async function getTrainerPerformance(trainerId: string): Promise<TrainerPerformanceResult> {
+//
+// callerId (item 6 follow-up) — the ACTING caller viewing this dashboard,
+// not trainerId (the trainer being viewed). Threaded through to
+// analyticsService.getTrainerPerformanceTrend, which needs it to pass to
+// getBatchPerformance's own assertCanAccessBatch check. This route is
+// Super-Admin-only (trainers.routes.ts's 'trainers.view' guard), so
+// callerId is always a real super_admin's id by the time this runs —
+// assertCanAccessBatch's own userHasRole bypass verifies that for real now
+// instead of the old hardcoded-null shortcut assuming it.
+async function getTrainerPerformance(
+  trainerId: string,
+  callerId: string,
+): Promise<TrainerPerformanceResult> {
   const trainer = await usersService.findById(trainerId);
   const assignments = await organizationService.listBatchAssignmentsForTrainers([trainerId]);
 
@@ -212,7 +224,10 @@ async function getTrainerPerformance(trainerId: string): Promise<TrainerPerforma
   }
   const batches = [...batchesById.values()];
 
-  const trend = await analyticsService.getTrainerPerformanceTrend(batches.map((batch) => batch.id));
+  const trend = await analyticsService.getTrainerPerformanceTrend(
+    batches.map((batch) => batch.id),
+    callerId,
+  );
 
   return { trainerId, fullName: trainer.fullName, batches, trend };
 }

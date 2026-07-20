@@ -20,3 +20,23 @@ export async function getRoleAssignmentsForUser(userId: string): Promise<UserRol
     .innerJoin(roles, eq(userRoles.roleId, roles.id))
     .where(eq(userRoles.userId, userId));
 }
+
+// Shared by every module that needs to distinguish "this specific caller is
+// super_admin" from "this caller merely holds a permission super_admin also
+// happens to hold" — assessments.create, questions.manage, and analytics.
+// view are all held by BOTH super_admin and faculty (schema.sql's
+// role_permissions seed), so the shared permission key itself can never
+// answer this question; only role identity can. Queried fresh against
+// user_roles every call, not permissionCache — permission KEYS never carry
+// role SLUG identity (confirmed: rbac/permission-cache.ts stores
+// PermissionKey[], never a role). This deliberately replaces the
+// `activeCollegeId === null` heuristic several call sites used to lean on
+// as a super_admin proxy (analytics.service.ts's assertCanAccessBatch,
+// chatbot.controller.ts's requireContext) — that heuristic breaks for any
+// user with more than one role assignment, super_admin or not, since
+// auth.service.ts's resolveActiveCollegeId returns null for THAT reason
+// too, not only for a genuine super_admin grant.
+export async function userHasRole(userId: string, roleSlug: string): Promise<boolean> {
+  const assignments = await getRoleAssignmentsForUser(userId);
+  return assignments.some((assignment) => assignment.role.slug === roleSlug);
+}

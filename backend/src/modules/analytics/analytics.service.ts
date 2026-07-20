@@ -1,6 +1,7 @@
 import { MAX_PAGE_SIZE } from '../../config/constants';
 import { assessmentsService } from '../assessments/assessments.service';
 import { organizationService } from '../organization/organization.service';
+import { userHasRole } from '../../rbac/role-assignments';
 import { ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
 import {
   analyticsRepository,
@@ -73,50 +74,44 @@ const STATUS_PRIORITY: Record<AssessmentAttemptStatus, number> = {
   not_started: 4,
 };
 
-// --- College scoping (item 3) ---
+// --- Batch access scoping (item 3, tightened by item 6's follow-up) ---
 //
-// Confirmed the batch->college path directly against schema.sql: batches
-// has NO college_id column of its own — it's two hops away
-// (batches.training_program_id -> training_programs.college_id).
-// Resolved via organizationService.findBatchById + findTrainingProgramById
-// (both already-existing cross-module SERVICE calls, reused rather than
-// re-queried here, matching item 1's "reuse... don't duplicate" ask
-// extended to this lookup too).
+// Previously checked only "does this batch's college match the caller's
+// activeCollegeId" — coarser than the real access model: a Faculty member
+// could view performance analytics for ANY batch in their own college,
+// not just batches they're actually assigned to train (batch_trainers).
+// That check also silently BYPASSED entirely whenever activeCollegeId was
+// null — which auth.service.ts's resolveActiveCollegeId returns not only
+// for a genuine Super Admin, but for ANY user holding more than one role
+// assignment, faculty included. A faculty member assigned to multiple
+// colleges got the exact same unrestricted access as Super Admin, as a
+// side effect of that collapse, not by design.
 //
-// Bypass condition, confirmed against auth.service.ts's own
-// resolveActiveCollegeId rather than assumed: a user's activeCollegeId is
-// null UNLESS they hold EXACTLY ONE role assignment with a non-null
-// college_id. Super Admin's own role assignment is global (college_id IS
-// NULL, per schema.sql's user_roles design), so resolveActiveCollegeId
-// ALWAYS returns null for a Super Admin. By the time this function runs
-// (after requirePermission('analytics.view') has already passed),
-// activeCollegeId === null reliably means "this caller holds a GLOBAL
-// analytics.view grant" — which, per schema.sql's seed, only Super Admin
-// has (Faculty's grant is college-scoped, tied to their own
-// college-specific user_roles row). A non-null activeCollegeId that
-// doesn't match the batch's own college means a Faculty member from a
-// DIFFERENT college is trying to read a batch they hold no grant over.
-//
-// This check is NOT something that "falls out of existing infra for
-// free" the way question-bank.routes.ts's own comment describes for
-// questions.manage — that precedent covers resources whose OWN
-// college_id was set to the creator's own scope AT CREATION time (so the
-// permission cache's per-college resolution already lines up with the
-// resource). This is different: batchId is an arbitrary path param that
-// could name a batch in ANY college, and requirePermission('analytics.view')
-// only verifies "does this caller hold analytics.view for THEIR OWN
-// active college" — never "does this specific batchId belong to that
-// same college." That's exactly the gap this function closes.
-async function assertCanAccessBatch(
-  batchId: string,
-  activeCollegeId: string | null,
-): Promise<void> {
-  const batch = await organizationService.findBatchById(batchId);
-  const trainingProgram = await organizationService.findTrainingProgramById(
-    batch.trainingProgramId,
+// Fixed to the same pattern assessments.service.ts's
+// resolveAssessmentListBatchScope and question-bank.service.ts's
+// resolveQuestionListCollegeScope already use: userHasRole queried fresh
+// against user_roles (never activeCollegeId, never permissionCache — see
+// rbac/role-assignments.ts's userHasRole for why neither can answer "is
+// THIS caller super_admin") decides the bypass; everyone else is checked
+// against organizationService.listBatchAssignmentsForTrainers([userId]),
+// the real batch_trainers-backed assignment list, for this SPECIFIC
+// batchId — not merely "same college." This also structurally closes the
+// activeCollegeId-null bypass: the new check never reads activeCollegeId
+// at all, so there is no null case left to accidentally skip past.
+async function assertCanAccessBatch(batchId: string, userId: string): Promise<void> {
+  const isSuperAdmin = await userHasRole(userId, 'super_admin');
+  if (isSuperAdmin) {
+    return;
+  }
+
+  const trainerBatchAssignments = await organizationService.listBatchAssignmentsForTrainers([
+    userId,
+  ]);
+  const isAssignedToBatch = trainerBatchAssignments.some(
+    (assignment) => assignment.batchId === batchId,
   );
 
-  if (activeCollegeId !== null && trainingProgram.collegeId !== activeCollegeId) {
+  if (!isAssignedToBatch) {
     throw new ForbiddenError('You are not authorized to view analytics for this batch');
   }
 }
@@ -217,9 +212,9 @@ function computeMedian(sortedAscending: number[]): number {
 async function getBatchPerformance(
   batchId: string,
   query: GetBatchPerformanceQuery,
-  activeCollegeId: string | null,
+  userId: string,
 ): Promise<BatchPerformanceSummary> {
-  await assertCanAccessBatch(batchId, activeCollegeId);
+  await assertCanAccessBatch(batchId, userId);
 
   // Default assessment (item 1's "or across all assessments if none
   // specified"): the batch's MOST RECENTLY ACTIVE assessment, not a
@@ -336,14 +331,14 @@ async function getBatchPerformance(
 // no separate trainers.service.ts wrapper needed the way Phase 5's
 // multi-batch trainer dashboard needed one.
 //
-// Reuses assertCanAccessBatch as-is (same Faculty-own-college-only /
+// Reuses assertCanAccessBatch as-is (same batch_trainers-assignment /
 // Super-Admin-unrestricted scoping getBatchPerformance already enforces)
 // — no separate authorization concept invented for this endpoint.
 async function getBatchAssessmentParticipation(
   batchId: string,
-  activeCollegeId: string | null,
+  userId: string,
 ): Promise<BatchAssessmentParticipationResult> {
-  await assertCanAccessBatch(batchId, activeCollegeId);
+  await assertCanAccessBatch(batchId, userId);
   const batch = await organizationService.findBatchById(batchId);
 
   const [assessmentRows, studentIds] = await Promise.all([
@@ -387,21 +382,19 @@ async function getBatchAssessmentParticipation(
 // batch has activity on, call the existing summary function for each,
 // flatten into one chronological list).
 //
-// activeCollegeId is hardcoded to null (not threaded through as a
-// parameter) — this is intentionally NOT the same college-scoping check
-// getBatchPerformance's other caller (analytics.routes.ts's own
-// GET /analytics/batches/:batchId/performance) performs for a Faculty
-// caller reading one specific batch they claim access to. A trainer's
-// PERFORMANCE TREND, by contrast, is only ever reachable via
-// trainers.service.ts's getTrainerPerformance, which is itself gated by
-// trainers.routes.ts's Super-Admin-only 'trainers.view' permission — a
-// Super Admin's own activeCollegeId is always null already (schema.sql:
-// their role assignment has no college_id), and a trainer's assigned
-// batches can legitimately span multiple colleges, so there is no single
-// "caller's own college" to check against here even if one wanted to.
-// Passing null explicitly documents that this reuse deliberately skips
-// assertCanAccessBatch's ForbiddenError branch, rather than leaving it to
-// be discovered by reading getBatchPerformance's implementation.
+// userId is now threaded through as the REAL acting caller (item 6
+// follow-up) rather than the old hardcoded-null bypass this used to pass
+// to skip assertCanAccessBatch's check entirely. That bypass is no longer
+// needed to make this reuse work: this function is only ever reachable via
+// trainers.service.ts's getTrainerPerformance, itself gated by
+// trainers.routes.ts's Super-Admin-only 'trainers.view' permission — so
+// the real caller genuinely IS super_admin every time this runs, and
+// assertCanAccessBatch's own userHasRole bypass now verifies that for
+// real, instead of a magic sentinel value asserting it by convention. A
+// trainer's assigned batches can legitimately span multiple colleges
+// regardless, which was the other reason this used to skip a
+// college-based check — moot now that the check is batch_trainers-based,
+// not college-based, but noted for context.
 //
 // pageSize: 1 on each call — only the summary fields (averageScore,
 // passRate, totalStudents, studentsAttempted, assessmentTitle) are used
@@ -412,6 +405,7 @@ async function getBatchAssessmentParticipation(
 // only bounds the per-student list's payload size, not correctness.
 async function getTrainerPerformanceTrend(
   batchIds: string[],
+  userId: string,
 ): Promise<TrainerPerformanceTrendPoint[]> {
   const activityByBatch = await Promise.all(
     batchIds.map(async (batchId) => ({
@@ -429,7 +423,7 @@ async function getTrainerPerformanceTrend(
       const summary = await getBatchPerformance(
         batchId,
         { assessmentId, page: 1, pageSize: 1 },
-        null,
+        userId,
       );
       const point: TrainerPerformanceTrendPoint = {
         batchId,
@@ -498,7 +492,7 @@ async function getAttendanceByDate(
 // assessmentsService.listAssessmentBatches (an existing cross-module
 // SERVICE call, not a fresh query against assessment_batches here).
 //
-// A batch outside the caller's own college (ForbiddenError from
+// A batch the caller isn't assigned to (ForbiddenError from
 // getBatchPerformance's own assertCanAccessBatch) or with zero attempts
 // yet on this assessment (NotFoundError) is SKIPPED, not a hard failure
 // for the whole request — "give me what you're allowed to see and what
@@ -509,7 +503,7 @@ async function getAttendanceByDate(
 async function getFailedStudents(
   assessmentId: string,
   batchId: string | undefined,
-  activeCollegeId: string | null,
+  userId: string,
 ): Promise<FailedStudentsResult> {
   const assessment = await assessmentsService.findAssessmentById(assessmentId);
 
@@ -537,7 +531,7 @@ async function getFailedStudents(
       summary = await getBatchPerformance(
         candidateBatchId,
         { assessmentId, page: 1, pageSize: MAX_PAGE_SIZE },
-        activeCollegeId,
+        userId,
       );
     } catch (err) {
       if (err instanceof ForbiddenError || err instanceof NotFoundError) {
