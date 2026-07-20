@@ -176,6 +176,13 @@
       "when": 1784310283495,
       "tag": "0024_make-assessments-training-session-optional",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784560906691,
+      "tag": "0025_grant-faculty-question-pools-manage",
+      "breakpoints": true
     }
   ]
 }
