@@ -51,7 +51,7 @@ export default function DepartmentListPage() {
     : 1
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="max-w-sm flex-1">
           <p className="mb-1 text-xs font-medium text-muted-foreground">College</p>

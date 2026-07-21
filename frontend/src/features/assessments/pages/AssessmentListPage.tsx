@@ -45,8 +45,8 @@ export default function AssessmentListPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-baseline justify-between">
+    <div className="p-5">
+      <div className="mb-4 flex items-baseline justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Assessments</h1>
           <p className="mt-1 text-sm text-muted-foreground">

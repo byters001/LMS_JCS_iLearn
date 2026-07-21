@@ -110,8 +110,8 @@ export default function StudentAssessmentsPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="p-5">
+      <div className="mb-4">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Assessments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Live and upcoming assessments for your batch.
@@ -153,7 +153,7 @@ export default function StudentAssessmentsPage() {
           )}
 
           {data.total > 0 && (
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 Page {data.page} of {totalPages} &middot; {data.total} assessment
                 {data.total === 1 ? '' : 's'}

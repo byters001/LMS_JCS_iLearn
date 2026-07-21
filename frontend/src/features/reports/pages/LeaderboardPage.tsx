@@ -9,8 +9,8 @@ import LeaderboardSection from '../components/LeaderboardSection'
 // nav link would just be redundant clutter on the assessments dashboard.
 export default function LeaderboardPage() {
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="p-5">
+      <div className="mb-4">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Leaderboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           See how you rank against your batch.

@@ -61,7 +61,7 @@ export default function BatchListPage() {
     : 1
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-5">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Batches</h1>
@@ -104,7 +104,7 @@ export default function BatchListPage() {
 
       {collegeId !== null && batches.isPending && (
         <div
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           role="status"
           aria-label="Loading batches"
         >
@@ -130,7 +130,7 @@ export default function BatchListPage() {
 
       {collegeId !== null && batches.data && batches.data.items.length > 0 && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {batches.data.items.map((batch) => (
               <BatchCard
                 key={batch.id}

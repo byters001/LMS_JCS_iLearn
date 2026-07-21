@@ -89,7 +89,7 @@ export default function LeaderboardSection() {
   const { data, isPending, isError, error } = useLeaderboard()
 
   return (
-    <div className="mb-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Leaderboard</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Ranked by average score across your batch's completed attempts.

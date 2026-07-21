@@ -93,7 +93,7 @@ export default function PerformanceAnalyticsSection() {
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   const sectionShell = (children: ReactNode) => (
-    <div className="mb-6 rounded-xl border border-border bg-card p-5 shadow-sm">
+    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">
         Performance Analytics
       </h2>

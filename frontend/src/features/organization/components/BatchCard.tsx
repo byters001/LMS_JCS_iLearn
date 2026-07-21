@@ -71,7 +71,7 @@ export function BatchCard({
           : undefined
       }
       className={cn(
-        'gap-3 p-4 transition-shadow hover:shadow-md',
+        'gap-3 p-3.5 transition-shadow hover:shadow-md',
         onSelect ? 'cursor-pointer' : undefined,
         isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : undefined,
       )}

@@ -51,7 +51,7 @@ function NamedRefList({ refs }: { refs: TrainerOverviewNamedRef[] }) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-3.5">
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
     </div>
@@ -72,7 +72,7 @@ export default function TrainersDashboardPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-5">
       <div>
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Trainers</h1>
         <p className="mt-1 text-sm text-muted-foreground">

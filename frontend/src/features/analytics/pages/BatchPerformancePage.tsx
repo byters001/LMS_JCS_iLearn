@@ -130,7 +130,7 @@ function StatusBadge({ status }: { status: PerStudentStatus }) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="rounded-lg border border-border bg-background p-3.5">
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
     </div>
@@ -233,8 +233,8 @@ export default function BatchPerformancePage() {
     performance.error.code === 'NOT_FOUND'
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="p-5">
+      <div className="mb-4">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Batch Performance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Aggregate results for a batch on one assessment — average score, pass rate, and
@@ -243,7 +243,7 @@ export default function BatchPerformancePage() {
       </div>
 
       <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {/* Only Super Admin ever sees this — Faculty's own activeCollegeId
               already resolves `collegeId` above with no picker needed. */}
           {user?.activeCollegeId == null && (
@@ -315,13 +315,13 @@ export default function BatchPerformancePage() {
       </div>
 
       {!batchId && (
-        <p className="mt-6 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        <p className="mt-4 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           Select a batch above to view its performance.
         </p>
       )}
 
       {batchId && performance.isPending && (
-        <div className="mt-6 space-y-2" role="status" aria-label="Loading batch performance">
+        <div className="mt-4 space-y-2" role="status" aria-label="Loading batch performance">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
           ))}
@@ -329,7 +329,7 @@ export default function BatchPerformancePage() {
       )}
 
       {batchId && performance.isError && (
-        <div className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {isNoAttemptsYet
             ? 'This batch has no attempts on any assessment yet.'
             : performance.error instanceof ApiError
@@ -339,7 +339,7 @@ export default function BatchPerformancePage() {
       )}
 
       {batchId && performance.data && (
-        <div className="mt-6 space-y-6">
+        <div className="mt-4 space-y-4">
           <div>
             <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               {performance.data.assessmentTitle}

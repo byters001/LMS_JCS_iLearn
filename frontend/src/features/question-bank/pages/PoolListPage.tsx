@@ -43,8 +43,8 @@ export default function PoolListPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-baseline justify-between">
+    <div className="p-5">
+      <div className="mb-4 flex items-baseline justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Question Pools</h1>
           <p className="mt-1 text-sm text-muted-foreground">

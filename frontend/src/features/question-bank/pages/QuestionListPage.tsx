@@ -81,7 +81,7 @@ function TypeCard({
       aria-expanded={isSelected}
       onClick={onSelect}
       className={cn(
-        'rounded-xl border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md',
+        'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
         isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
       )}
     >
@@ -232,7 +232,7 @@ export default function QuestionListPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-5">
       <div className="flex items-baseline justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Questions</h1>
@@ -256,10 +256,10 @@ export default function QuestionListPage() {
 
       {!typeCountsError && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+          <h2 className="mb-2.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
             Question Types
           </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {TYPE_ORDER.map((type) => (
               <TypeCard
                 key={type}
@@ -277,7 +277,7 @@ export default function QuestionListPage() {
         <CollapsibleContent className="space-y-4">
           {selectedType && (
             <div>
-              <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              <h2 className="mb-2.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
                 {TYPE_LABELS[selectedType]} by Difficulty
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

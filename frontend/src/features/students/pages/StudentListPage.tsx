@@ -29,7 +29,7 @@ function StatCard({
   iconClassName: string
 }) {
   return (
-    <Card className="p-4">
+    <Card className="p-3.5">
       <div className="flex items-center gap-3">
         <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-full', iconClassName)}>
           <Icon className="size-5" />
@@ -86,7 +86,7 @@ export default function StudentListPage() {
   )
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-5">
       <div>
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Students</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -94,7 +94,7 @@ export default function StudentListPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
           label="Total students"
           value={totalCount}
@@ -116,13 +116,13 @@ export default function StudentListPage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+        <h2 className="mb-2.5 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Colleges
         </h2>
 
         {colleges.isPending && (
           <div
-            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
             role="status"
             aria-label="Loading colleges"
           >
@@ -145,7 +145,7 @@ export default function StudentListPage() {
         )}
 
         {colleges.data && collegeItems.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {collegeItems.map((college) => {
               const isSelected = selectedCollegeId === college.id
               const count = countsByCollegeId.get(college.id)
@@ -156,7 +156,7 @@ export default function StudentListPage() {
                   aria-expanded={isSelected}
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
-                    'rounded-xl border bg-card p-4 text-left shadow-sm transition-shadow hover:shadow-md',
+                    'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
                     isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
                   )}
                 >

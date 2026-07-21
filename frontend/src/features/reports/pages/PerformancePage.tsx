@@ -15,8 +15,8 @@ import ScoreHistoryTable from '../components/ScoreHistoryTable'
 //      why the first attempt shows "—" rather than a fabricated 0%.
 export default function PerformancePage() {
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="p-5">
+      <div className="mb-4">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Performance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Your score trend over time, and a full history of graded attempts.
