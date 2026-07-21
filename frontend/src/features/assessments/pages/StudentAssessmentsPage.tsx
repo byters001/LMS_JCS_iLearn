@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
 import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { Assessment, AvailableAssessment } from '../types'
@@ -64,7 +64,10 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   return (
     <Link
       to={linkTo}
-      className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
+      className={cn(
+        'group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2',
+        CARD_GRADIENT,
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>

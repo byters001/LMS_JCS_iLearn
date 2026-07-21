@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useTrainerPerformance } from '../api'
 import type { TrainerPerformanceTrendPoint } from '../types'
 
@@ -21,7 +22,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month:
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className={cn('rounded-lg border border-border bg-background p-4', CARD_GRADIENT)}>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
     </div>

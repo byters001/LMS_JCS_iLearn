@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import {
   Table,
   TableBody,
@@ -51,7 +52,7 @@ function NamedRefList({ refs }: { refs: TrainerOverviewNamedRef[] }) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-3.5">
+    <div className={cn('rounded-lg border border-border bg-background p-3.5', CARD_GRADIENT)}>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
     </div>

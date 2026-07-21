@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useMyAttempts } from '../api'
 import { attemptTimestamp } from './PerformanceAnalyticsSection'
 import type { MyAttemptSummary } from '../types'
@@ -101,7 +101,7 @@ export default function ScoreHistoryTable() {
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   return (
-    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Score History</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Every graded attempt, most recent first, with your % change vs. the attempt before it.

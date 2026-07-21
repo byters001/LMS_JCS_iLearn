@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/table'
 import { useAssessments } from '@/features/assessments/api'
 import { useBatches, useColleges } from '@/features/organization/api'
-import { cn } from '@/lib/utils'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useBatchPerformance } from '../api'
 import type { PerStudentStatus } from '../types'
@@ -130,7 +130,7 @@ function StatusBadge({ status }: { status: PerStudentStatus }) {
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background p-3.5">
+    <div className={cn('rounded-lg border border-border bg-background p-3.5', CARD_GRADIENT)}>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
     </div>

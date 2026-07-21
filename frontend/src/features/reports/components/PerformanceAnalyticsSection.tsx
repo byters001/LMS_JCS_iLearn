@@ -2,6 +2,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useMyAttempts } from '../api'
 import type { MyAttemptSummary } from '../types'
 
@@ -93,7 +94,7 @@ export default function PerformanceAnalyticsSection() {
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   const sectionShell = (children: ReactNode) => (
-    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
       <h2 className="font-heading text-lg font-semibold text-brand-primary">
         Performance Analytics
       </h2>

@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useLeaderboard } from '../api'
 import type { LeaderboardEntry, LeaderboardTier } from '../types'
 
@@ -89,7 +89,7 @@ export default function LeaderboardSection() {
   const { data, isPending, isError, error } = useLeaderboard()
 
   return (
-    <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Leaderboard</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Ranked by average score across your batch's completed attempts.

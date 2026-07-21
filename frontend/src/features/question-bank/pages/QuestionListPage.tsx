@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useQuestions, useQuestionsWithText } from '../api'
 import { QuestionStatusBadge } from '../components/QuestionStatusBadge'
 import type { QuestionDifficulty, QuestionType } from '../types'
@@ -82,6 +82,7 @@ function TypeCard({
       onClick={onSelect}
       className={cn(
         'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
+        CARD_GRADIENT,
         isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
       )}
     >
@@ -130,6 +131,7 @@ function DifficultySubCard({
       onClick={onSelect}
       className={cn(
         'rounded-lg border bg-card px-4 py-3 text-left shadow-sm transition-shadow hover:shadow-md',
+        CARD_GRADIENT,
         isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
       )}
     >

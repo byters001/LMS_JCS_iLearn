@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { useColleges } from '@/features/organization/api'
-import { cn } from '@/lib/utils'
+import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useStudentCountsByCollege, useStudentProfiles } from '../api'
 import { StudentRosterTable } from '../components/StudentRosterTable'
 
@@ -157,6 +157,7 @@ export default function StudentListPage() {
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
                     'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
+                    CARD_GRADIENT,
                     isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
                   )}
                 >
