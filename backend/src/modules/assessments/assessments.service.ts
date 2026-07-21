@@ -431,7 +431,27 @@ async function createAssessmentSection(
   const assessment = await findAssessmentById(assessmentId);
   assertAssessmentEditable(assessment);
 
-  return assessmentsRepository.createAssessmentSection(assessmentId, { ...input, createdBy });
+  // sectionOrder is always server-computed (append after the last existing
+  // section), never trusted from input — AddSectionForm.tsx never sends it,
+  // and the Zod schema defaults a missing value to 0 for every section, so
+  // every section created this way silently collided at sectionOrder 0.
+  // Confirmed live: every assessment sampled from the dev DB had ALL its
+  // sections tied at section_order 0. attempts.repository.ts's
+  // listFrozenQuestions orders by (section_order, per-section sortOrder) —
+  // once section_order ties, that ORDER BY can't group a section's
+  // questions contiguously anymore and instead interleaves sections by
+  // their own (per-section-relative) sortOrder, which is Bug 2's real root
+  // cause: the question navigator's "current section" ends up scattered
+  // across non-adjacent global positions (e.g. 1 and 4 of 14) instead of a
+  // contiguous run. Reordering after creation is still possible via
+  // EditSectionDialog's update path, which keeps its own explicit
+  // (non-defaulted) sectionOrder input untouched.
+  const existingSections = await assessmentsRepository.listAssessmentSections(assessmentId);
+  return assessmentsRepository.createAssessmentSection(assessmentId, {
+    ...input,
+    sectionOrder: existingSections.length,
+    createdBy,
+  });
 }
 
 async function updateAssessmentSection(

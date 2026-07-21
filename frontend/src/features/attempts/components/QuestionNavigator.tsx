@@ -42,17 +42,28 @@ export function QuestionNavigator({
         Questions
       </h2>
       <div className="grid grid-cols-5 gap-2">
-        {indexesToRender.map((index) => {
+        {indexesToRender.map((index, position) => {
           const question = questions[index]
           const isCurrent = index === currentIndex
           const isAnswered = question.savedResponse !== undefined
+          // Numbered by POSITION within this rendered subset (1, 2, 3…), not
+          // the question's global index — when visibleIndexes filters down
+          // to one section, that section's own sortOrder/section_order can
+          // legitimately place its questions at non-adjacent global
+          // positions (e.g. global #1 and #4 of 14), which used to surface
+          // here as "1" and "4" with nothing rendered in between — looking
+          // like questions 2-3 had gone missing, when they simply belong to
+          // a different section. Local, gapless numbering avoids ever
+          // showing a number with no corresponding button. Matches
+          // AttemptPage's header, which now shows this same local count for
+          // a multi-section attempt.
           return (
             <button
               key={question.id}
               type="button"
               onClick={() => onNavigate(index)}
               aria-current={isCurrent}
-              title={`${TYPE_LABELS[question.type]} — Question ${index + 1}${isAnswered ? ' (answered)' : ''}`}
+              title={`${TYPE_LABELS[question.type]} — Question ${position + 1}${isAnswered ? ' (answered)' : ''}`}
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-md border text-sm font-medium transition-all',
                 isCurrent && 'border-brand-accent bg-brand-accent text-white shadow-sm ring-2 ring-brand-accent/30',
@@ -64,7 +75,7 @@ export function QuestionNavigator({
                   'border-border bg-background text-muted-foreground hover:bg-muted',
               )}
             >
-              {index + 1}
+              {position + 1}
             </button>
           )
         })}

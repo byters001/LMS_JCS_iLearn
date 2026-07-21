@@ -577,7 +577,19 @@ async function createCodingTestCase(
   }
   assertVersionMutable(version);
 
-  return questionBankRepository.createCodingTestCase(version.id, input);
+  // sortOrder is always server-computed (next open position), never trusted
+  // from input — the Zod schema defaults a missing sortOrder to 0, so any
+  // caller of this one-at-a-time endpoint that omits it (or repeats it)
+  // silently collides with an existing row's sortOrder instead of appending
+  // after it. Confirmed live: every coding question in the dev DB has its
+  // two sample test cases both stuck at sort_order 0 this way (Bug 1 —
+  // TestResultsPanel's "Test Case N" label is sortOrder + 1, so a collision
+  // here is a duplicated label, not a display bug).
+  const existing = await questionBankRepository.listCodingTestCases(version.id);
+  return questionBankRepository.createCodingTestCase(version.id, {
+    ...input,
+    sortOrder: existing.length,
+  });
 }
 
 async function updateCodingTestCase(

@@ -343,6 +343,22 @@ export default function AttemptPage() {
   // on a direct URL visit/hard refresh where that cache is empty.
   const assessmentTitle = questions[0].assessmentTitle
   const currentSectionTitle = activeSection?.title ?? questions[currentIndex].sectionTitle
+  // Bug fix (multi-section numbering coherence) — QuestionNavigator only
+  // renders the active section's questions (visibleIndexes below) but
+  // those are GLOBAL indexes into the full `questions` array, so a small
+  // section can legitimately sit at non-adjacent global positions (e.g.
+  // #1 and #4 of 14 when a 12-question section is interleaved between
+  // them by section_order/sortOrder). Showing "Question 4 of 14" against a
+  // navigator with only two buttons ("1" and "4") reads as questions 2-3
+  // having vanished. For a multi-section attempt, the heading now reports
+  // position WITHIN the active section instead — always gapless and always
+  // matching the navigator's own (equally section-local) numbering — while
+  // the answered-count line still reports the true whole-assessment total
+  // separately, so overall progress isn't lost.
+  const localIndexInSection = activeSection
+    ? activeSection.questionIndexes.indexOf(currentIndex)
+    : currentIndex
+  const sectionQuestionCount = activeSection?.questionIndexes.length ?? questions.length
 
   return (
     // Density phase — top padding cut way down (p-4/p-5 on every side ->
@@ -438,10 +454,13 @@ export default function AttemptPage() {
       <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/20 px-4 py-3">
         <div>
           <h2 className="text-base font-semibold text-brand-primary">
-            Question {currentIndex + 1} of {questions.length}
+            {sections.length > 1
+              ? `Question ${localIndexInSection + 1} of ${sectionQuestionCount} in this section`
+              : `Question ${currentIndex + 1} of ${questions.length}`}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {answeredCount} of {questions.length} answered
+            {sections.length > 1 && ` · question ${currentIndex + 1} of ${questions.length} overall`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">

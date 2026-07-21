@@ -599,13 +599,18 @@ async function createQuestionWithVersion(
           ? tx
               .insert(codingTestCases)
               .values(
-                data.testCases.map((testCase) => ({
+                // sortOrder is always the row's position in this array, not
+                // whatever the caller sent — see question-bank.service.ts's
+                // createCodingTestCase for why client-supplied sortOrder isn't
+                // trustworthy (a missing value defaults to 0 for every row via
+                // Zod, producing exactly the duplicate-label bug this closes).
+                data.testCases.map((testCase, index) => ({
                   questionVersionId: version.id,
                   input: testCase.input,
                   expectedOutput: testCase.expectedOutput,
                   isHidden: testCase.isHidden,
                   points: testCase.points !== undefined ? String(testCase.points) : undefined,
-                  sortOrder: testCase.sortOrder,
+                  sortOrder: index,
                 })),
               )
               .returning()
@@ -785,13 +790,18 @@ async function createQuestionVersion(
           ? tx
               .insert(codingTestCases)
               .values(
-                data.testCases.map((testCase) => ({
+                // sortOrder is always the row's position in this array, not
+                // whatever the caller sent — see question-bank.service.ts's
+                // createCodingTestCase for why client-supplied sortOrder isn't
+                // trustworthy (a missing value defaults to 0 for every row via
+                // Zod, producing exactly the duplicate-label bug this closes).
+                data.testCases.map((testCase, index) => ({
                   questionVersionId: version.id,
                   input: testCase.input,
                   expectedOutput: testCase.expectedOutput,
                   isHidden: testCase.isHidden,
                   points: testCase.points !== undefined ? String(testCase.points) : undefined,
-                  sortOrder: testCase.sortOrder,
+                  sortOrder: index,
                 })),
               )
               .returning()
