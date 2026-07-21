@@ -131,6 +131,9 @@ async function gradeSubmission(params: GradeSubmissionParams): Promise<GradedSub
     status: results[index].status,
     time: results[index].time,
     memory: results[index].memory,
+    stdout: results[index].stdout,
+    stderr: results[index].stderr,
+    compileOutput: results[index].compile_output,
   }));
 
   const testCasesPassed = results.filter(isPassingResult).length;
@@ -154,7 +157,7 @@ async function gradeSubmission(params: GradeSubmissionParams): Promise<GradedSub
     executionOutput,
   });
 
-  return { submission, testCasesPassed, testCasesTotal };
+  return { submission, testCasesPassed, testCasesTotal, executionOutput };
 }
 
 export const codingService = {

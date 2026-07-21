@@ -3,9 +3,14 @@ import type { CodingSubmission } from '../../db/types';
 export type { CodingSubmission };
 
 // One test case's Judge0 execution outcome, persisted inside
-// coding_submissions.execution_output (JSONB) — deliberately compact (no
-// stdout/expectedOutput dumps) since this is an internal grading record,
-// never exposed to students via attempts.service.ts's getAttemptQuestions.
+// coding_submissions.execution_output (JSONB). Includes the raw
+// stdout/stderr/compile_output Judge0 returned for THIS test case — this is
+// the internal grading record, not the student-facing shape; redaction for
+// hidden test cases (never send their input/expectedOutput/actual output to
+// a student) happens one layer up, in attempts.service.ts's submitCode,
+// which maps this onto attempts.types.ts's SanitizedTestCaseResult. That
+// mirrors the existing split between question-bank's raw CodingTestCase row
+// and attempts.types.ts's SanitizedTestCase for sample test cases.
 export interface TestCaseExecutionResult {
   testCaseId: string;
   isHidden: boolean;
@@ -13,6 +18,9 @@ export interface TestCaseExecutionResult {
   status: string;
   time: number | null;
   memory: number | null;
+  stdout: string | null;
+  stderr: string | null;
+  compileOutput: string | null;
 }
 
 // coding.service.ts's gradeSubmission result — the objective execution
@@ -20,11 +28,15 @@ export interface TestCaseExecutionResult {
 // applying the grading FORMULA to these facts is attempts.service.ts's
 // job (see its submitCode module comment), mirroring how it already
 // computes MCQ's isCorrect/marksObtained itself rather than question-bank
-// doing it.
+// doing it. executionOutput is the same per-test-case array persisted onto
+// coding_submissions — returned here too (not re-queried) since
+// gradeSubmission already built it in memory, and attempts.service.ts's
+// submitCode needs it to build the student-facing per-case breakdown.
 export interface GradedSubmissionResult {
   submission: CodingSubmission;
   testCasesPassed: number;
   testCasesTotal: number;
+  executionOutput: TestCaseExecutionResult[];
 }
 
 // coding.service.ts's gradeSubmission input — deliberately its OWN shape

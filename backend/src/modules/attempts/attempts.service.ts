@@ -23,6 +23,7 @@ import type {
   ListRetakeRequestsResult,
   ProctoringEvent,
   SanitizedSavedResponse,
+  SanitizedTestCaseResult,
   SubmitCodeResult,
 } from './attempts.types';
 
@@ -631,7 +632,7 @@ async function submitCode(
   // (see coding.types.ts's CodingDetailsInput/TestCaseInput comments).
   // supportedLanguages is cast the same way buildRenderableQuestion above
   // already does — untyped JSONB at the Drizzle level.
-  const { testCasesPassed, testCasesTotal } = await codingService.gradeSubmission({
+  const { testCasesPassed, testCasesTotal, executionOutput } = await codingService.gradeSubmission({
     attemptResponseId: placeholder.id,
     language: input.language,
     sourceCode: input.sourceCode,
@@ -657,6 +658,33 @@ async function submitCode(
       ? (Number(version.marks) * (testCasesPassed / testCasesTotal)).toFixed(2)
       : '0';
 
+  // Sanitize executionOutput into the student-facing shape: join each
+  // result back onto its question-bank test case (already in `version`, no
+  // extra query) for input/expectedOutput, then redact those plus
+  // actualOutput for is_hidden rows — same policy buildRenderableQuestion
+  // already applies to sampleTestCases, just at submit time instead of
+  // read time. actualOutput prefers stdout, falling back to stderr/
+  // compile_output so a runtime/compile failure's row shows THAT instead of
+  // a misleading blank "no output" for a case that never produced stdout.
+  const testCasesById = new Map(version.testCases.map((testCase) => [testCase.id, testCase]));
+  const testCaseResults: SanitizedTestCaseResult[] = executionOutput
+    .map((result) => {
+      const testCase = testCasesById.get(result.testCaseId);
+      return {
+        testCaseId: result.testCaseId,
+        isHidden: result.isHidden,
+        sortOrder: result.sortOrder,
+        status: result.status,
+        time: result.time,
+        input: result.isHidden ? null : (testCase?.input ?? null),
+        expectedOutput: result.isHidden ? null : (testCase?.expectedOutput ?? null),
+        actualOutput: result.isHidden
+          ? null
+          : (result.stdout ?? result.stderr ?? result.compileOutput ?? null),
+      };
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
   // Phase 3a: cheap re-read (see this function's module comment on why
   // this isn't a new long-running operation) to compare against whatever
   // grade is currently recorded.
@@ -669,7 +697,7 @@ async function submitCode(
     // the existing (better) grade untouched, but still report THIS
     // submission's own test-case tally back (see attempts.types.ts's
     // SubmitCodeResult comment on why these two are never "stale").
-    return { ...current, testCasesPassed, testCasesTotal };
+    return { ...current, testCasesPassed, testCasesTotal, testCaseResults };
   }
 
   // Phase 3b: no prior grade existed, or the new result is >= the
@@ -678,7 +706,7 @@ async function submitCode(
     isCorrect,
     marksObtained,
   });
-  return { ...updated, testCasesPassed, testCasesTotal };
+  return { ...updated, testCasesPassed, testCasesTotal, testCaseResults };
 }
 
 // --- Submit the whole attempt (item 5) ---

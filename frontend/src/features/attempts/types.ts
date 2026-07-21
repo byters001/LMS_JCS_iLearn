@@ -165,12 +165,31 @@ export interface AttemptResponse {
   updatedAt: string
 }
 
+// One test case's sanitized result — mirrors backend/attempts.types.ts's
+// SanitizedTestCaseResult exactly. For a hidden test case (isHidden: true),
+// input/expectedOutput/actualOutput are always null — the backend redacts
+// them before this ever leaves the server, same policy as
+// CodingAttemptQuestion's sampleTestCases already applies at read time, so
+// there's nothing to filter again here.
+export interface TestCaseResult {
+  testCaseId: string
+  isHidden: boolean
+  sortOrder: number
+  status: string
+  time: number | null
+  input: string | null
+  expectedOutput: string | null
+  actualOutput: string | null
+}
+
 // submitCode's actual response: the AttemptResponse row plus THIS
 // submission's own test-case tally (testCasesPassed/testCasesTotal aren't
 // persisted attempt_responses columns — see backend/attempts.types.ts's
 // SubmitCodeResult comment — so they only ever arrive this way, as direct
-// feedback on the submission that just ran).
+// feedback on the submission that just ran) and the per-case breakdown that
+// backs CodingQuestion.tsx's results panel.
 export interface SubmitCodeResult extends AttemptResponse {
   testCasesPassed: number
   testCasesTotal: number
+  testCaseResults: TestCaseResult[]
 }

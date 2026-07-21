@@ -147,9 +147,28 @@ export interface AttemptQuestionContent extends FrozenAttemptQuestion {
 // was already better, so keep it" path in submitCode, where the PERSISTED
 // isCorrect/marksObtained stay whichever scored higher historically but the
 // counts reported back are this specific submission's own result.
+// One test case's sanitized execution outcome, attached to SubmitCodeResult
+// so CodingQuestion.tsx's results panel can render a real per-case
+// breakdown instead of just the aggregate pass count. Same redaction rule
+// SanitizedTestCase already applies at the question-read layer: a hidden
+// test case's status/time ARE shown (a student needs to know a hidden case
+// failed), but its input/expectedOutput/actualOutput are always null — never
+// leak a hidden case's content just because the student ran a submission.
+export interface SanitizedTestCaseResult {
+  testCaseId: string;
+  isHidden: boolean;
+  sortOrder: number;
+  status: string;
+  time: number | null;
+  input: string | null;
+  expectedOutput: string | null;
+  actualOutput: string | null;
+}
+
 export interface SubmitCodeResult extends AttemptResponse {
   testCasesPassed: number;
   testCasesTotal: number;
+  testCaseResults: SanitizedTestCaseResult[];
 }
 
 // attempts.repository.ts's sumResponsesForAttempt result — see

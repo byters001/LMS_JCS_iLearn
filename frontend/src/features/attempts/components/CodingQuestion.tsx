@@ -1,8 +1,10 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Group, Panel, Separator } from 'react-resizable-panels'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { JUDGE0_TO_MONACO_LANGUAGE } from '@/lib/monaco.config'
 import { useSubmitCode } from '../api'
+import { TestResultsPanel } from './TestResultsPanel'
 import type { CodingAttemptQuestion } from '../types'
 import { useStableIdempotencyKey } from '../useStableIdempotencyKey'
 
@@ -30,7 +32,16 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
   const supportedLanguages = question.coding?.supportedLanguages ?? []
   const [language, setLanguage] = useState(supportedLanguages[0] ?? '')
   const [sourceCode, setSourceCode] = useState('')
+  const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(false)
   const submitCode = useSubmitCode(attemptId)
+
+  // Auto-open the results panel the moment a new run starts (mirrors
+  // LeetCode/HackerRank surfacing the console immediately on Run/Submit,
+  // not only once results land) — the user can still collapse it manually
+  // afterward without affecting the in-flight request.
+  useEffect(() => {
+    if (submitCode.isPending) setIsResultsPanelOpen(true)
+  }, [submitCode.isPending])
   // Signature covers both language and code — switching language for the
   // same code (or vice versa) is a genuinely different submission (Judge0
   // needs to know which language to compile/run as), so either change
@@ -85,8 +96,18 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
   const { coding } = question
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      <div>
+    // LeetCode/HackerRank-style resizable split: react-resizable-panels
+    // (Group/Panel/Separator — this is its v4 API; older docs/tutorials
+    // reference a since-renamed PanelGroup/PanelResizeHandle API). Group
+    // needs an explicit height for a horizontal split to mean anything, so
+    // each Panel scrolls its own content independently instead of the
+    // fixed-height editor forcing page-level layout shift. minSize is
+    // pixel-based (unitless numbers = px per this library) rather than a
+    // percentage so the guarantee holds regardless of how wide the overall
+    // container is: below 360px the sample-test-case two-column grid and
+    // Monaco's line content both become unusably cramped.
+    <Group orientation="horizontal" style={{ height: 640 }}>
+      <Panel defaultSize="50" minSize={360} className="pr-4">
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <h3 className="text-base font-semibold text-brand-primary">Problem Statement</h3>
           <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -164,13 +185,15 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
             ))}
           </div>
         )}
-      </div>
+      </Panel>
 
-      <div>
+      <Separator className="mx-1 w-1.5 shrink-0 cursor-col-resize rounded-full bg-border transition-colors hover:bg-brand-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent data-[separator=active]:bg-brand-accent" />
+
+      <Panel defaultSize="50" minSize={360} className="pl-4">
         {/* CodeSignal-style editor chrome: a toolbar strip (window-dot
             affordance + language switcher) sitting directly on the editor,
             not a separate label row floating above it. */}
-        <div className="overflow-hidden rounded-lg border border-border shadow-sm">
+        <div className="relative overflow-hidden rounded-lg border border-border shadow-sm">
           <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-3 py-2">
             <div className="flex items-center gap-2.5">
               <span className="flex gap-1.5" aria-hidden="true">
@@ -210,6 +233,23 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
               onChange={setSourceCode}
             />
           </Suspense>
+
+          {/* Slides up from the bottom of this editor box only — scoped by
+              the `relative`/`overflow-hidden` box above, so it can never
+              spill past this pane or reach the resize divider (Phase G).
+              Rendered only once a run has actually happened, so it's not a
+              permanent fixture eating editor space before then. */}
+          {submitCode.status !== 'idle' && (
+            <TestResultsPanel
+              isOpen={isResultsPanelOpen}
+              onToggle={() => setIsResultsPanelOpen((open) => !open)}
+              isPending={submitCode.isPending}
+              isError={submitCode.isError}
+              errorMessage={submitCode.error instanceof ApiError ? submitCode.error.message : null}
+              result={isResultForCurrentCode ? (submitCode.data ?? null) : null}
+              isStale={submitCode.isSuccess && !isResultForCurrentCode}
+            />
+          )}
         </div>
 
         {/* A REAL Judge0 call — several seconds, proven in backend testing.
@@ -222,47 +262,7 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
         >
           {submitCode.isPending ? 'Running…' : 'Run / Submit Code'}
         </Button>
-
-        {submitCode.isPending && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Running your code against the test cases — this can take a few seconds…
-          </p>
-        )}
-
-        {isResultForCurrentCode && submitCode.data && (
-          <div
-            className={
-              submitCode.data.isCorrect
-                ? 'mt-3 rounded-md border border-green-600/30 bg-green-600/5 p-3 text-sm dark:border-green-500/30 dark:bg-green-500/5'
-                : 'mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm'
-            }
-          >
-            <p
-              className={
-                submitCode.data.isCorrect
-                  ? 'font-semibold text-green-700 dark:text-green-400'
-                  : 'font-semibold text-destructive'
-              }
-            >
-              {submitCode.data.isCorrect ? 'All test cases passed' : 'Some test cases failed'}
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {submitCode.data.testCasesPassed} / {submitCode.data.testCasesTotal} test cases passed
-              {submitCode.data.marksObtained !== null && (
-                <> &middot; {submitCode.data.marksObtained} marks</>
-              )}
-            </p>
-          </div>
-        )}
-
-        {submitCode.isError && !submitCode.isPending && (
-          <p className="mt-3 text-sm text-destructive">
-            {submitCode.error instanceof ApiError
-              ? submitCode.error.message
-              : 'Failed to run your code — try again.'}
-          </p>
-        )}
-      </div>
-    </div>
+      </Panel>
+    </Group>
   )
 }
