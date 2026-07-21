@@ -1,12 +1,10 @@
 import { BarChart3, ClipboardList, HelpCircle, Layers } from 'lucide-react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import logo from '@/assets/brand/logo.jpeg'
-import { UserMenu } from '@/components/UserMenu'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useLogout } from '@/features/auth/api'
 import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { GlobalSearch } from '@/features/search/components/GlobalSearch'
-import { cn } from '@/lib/utils'
+import { Sidebar, type SidebarNavItem } from '@/layouts/components/Sidebar'
 import { useAuthStore } from '@/store/authStore'
 
 // Backend role slug for this layout is 'faculty' (see routes/roles.ts).
@@ -38,18 +36,17 @@ import { useAuthStore } from '@/store/authStore'
 // batches they're actually assigned to, so student browsing now lives as a
 // per-batch drill-down on My Batches (see MyBatchesPage.tsx) instead of a
 // separate nav item.
-const NAV_LINKS = [
-  { to: '/trainer/batches', label: 'My Batches', end: true, icon: Layers },
-  { to: '/trainer/questions', label: 'Questions', end: true, icon: HelpCircle },
-  { to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },
-  { to: '/trainer/analytics', label: 'Analytics', end: true, icon: BarChart3 },
+const NAV_ITEMS: SidebarNavItem[] = [
+  { type: 'link', to: '/trainer/batches', label: 'My Batches', end: true, icon: Layers },
+  { type: 'link', to: '/trainer/questions', label: 'Questions', end: true, icon: HelpCircle },
+  { type: 'link', to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },
+  { type: 'link', to: '/trainer/analytics', label: 'Analytics', end: true, icon: BarChart3 },
 ]
 
 function TrainerLayout() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const logout = useLogout()
-  const firstName = user?.fullName?.split(' ')[0]
 
   function handleLogout() {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
@@ -57,54 +54,7 @@ function TrainerLayout() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Fixed left sidebar — matches the dark-sidebar/inventory dashboard
-          references (logo top, vertical nav, user block pinned to bottom).
-          `sticky top-0 h-screen` rather than `fixed` + manual margin on the
-          content column: it keeps the sidebar pinned during scroll without
-          needing a matching padding-left value kept in sync elsewhere. */}
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-        <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
-          {/* logo.jpeg is a 1600x1600 square canvas with the actual wordmark
-              centered in a thin horizontal band (heavy white padding
-              top/bottom) — object-cover on a wide/short box crops to just
-              that band instead of squashing the whole square down to
-              illegible height, without touching the source asset. */}
-          <img src={logo} alt="JCS iLearn" className="h-10 w-44 object-cover" />
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2.5 rounded-md border-l-4 px-3 py-2 font-heading text-sm font-medium tracking-tight transition-colors',
-                  isActive
-                    ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-                    : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
-                )
-              }
-            >
-              <link.icon className="size-4 shrink-0" />
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User block pinned to the bottom — also where the "Welcome back"
-            greeting lives (see UserMenu.tsx's `greeting` prop). */}
-        <div className="shrink-0 border-t border-sidebar-border p-4">
-          <UserMenu
-            name={user?.fullName ?? ''}
-            email={user?.email ?? ''}
-            onLogout={handleLogout}
-            isLoggingOut={logout.isPending}
-            greeting={firstName ? `Welcome back, ${firstName}` : undefined}
-          />
-        </div>
-      </aside>
+      <Sidebar navItems={NAV_ITEMS} user={user} onLogout={handleLogout} isLoggingOut={logout.isPending} />
 
       {/* min-w-0 is load-bearing here: without it, this flex child refuses
           to shrink below its content's intrinsic width (a common flexbox

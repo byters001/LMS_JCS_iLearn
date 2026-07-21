@@ -1,3 +1,4 @@
+import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface UserMenuProps {
@@ -9,6 +10,11 @@ interface UserMenuProps {
   // (see layouts/*.tsx's sidebar user-block comment for why: consolidating
   // it here means nothing in the top bar depends on the user's name length).
   greeting?: string
+  // Icon-rail mode for the collapsible sidebar (see layouts/components/
+  // Sidebar.tsx) — avatar + a bare logout icon button, no name/email text
+  // (there's no room for it at that width, and it's one click away via
+  // expanding the sidebar anyway).
+  collapsed?: boolean
 }
 
 function getInitials(name: string): string {
@@ -34,7 +40,30 @@ function getInitials(name: string): string {
 // wraps across 3 lines" bug — a fixed max-width alone would still let an
 // unusually long name overflow; truncate forces single-line + ellipsis
 // regardless of how long the name is.
-export function UserMenu({ name, email, onLogout, isLoggingOut, greeting }: UserMenuProps) {
+export function UserMenu({ name, email, onLogout, isLoggingOut, greeting, collapsed = false }: UserMenuProps) {
+  if (collapsed) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-semibold text-white"
+          title={email ? `${name} · ${email}` : name}
+        >
+          {getInitials(name)}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={isLoggingOut}
+          onClick={onLogout}
+          title={isLoggingOut ? 'Logging out…' : 'Logout'}
+          aria-label={isLoggingOut ? 'Logging out…' : 'Logout'}
+        >
+          <LogOut className="size-4" />
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {greeting && <p className="truncate text-xs font-medium text-muted-foreground">{greeting}</p>}

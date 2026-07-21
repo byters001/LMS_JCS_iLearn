@@ -1,10 +1,8 @@
 import { ClipboardList, History, LineChart, Trophy } from 'lucide-react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import logo from '@/assets/brand/logo.jpeg'
-import { UserMenu } from '@/components/UserMenu'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useLogout } from '@/features/auth/api'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
-import { cn } from '@/lib/utils'
+import { Sidebar, type SidebarNavItem } from '@/layouts/components/Sidebar'
 import { useAuthStore } from '@/store/authStore'
 
 // 4-page nav phase — Leaderboard/Performance added below Attempt History,
@@ -12,18 +10,17 @@ import { useAuthStore } from '@/store/authStore'
 // sections on "Your Assessments" (StudentAssessmentsPage.tsx) rather than
 // having their own nav entry/route — see LeaderboardPage.tsx/
 // PerformancePage.tsx's own comments for exactly where they moved from.
-const NAV_LINKS = [
-  { to: '/student', label: 'Your Assessments', end: true, icon: ClipboardList },
-  { to: '/student/attempts', label: 'Attempt History', end: true, icon: History },
-  { to: '/student/leaderboard', label: 'Leaderboard', end: true, icon: Trophy },
-  { to: '/student/performance', label: 'Performance', end: true, icon: LineChart },
+const NAV_ITEMS: SidebarNavItem[] = [
+  { type: 'link', to: '/student', label: 'Your Assessments', end: true, icon: ClipboardList },
+  { type: 'link', to: '/student/attempts', label: 'Attempt History', end: true, icon: History },
+  { type: 'link', to: '/student/leaderboard', label: 'Leaderboard', end: true, icon: Trophy },
+  { type: 'link', to: '/student/performance', label: 'Performance', end: true, icon: LineChart },
 ]
 
 function StudentLayout() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const logout = useLogout()
-  const firstName = user?.fullName?.split(' ')[0]
 
   function handleLogout() {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
@@ -31,51 +28,8 @@ function StudentLayout() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Fixed left sidebar — same shell as Admin/Trainer, for consistency. */}
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-        <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
-          {/* logo.jpeg is a 1600x1600 square canvas with the actual wordmark
-              centered in a thin horizontal band (heavy white padding
-              top/bottom) — object-cover on a wide/short box crops to just
-              that band instead of squashing the whole square down to
-              illegible height, without touching the source asset. */}
-          <img src={logo} alt="JCS iLearn" className="h-10 w-44 object-cover" />
-        </div>
-
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV_LINKS.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2.5 rounded-md border-l-4 px-3 py-2 font-heading text-sm font-medium tracking-tight transition-colors',
-                  isActive
-                    ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-                    : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
-                )
-              }
-            >
-              <link.icon className="size-4 shrink-0" />
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User block pinned to the bottom — also where the "Welcome back"
-            greeting now lives (see UserMenu.tsx's `greeting` prop and
-            AdminLayout.tsx's comment for the full reasoning). */}
-        <div className="shrink-0 border-t border-sidebar-border p-4">
-          <UserMenu
-            name={user?.fullName ?? ''}
-            email={user?.email ?? ''}
-            onLogout={handleLogout}
-            isLoggingOut={logout.isPending}
-            greeting={firstName ? `Welcome back, ${firstName}` : undefined}
-          />
-        </div>
-      </aside>
+      {/* Same shared Sidebar as Admin/Trainer, for consistency. */}
+      <Sidebar navItems={NAV_ITEMS} user={user} onLogout={handleLogout} isLoggingOut={logout.isPending} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-end gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
