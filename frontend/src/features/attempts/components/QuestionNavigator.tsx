@@ -11,6 +11,15 @@ interface QuestionNavigatorProps {
   questions: AttemptQuestion[]
   currentIndex: number
   onNavigate: (index: number) => void
+  // Item 3 (section switcher) — when provided, only these GLOBAL indexes
+  // into `questions` are rendered (AttemptPage passes the active section's
+  // indexes). Numbering/onNavigate still use the question's real position
+  // in the full `questions` array, not its position within this subset —
+  // so the grid stays consistent with the header's "Question X of N" count,
+  // which is unaffected by which section tab is active. Omitted (the
+  // default) renders every question, byte-identical to this component's
+  // behavior before section tabs existed.
+  visibleIndexes?: number[]
 }
 
 const TYPE_LABELS: Record<AttemptQuestion['type'], string> = {
@@ -19,14 +28,22 @@ const TYPE_LABELS: Record<AttemptQuestion['type'], string> = {
   coding: 'Coding',
 }
 
-export function QuestionNavigator({ questions, currentIndex, onNavigate }: QuestionNavigatorProps) {
+export function QuestionNavigator({
+  questions,
+  currentIndex,
+  onNavigate,
+  visibleIndexes,
+}: QuestionNavigatorProps) {
+  const indexesToRender = visibleIndexes ?? questions.map((_, index) => index)
+
   return (
-    <nav className="w-56 shrink-0 rounded-xl border border-border bg-muted/30 p-4">
+    <nav className="w-56 shrink-0 rounded-xl border border-border bg-muted/30 p-3.5">
       <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         Questions
       </h2>
       <div className="grid grid-cols-5 gap-2">
-        {questions.map((question, index) => {
+        {indexesToRender.map((index) => {
+          const question = questions[index]
           const isCurrent = index === currentIndex
           const isAnswered = question.savedResponse !== undefined
           return (

@@ -4,11 +4,10 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import LeaderboardSection from '@/features/reports/components/LeaderboardSection'
-import PerformanceAnalyticsSection from '@/features/reports/components/PerformanceAnalyticsSection'
 import { cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
-import type { Assessment } from '../types'
+import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
+import type { Assessment, AvailableAssessment } from '../types'
 
 const PAGE_SIZE = 12
 
@@ -46,13 +45,25 @@ function formatStartDate(startAt: string | null): string | null {
   })
 }
 
-function AssessmentCard({ assessment }: { assessment: Assessment }) {
+// Button-state phase — label + the card's own link target both derive from
+// the SAME getAttemptButtonState()/ATTEMPT_BUTTON_LABELS this feature's
+// AssessmentDetailPage.tsx button also uses, so the two surfaces can never
+// disagree about whether a given assessment is Start/Continue/Retake/
+// Completed. A completed (locked, no retake left) assessment's card links
+// straight to the results page instead of the detail page — there's
+// nothing left to "view details" toward starting.
+function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   const startDate = formatStartDate(assessment.startAt)
   const durationLabel = assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'
+  const buttonState = getAttemptButtonState(assessment)
+  const linkTo =
+    buttonState.kind === 'completed'
+      ? `/student/attempts/${buttonState.resultsAttemptId}/submitted`
+      : `/student/assessments/${assessment.id}`
 
   return (
     <Link
-      to={`/student/assessments/${assessment.id}`}
+      to={linkTo}
       className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
     >
       <div className="flex items-start justify-between gap-2">
@@ -83,7 +94,7 @@ function AssessmentCard({ assessment }: { assessment: Assessment }) {
           'mt-1 h-9 w-full group-hover:bg-primary/90',
         )}
       >
-        {assessment.status === 'live' ? 'Start now' : 'View details'}
+        {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
       </span>
     </Link>
   )
@@ -100,8 +111,6 @@ export default function StudentAssessmentsPage() {
 
   return (
     <div className="p-6">
-      <PerformanceAnalyticsSection />
-
       <div className="mb-6">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Assessments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -174,10 +183,6 @@ export default function StudentAssessmentsPage() {
           )}
         </>
       )}
-
-      <div className="mt-6">
-        <LeaderboardSection />
-      </div>
     </div>
   )
 }

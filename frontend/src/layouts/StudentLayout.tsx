@@ -1,4 +1,4 @@
-import { ClipboardList, History } from 'lucide-react'
+import { ClipboardList, History, LineChart, Trophy } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
 import { UserMenu } from '@/components/UserMenu'
@@ -7,10 +7,16 @@ import { NotificationBell } from '@/features/notifications/components/Notificati
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 
-// Adds a link to the attempt-history view (features/reports).
+// 4-page nav phase — Leaderboard/Performance added below Attempt History,
+// in that order (was 2 links, now 4). Both were previously embedded as
+// sections on "Your Assessments" (StudentAssessmentsPage.tsx) rather than
+// having their own nav entry/route — see LeaderboardPage.tsx/
+// PerformancePage.tsx's own comments for exactly where they moved from.
 const NAV_LINKS = [
   { to: '/student', label: 'Your Assessments', end: true, icon: ClipboardList },
   { to: '/student/attempts', label: 'Attempt History', end: true, icon: History },
+  { to: '/student/leaderboard', label: 'Leaderboard', end: true, icon: Trophy },
+  { to: '/student/performance', label: 'Performance', end: true, icon: LineChart },
 ]
 
 function StudentLayout() {
@@ -25,8 +31,7 @@ function StudentLayout() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Fixed left sidebar — same shell as Admin/Trainer, for consistency,
-          even though this role only has 2 nav links. */}
+      {/* Fixed left sidebar — same shell as Admin/Trainer, for consistency. */}
       <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
         <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
           {/* logo.jpeg is a 1600x1600 square canvas with the actual wordmark

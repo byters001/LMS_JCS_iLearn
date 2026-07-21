@@ -24,6 +24,12 @@ export type { AssessmentAttempt, AssessmentRetakeRequest, AttemptResponse, Proct
 // question-bank's own content-fetching service functions rather than this
 // module querying question_options/psychometric_options/
 // coding_question_details/coding_test_cases directly.
+// sectionTitle/assessmentTitle (header-title phase) — see
+// attempts.repository.ts's listFrozenQuestions comment for exactly why this
+// was a straightforward join addition, not a schema change: both columns
+// already existed. assessmentTitle is identical across every row of one
+// attempt's questions (one assessment per attempt) — accepted repetition
+// rather than restructuring this endpoint's flat-array shape.
 export interface FrozenAttemptQuestion {
   id: string;
   assessmentSectionId: string;
@@ -31,6 +37,8 @@ export interface FrozenAttemptQuestion {
   questionText: string;
   marks: string;
   sortOrder: number;
+  sectionTitle: string;
+  assessmentTitle: string;
 }
 
 // MCQ option, sanitized for a test-taker: is_correct is deliberately

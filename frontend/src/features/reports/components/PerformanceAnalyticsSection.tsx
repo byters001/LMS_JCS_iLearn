@@ -51,7 +51,13 @@ function formatScore(value: number): string {
 // later one). Sorting by createdAt while labeling by submissionTime was
 // exactly that bug: it plotted points in one order but dated them by
 // another, silently reversing the true most-recent-vs-previous comparison.
-function attemptTimestamp(attempt: MyAttemptSummary): number {
+// Exported (Performance page phase) — ScoreHistoryTable.tsx's most-recent-
+// first ordering needs the EXACT same submissionTime-not-createdAt sort key
+// as this chart uses, for the same reason documented above: a second,
+// hand-copied version of this function could silently drift out of sync
+// with this one and re-introduce the exact ordering bug this comment
+// already describes.
+export function attemptTimestamp(attempt: MyAttemptSummary): number {
   return new Date(attempt.submissionTime ?? attempt.createdAt).getTime()
 }
 

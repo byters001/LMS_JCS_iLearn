@@ -52,8 +52,18 @@ async function withResilience<T>(operationName: string, operation: () => Promise
     }
   }
 
+  // lastError.message folded into THIS error's own message, not just left
+  // inside `details.cause` — same fix as integrations/email/client.ts's
+  // withResilience, for the same reason: a native Error's message/stack are
+  // non-enumerable, so JSON.stringify({ cause: lastError }) silently drops
+  // the message text (pino's serialization of a nested, non-top-level error
+  // does too) — this line is what keeps the real Judge0 reason (now
+  // present, see rawRequest's error construction above) visible from the
+  // top-level message alone, not just from a `body` property a log viewer
+  // might not expand.
+  const lastErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
   throw new ServiceUnavailableError(
-    `Judge0 request "${operationName}" failed after ${MAX_RETRY_ATTEMPTS} attempts`,
+    `Judge0 request "${operationName}" failed after ${MAX_RETRY_ATTEMPTS} attempts: ${lastErrorMessage}`,
     { cause: lastError },
   );
 }
@@ -101,6 +111,30 @@ interface RequestOptions {
   query?: Record<string, string>;
 }
 
+// Judge0's own validation-error responses are field-keyed arrays of message
+// strings — e.g. a 422 from POST /submissions with no source_code returns
+// {"source_code":["can't be blank"]}, and a bad language_id returns
+// {"language_id":["can't be blank","language with id  doesn't exist"]}
+// (confirmed directly against a live Judge0 instance before writing this,
+// not assumed from docs). This is a DIFFERENT shape from Resend's own
+// {statusCode, name, message} error body (integrations/email/client.ts) —
+// Judge0 has no single top-level `message` field, so that extractor can't
+// be reused as-is; this flattens every field's message array into one
+// readable string instead.
+type Judge0ErrorBody = Record<string, string[]>;
+
+function extractJudge0ErrorMessage(body: unknown, fallback: string): string {
+  if (body !== null && typeof body === 'object' && !Array.isArray(body)) {
+    const entries = Object.entries(body as Judge0ErrorBody)
+      .filter(([, messages]) => Array.isArray(messages))
+      .map(([field, messages]) => `${field}: ${messages.join(', ')}`);
+    if (entries.length > 0) {
+      return entries.join('; ');
+    }
+  }
+  return fallback;
+}
+
 async function rawRequest<T>(options: RequestOptions): Promise<T> {
   const url = new URL(options.path, env.JUDGE0_BASE_URL);
   if (options.query) {
@@ -125,7 +159,42 @@ async function rawRequest<T>(options: RequestOptions): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`Judge0 request failed: ${response.status} ${response.statusText}`);
+    // Read the body BEFORE throwing — same fix as integrations/email/
+    // client.ts's rawSendEmail applied to Resend earlier this session. The
+    // previous version here threw `status ${response.statusText}` without
+    // ever calling response.text()/json(), discarding the one place Judge0's
+    // actual validation reason ever existed (statusText is just the generic
+    // HTTP reason phrase, e.g. "Unprocessable Entity" — never Judge0's own
+    // per-field message). Judge0 doesn't always return JSON on every
+    // failure path (a raw 5xx from an upstream proxy could be plain
+    // text/HTML), so JSON.parse is attempted and the raw text kept as a
+    // fallback rather than assumed.
+    const rawBody = await response.text();
+    let parsedBody: unknown = rawBody;
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      // Not JSON — parsedBody stays the raw text.
+    }
+
+    const judge0Message = extractJudge0ErrorMessage(
+      parsedBody,
+      rawBody || `${response.status} ${response.statusText}`,
+    );
+
+    // status/statusText/body assigned AFTER construction — these are
+    // enumerable own properties (unlike a native Error's built-in
+    // message/stack, which JSON.stringify silently drops — see email/
+    // client.ts's withResilience comment for exactly how that previously
+    // caused "cause: {}" in logs), so they survive once this propagates up
+    // through withResilience's `{ cause: lastError }`.
+    const error = new Error(
+      `Judge0 request failed: ${response.status} ${response.statusText} — ${judge0Message}`,
+    ) as Error & { status: number; statusText: string; body: unknown };
+    error.status = response.status;
+    error.statusText = response.statusText;
+    error.body = parsedBody;
+    throw error;
   }
 
   return (await response.json()) as T;

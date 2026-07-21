@@ -1,6 +1,8 @@
 // Frontend-side types for the "assessments" feature (own copy, not shared
 // with the backend's *.types.ts). Matches the raw `assessments` row shape
 // returned by GET /assessments/available (backend/src/db/schema/assessments.schema.ts).
+import type { AttemptStatus } from '@/features/attempts/types'
+
 export type TestCategory = 'mcq' | 'coding' | 'psychometric' | 'mixed'
 
 export type AssessmentStatus =
@@ -48,8 +50,29 @@ export interface ListAvailableAssessmentsParams {
   status?: 'scheduled' | 'live'
 }
 
+// Assessment card button-state phase — matches backend's
+// MyLatestAttemptSummary (assessments.types.ts) exactly: id/status/
+// attemptNumber of the caller's own most recent attempt for this
+// assessment, added via a join on GET /assessments/available rather than a
+// separate per-card lookup. Absent (myLatestAttempt: null) means never
+// attempted.
+export interface MyLatestAttemptSummary {
+  id: string
+  status: AttemptStatus
+  attemptNumber: number
+}
+
+// GET /assessments/available's actual per-item shape — matches backend's
+// AvailableAssessment (assessments.types.ts): the bare Assessment plus
+// myLatestAttempt. Deliberately not folded into the base Assessment type
+// above, which is also used for staff-facing listings where "my own
+// attempt" has no meaning.
+export interface AvailableAssessment extends Assessment {
+  myLatestAttempt: MyLatestAttemptSummary | null
+}
+
 export interface ListAvailableAssessmentsResponse {
-  items: Assessment[]
+  items: AvailableAssessment[]
   total: number
   page: number
   pageSize: number

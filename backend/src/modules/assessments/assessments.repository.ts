@@ -8,15 +8,26 @@ import {
   assessmentSections,
   assessments,
 } from '../../db/schema/assessments.schema';
+// Reading assessment_attempts directly (read-only) mirrors the precedent
+// attempts.repository.ts's own module comment already established (it reads
+// assessment_sections/questions/question_versions directly for its own
+// display needs) and reports.repository.ts's cross-module join — a table
+// schema import across modules/, not a routes/controller/service/repository
+// import, so this doesn't cross CLAUDE.md's actual module-boundary rule
+// (that rule is about calling another module's repository FUNCTIONS, not
+// importing its Drizzle table definition for a read-only join).
+import { assessmentAttempts } from '../../db/schema/attempts.schema';
 import { questionVersions } from '../../db/schema/question-bank.schema';
 import type {
   Assessment,
   AssessmentApprovalHistory,
+  AssessmentAttempt,
   AssessmentQuestion,
   AssessmentSection,
   AssessmentSectionPool,
 } from '../../db/types';
 import { ConflictError } from '../../shared/errors/app-error';
+import type { AvailableAssessment } from './assessments.types';
 
 // --- Assessments ---
 // Soft delete: deleted_at exists in schema.sql, same treatment as questions/
@@ -115,6 +126,12 @@ async function listAssessments(params: ListAssessmentsParams): Promise<ListAsses
 
 export interface ListAvailableAssessmentsParams {
   batchIds: string[];
+  // Layout/button-state phase — added so this same query can also surface
+  // the caller's own latest attempt per assessment (see myLatestAttempt
+  // below). assessments.service.ts already resolves studentProfile.id at
+  // the top of listAvailableAssessments for the batchIds lookup, so this is
+  // free to thread through, not a new lookup.
+  studentId: string;
   status?: 'scheduled' | 'live';
   page: number;
   pageSize: number;
@@ -129,10 +146,22 @@ export interface ListAvailableAssessmentsParams {
 // only two statuses a student should ever see here. DISTINCT guards against
 // an assessment linked to more than one of the student's batches, same
 // precaution as students.repository.ts's own batchId-joined listStudentProfiles.
+//
+// Layout/button-state phase — myLatestAttempt added: the frontend needs to
+// tell Start/Continue/Completed apart per card without an N+1 lookup per
+// row (StudentAssessmentsPage.tsx would otherwise need one attempts query
+// per card). A straightforward join addition, not a new endpoint: a LEFT
+// JOIN (not INNER — most assessments will have no attempt at all for a
+// given student, and that must not drop the assessment from the list)
+// against a DISTINCT ON (assessment_id) subquery of this student's own
+// assessment_attempts rows, ordered by attempt_number DESC so exactly one
+// row — the most recent attempt — survives per assessment. Confirmed
+// db.selectDistinctOn(...) exists in this installed drizzle-orm version
+// before writing this, not assumed.
 async function listAvailableAssessments(
   params: ListAvailableAssessmentsParams,
-): Promise<ListAssessmentsResult> {
-  const { batchIds, status, page, pageSize } = params;
+): Promise<{ items: AvailableAssessment[]; total: number }> {
+  const { batchIds, studentId, status, page, pageSize } = params;
   const offset = (page - 1) * pageSize;
 
   // No batches -> no possible matches; skip the query entirely rather than
@@ -148,11 +177,29 @@ async function listAvailableAssessments(
     inArray(assessmentBatches.batchId, batchIds),
   );
 
+  const latestAttempts = db
+    .selectDistinctOn([assessmentAttempts.assessmentId], {
+      assessmentId: assessmentAttempts.assessmentId,
+      id: assessmentAttempts.id,
+      status: assessmentAttempts.status,
+      attemptNumber: assessmentAttempts.attemptNumber,
+    })
+    .from(assessmentAttempts)
+    .where(eq(assessmentAttempts.studentId, studentId))
+    .orderBy(assessmentAttempts.assessmentId, desc(assessmentAttempts.attemptNumber))
+    .as('latest_attempts');
+
   const [items, totalRows] = await Promise.all([
     db
-      .selectDistinct({ assessment: assessments })
+      .selectDistinct({
+        assessment: assessments,
+        myLatestAttemptId: latestAttempts.id,
+        myLatestAttemptStatus: latestAttempts.status,
+        myLatestAttemptNumber: latestAttempts.attemptNumber,
+      })
       .from(assessments)
       .innerJoin(assessmentBatches, eq(assessmentBatches.assessmentId, assessments.id))
+      .leftJoin(latestAttempts, eq(latestAttempts.assessmentId, assessments.id))
       .where(where)
       .orderBy(asc(assessments.startAt))
       .limit(pageSize)
@@ -165,7 +212,20 @@ async function listAvailableAssessments(
   ]);
 
   return {
-    items: items.map((row) => row.assessment),
+    items: items.map((row) => ({
+      ...row.assessment,
+      myLatestAttempt: row.myLatestAttemptId
+        ? {
+            id: row.myLatestAttemptId,
+            // Non-null: myLatestAttemptStatus/Number always accompany
+            // myLatestAttemptId (all three come from the same LEFT JOINed
+            // row), TypeScript just can't correlate that across three
+            // separately-nullable columns on its own.
+            status: row.myLatestAttemptStatus as AssessmentAttempt['status'],
+            attemptNumber: row.myLatestAttemptNumber as number,
+          }
+        : null,
+    })),
     total: Number(totalRows[0]?.count ?? 0),
   };
 }

@@ -5,6 +5,7 @@ import LoginPage from '@/features/auth/pages/LoginPage'
 import BatchPerformancePage from '@/features/analytics/pages/BatchPerformancePage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
 import AssessmentEditPage from '@/features/assessments/pages/AssessmentEditPage'
+import AssessmentInstructionsPage from '@/features/assessments/pages/AssessmentInstructionsPage'
 import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
 import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
@@ -21,11 +22,14 @@ import CollegeListPage from '@/features/organization/pages/CollegeListPage'
 import CreateBatchPage from '@/features/organization/pages/CreateBatchPage'
 import MyBatchesPage from '@/features/organization/pages/MyBatchesPage'
 import FacultyListPage from '@/features/users/pages/FacultyListPage'
+import LeaderboardPage from '@/features/reports/pages/LeaderboardPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
+import PerformancePage from '@/features/reports/pages/PerformancePage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import TrainerDetailPage from '@/features/trainers/pages/TrainerDetailPage'
 import TrainersDashboardPage from '@/features/trainers/pages/TrainersDashboardPage'
 import AdminLayout from '@/layouts/AdminLayout'
+import AttemptLayout from '@/layouts/AttemptLayout'
 import StudentLayout from '@/layouts/StudentLayout'
 import TrainerLayout from '@/layouts/TrainerLayout'
 import { useAuthStore } from '@/store/authStore'
@@ -88,15 +92,46 @@ export function AppRoutes() {
           <Route path="/student" element={<StudentLayout />}>
             <Route index element={<StudentAssessmentsPage />} />
             <Route path="assessments/:id" element={<AssessmentDetailPage />} />
+            {/* Lockdown item 1 — the sole path into starting an attempt now
+                goes through here first (AssessmentDetailPage's "Start
+                Attempt" button navigates here instead of calling
+                useStartAttempt itself). A distinct three-segment path, not
+                nested under assessments/:id — React Router matches by exact
+                segment count, so this never conflicts with the route above. */}
+            <Route path="assessments/:id/instructions" element={<AssessmentInstructionsPage />} />
             <Route path="attempts" element={<MyAttemptsListPage />} />
-            <Route path="attempts/:attemptId" element={<AttemptPage />} />
-            {/* Same route Part 3's manual-submit and timer-auto-submit
-                navigate() calls already target — merged onto this new
-                results page rather than adding a new URL, so that
-                untouched (features/attempts is off-limits this phase
-                beyond this file) navigation logic lands somewhere useful
-                without needing its own changes. */}
+            {/* attempts/:attemptId (the LIVE attempt screen) deliberately
+                does NOT live here — see the sibling route below. Once
+                submitted, though, there's nothing left to lock down or stay
+                distraction-free for, so the results page keeps the normal
+                StudentLayout shell (nav back to Your Assessments, etc.). */}
             <Route path="attempts/:attemptId/submitted" element={<AttemptResultPage />} />
+            {/* 4-page nav phase — LeaderboardSection/PerformanceAnalyticsSection
+                moved here from StudentAssessmentsPage.tsx (see those two
+                pages' own comments) onto their own routes, matching
+                StudentLayout.tsx's updated NAV_LINKS order. */}
+            <Route path="leaderboard" element={<LeaderboardPage />} />
+            <Route path="performance" element={<PerformancePage />} />
+          </Route>
+
+          {/* Exam-mode layout (this phase) — a SEPARATE layout wrapper for
+              the live attempt route, not nested inside StudentLayout and not
+              StudentLayout conditionally hiding its own nav. Two reasons this
+              beat conditional hiding: (1) StudentLayout's sidebar/header carry
+              real interactive chrome (NavLinks, UserMenu/logout,
+              NotificationBell) that would all need individual isAttemptRoute
+              conditionals sprinkled through an otherwise-shared component,
+              versus just not rendering that tree at all here; (2) this
+              codebase's existing layout pattern is already "one shell per
+              context" (StudentLayout/TrainerLayout/AdminLayout, one each,
+              picked by route nesting) — a dedicated AttemptLayout for exam
+              mode is the same pattern applied one level finer, not a new
+              architectural concept. Still nested inside THIS SAME
+              RequireRole roles={['student']} guard as the block above (both
+              are its direct children) — only the chrome differs, the
+              role-authorization boundary doesn't move. */}
+          <Route path="/student/attempts/:attemptId" element={<AttemptLayout />}>
+            <Route index element={<AttemptPage />} />
           </Route>
         </Route>
 

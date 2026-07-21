@@ -85,7 +85,7 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
   const { coding } = question
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid gap-5 lg:grid-cols-2">
       <div>
         <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <h3 className="text-base font-semibold text-brand-primary">Problem Statement</h3>

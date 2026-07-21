@@ -1,6 +1,7 @@
 import type {
   Assessment,
   AssessmentApprovalHistory,
+  AssessmentAttempt,
   AssessmentQuestion,
   AssessmentSection,
   AssessmentSectionPool,
@@ -9,6 +10,42 @@ import type { ResolvedQuestionPool } from '../question-bank/question-bank.types'
 
 export interface ListAssessmentsResult {
   items: Assessment[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// --- Available assessments (student-facing) — layout/button-state phase ---
+//
+// The caller's own most recent attempt for one assessment, or absent
+// entirely if they've never started one. See assessments.repository.ts's
+// listAvailableAssessments for exactly how this is derived (a LEFT JOIN
+// against a DISTINCT ON (assessment_id) subquery of assessment_attempts,
+// ordered by attempt_number DESC — the highest-numbered row is the most
+// recent). Deliberately NOT the full AssessmentAttempt row — id/status/
+// attemptNumber is exactly what the frontend needs to derive a Start/
+// Continue/Completed button state and link to either the instructions flow
+// or the results page; everything else (ipAddress, browserInfo, totalScore,
+// etc.) is either irrelevant here or already covered by GET
+// /reports/my-attempts for a student who wants their actual score history.
+export interface MyLatestAttemptSummary {
+  id: string;
+  status: AssessmentAttempt['status'];
+  attemptNumber: number;
+}
+
+// GET /assessments/available's actual per-item shape — the bare assessment
+// row plus the caller's own myLatestAttempt. Deliberately a DIFFERENT type
+// from the plain Assessment[] the staff-facing listAssessments/
+// ListAssessmentsResult above returns: "my own attempt" only means
+// something for the student calling THIS route, not for a trainer/admin
+// browsing the platform-wide list.
+export interface AvailableAssessment extends Assessment {
+  myLatestAttempt: MyLatestAttemptSummary | null;
+}
+
+export interface ListAvailableAssessmentsResult {
+  items: AvailableAssessment[];
   total: number;
   page: number;
   pageSize: number;

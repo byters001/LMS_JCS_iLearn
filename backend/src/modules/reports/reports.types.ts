@@ -5,6 +5,16 @@ import type { Assessment, AssessmentAttempt } from '../../db/types';
 // plain JOIN done directly in the repository, not a cross-module SERVICE
 // call — reports is CLAUDE.md's explicit cross-module-QUERY exception,
 // since its whole purpose is cross-cutting aggregation).
+// scorePercent (performance-page %-change phase) — computed server-side in
+// reports.service.ts's attachScorePercents, which reuses analyticsService's
+// existing getScorePercentagesForAttempts (already built for getLeaderboard
+// below — NOT a new/duplicated max-possible-marks calculation), rounded to
+// one decimal place. null whenever it can't be meaningfully computed:
+// totalScore not yet final (ungraded/no score), or the attempt's total
+// possible marks resolved to zero/missing. Deliberately a computed
+// percentage, not a raw max-marks figure — the frontend needs a number
+// comparable across different assessments with different total marks, not
+// another raw points figure to interpret itself.
 export interface MyAttemptSummary {
   id: string;
   assessmentId: string;
@@ -14,6 +24,7 @@ export interface MyAttemptSummary {
   attemptNumber: number;
   isRetake: boolean;
   totalScore: string | null;
+  scorePercent: number | null;
   submissionTime: Date | null;
   createdAt: Date;
 }

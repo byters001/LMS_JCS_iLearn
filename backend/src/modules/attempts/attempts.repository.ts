@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
-import { assessmentSections } from '../../db/schema/assessments.schema';
+import { assessments, assessmentSections } from '../../db/schema/assessments.schema';
 import {
   assessmentAttempts,
   assessmentRetakeRequests,
@@ -143,6 +143,21 @@ async function createAttemptWithSelections(
 // the parent section's own section_order first, then this question's
 // sort_order within that section, so the list renders in the same section
 // sequence the assessment was authored in.
+//
+// Header-title phase — sectionTitle/assessmentTitle added: a straightforward
+// join addition, not a schema change. assessment_sections.title and
+// assessments.title both already exist as NOT NULL columns (confirmed
+// directly against db/schema/assessments.schema.ts before writing this, not
+// assumed) — this attempt selection was already inner-joining
+// assessmentSections for section_order; assessments is one more inner join
+// via assessmentSections.assessmentId, no new table relationship needed. No
+// migration required. assessmentTitle is identical on every row of a given
+// attempt (there is exactly one assessment per attempt) — accepted as
+// harmless per-row repetition rather than restructuring this endpoint's
+// long-standing flat-array response shape into a wrapper object just to
+// hoist one field out; see attempts.service.ts's AttemptQuestionContent for
+// where this flows through unchanged (a full object spread already carries
+// any new FrozenAttemptQuestion field with zero extra code there).
 async function listFrozenQuestions(attemptId: string): Promise<FrozenAttemptQuestion[]> {
   const rows = await db
     .select({
@@ -153,6 +168,8 @@ async function listFrozenQuestions(attemptId: string): Promise<FrozenAttemptQues
       marks: questionVersions.marks,
       sortOrder: attemptQuestionSelections.sortOrder,
       sectionOrder: assessmentSections.sectionOrder,
+      sectionTitle: assessmentSections.title,
+      assessmentTitle: assessments.title,
     })
     .from(attemptQuestionSelections)
     .innerJoin(
@@ -163,6 +180,7 @@ async function listFrozenQuestions(attemptId: string): Promise<FrozenAttemptQues
       assessmentSections,
       eq(assessmentSections.id, attemptQuestionSelections.assessmentSectionId),
     )
+    .innerJoin(assessments, eq(assessments.id, assessmentSections.assessmentId))
     .where(eq(attemptQuestionSelections.attemptId, attemptId))
     .orderBy(asc(assessmentSections.sectionOrder), asc(attemptQuestionSelections.sortOrder));
 

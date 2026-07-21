@@ -102,6 +102,14 @@ interface AttemptQuestionBase {
   questionText: string
   marks: string
   sortOrder: number
+  // Header-title phase — both added backend-side as a straightforward join
+  // (attempts.repository.ts's listFrozenQuestions), not a schema change.
+  // assessmentTitle is identical across every question in one attempt (one
+  // assessment per attempt); sectionTitle varies per section. Used by
+  // AttemptPage's header (replacing the old ordinal "Section 1"/"Section 2"
+  // placeholder labels) and the section-picker menu.
+  sectionTitle: string
+  assessmentTitle: string
   // Question-level illustrative images — applies regardless of `type`,
   // unlike options/psychometricOptions/coding below (see backend's
   // buildRenderableQuestion, which sets this ahead of the per-type branch).

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useSubmitAttempt } from '../api'
 
 interface SubmitAttemptButtonProps {
@@ -9,6 +10,15 @@ interface SubmitAttemptButtonProps {
   totalCount: number
   onSubmitted: () => void
 }
+
+// The exact string a student must type (case-insensitive) before "Yes,
+// submit" enables. This confirmation applies ONLY to this manual-submit
+// dialog — AttemptPage's autoSubmit() (timer expiry, fullscreen exit, tab
+// switch) calls useSubmitAttempt directly and never renders this component
+// at all, so those already-non-cancelable takeover flows are structurally
+// incapable of showing a text box that would just block a submission the
+// student can't stop anyway.
+const CONFIRMATION_PHRASE = 'END'
 
 // Visible from the navigator area (not per-question) — final submit is an
 // attempt-level action, not a per-question one. No shared components/ui
@@ -28,20 +38,26 @@ export function SubmitAttemptButton({
   // same key; closing and reopening the dialog is a fresh attempt at the
   // action and gets a fresh key.
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null)
+  const [confirmationText, setConfirmationText] = useState('')
   const submitAttempt = useSubmitAttempt(attemptId)
+  const confirmInputId = useId()
+
+  const isConfirmationValid = confirmationText.trim().toUpperCase() === CONFIRMATION_PHRASE
 
   function openConfirm() {
     setIdempotencyKey(crypto.randomUUID())
+    setConfirmationText('')
     setIsConfirmOpen(true)
   }
 
   function closeConfirm() {
     if (submitAttempt.isPending) return
     setIsConfirmOpen(false)
+    setConfirmationText('')
   }
 
   function confirmSubmit() {
-    if (!idempotencyKey) return
+    if (!idempotencyKey || !isConfirmationValid) return
     submitAttempt.mutate({ idempotencyKey }, { onSuccess: onSubmitted })
   }
 
@@ -60,6 +76,27 @@ export function SubmitAttemptButton({
               change any answers — this cannot be undone.
             </p>
 
+            <div className="mt-4">
+              <label
+                htmlFor={confirmInputId}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Type <span className="font-semibold text-brand-primary">END</span> to confirm
+              </label>
+              <Input
+                id={confirmInputId}
+                value={confirmationText}
+                onChange={(event) => setConfirmationText(event.target.value)}
+                disabled={submitAttempt.isPending}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="END"
+                className="mt-1"
+              />
+            </div>
+
             {submitAttempt.isError && (
               <p className="mt-3 text-sm text-destructive">
                 {submitAttempt.error instanceof ApiError
@@ -74,7 +111,7 @@ export function SubmitAttemptButton({
               </Button>
               <Button
                 className="bg-brand-accent text-white hover:bg-brand-accent/90"
-                disabled={submitAttempt.isPending}
+                disabled={submitAttempt.isPending || !isConfirmationValid}
                 onClick={confirmSubmit}
               >
                 {submitAttempt.isPending ? 'Submitting…' : 'Yes, submit'}

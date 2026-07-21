@@ -37,6 +37,7 @@ import type {
   AssessmentWithBatches,
   FullAssessment,
   ListAssessmentsResult,
+  ListAvailableAssessmentsResult,
   ListQuestionApprovalHistoryResult,
   ResolvedAssessmentQuestion,
   ResolvedSectionQuestions,
@@ -287,12 +288,13 @@ async function requireStudentProfile(userId: string) {
 async function listAvailableAssessments(
   userId: string,
   query: ListAvailableAssessmentsQuery,
-): Promise<ListAssessmentsResult> {
+): Promise<ListAvailableAssessmentsResult> {
   const studentProfile = await requireStudentProfile(userId);
   const batchIds = await studentsService.listActiveBatchIdsForStudent(studentProfile.id);
 
   const { items, total } = await assessmentsRepository.listAvailableAssessments({
     batchIds,
+    studentId: studentProfile.id,
     status: query.status,
     page: query.page,
     pageSize: query.pageSize,

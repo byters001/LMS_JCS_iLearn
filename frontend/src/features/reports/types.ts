@@ -15,6 +15,12 @@ export type AttemptStatus =
 
 export type TestCategory = 'mcq' | 'coding' | 'psychometric' | 'mixed'
 
+// scorePercent (Performance page phase) — computed server-side
+// (reports.service.ts's attachScorePercents, reusing analyticsService's
+// existing getScorePercentagesForAttempts rather than a new calculation),
+// rounded to one decimal place. null whenever it can't be meaningfully
+// computed: not yet graded, or the attempt's total possible marks
+// resolved to zero/missing.
 export interface MyAttemptSummary {
   id: string
   assessmentId: string
@@ -24,6 +30,7 @@ export interface MyAttemptSummary {
   attemptNumber: number
   isRetake: boolean
   totalScore: string | null
+  scorePercent: number | null
   submissionTime: string | null
   createdAt: string
 }

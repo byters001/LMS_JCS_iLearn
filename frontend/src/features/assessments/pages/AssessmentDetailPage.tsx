@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ApiError } from '@/api'
-import { Button } from '@/components/ui/button'
-import { useStartAttempt } from '@/features/attempts/api'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { ListAvailableAssessmentsResponse } from '../types'
 
 const TEST_CATEGORY_LABELS: Record<string, string> = {
@@ -13,45 +12,10 @@ const TEST_CATEGORY_LABELS: Record<string, string> = {
   mixed: 'Mixed',
 }
 
-// The backend's three named start-attempt failure cases (attempts.service.ts)
-// all reuse generic AppError codes (ForbiddenError=FORBIDDEN,
-// ConflictError=CONFLICT for BOTH "not live" and "max attempts used") — there
-// is no distinct code per case, same situation as the earlier 401-refresh
-// phase's UNAUTHORIZED finding. The backend's own message text IS specific
-// per case, so this branches on code + message content rather than
-// fabricating codes that don't exist, and falls back to the raw message
-// otherwise.
-function describeStartAttemptError(error: unknown): string {
-  if (!(error instanceof ApiError)) {
-    return 'Something went wrong starting this attempt. Please try again.'
-  }
-  if (error.code === 'FORBIDDEN') {
-    return 'You are not authorized to attempt this assessment — check with your trainer if you believe this is a mistake.'
-  }
-  if (error.code === 'CONFLICT' && error.message.toLowerCase().includes('maximum attempts')) {
-    return `${error.message}. Contact your trainer if you need a retake.`
-  }
-  // Covers "must be live" (and any other case) — the backend's own message
-  // is already specific and safe to show as-is.
-  return error.message
-}
-
 export default function AssessmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const startAttempt = useStartAttempt()
-
-  // Idempotency-Key generated ONCE per page visit, via useState's
-  // initializer — it runs only on this component's first mount, so it
-  // stays the same across re-renders AND across repeated "Start Attempt"
-  // clicks on this same page instance (a double-click or a retry after a
-  // failed/slow request reuses this exact value). A fresh navigation to
-  // this page (new mount, e.g. leaving and coming back) gets a fresh key,
-  // which is correct — that's a new attempt-start session, not a retry of
-  // the same click. See features/attempts/api.ts's useStartAttempt for
-  // where this gets sent as the Idempotency-Key header.
-  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   // No student-scoped GET /assessments/:id exists (assessments.routes.ts's
   // GET /assessments/:id is staff-only, ASSESSMENTS_MANAGE-gated) — building
@@ -84,7 +48,11 @@ export default function AssessmentDetailPage() {
     )
   }
 
-  const canStart = assessment.status === 'live'
+  // Button-state phase — same getAttemptButtonState() StudentAssessmentsPage.tsx's
+  // card uses, so this page's button can never disagree with the card that
+  // linked here about whether this is a fresh start, a resume, a retake, or
+  // already completed.
+  const buttonState = getAttemptButtonState(assessment)
 
   return (
     <div className="p-6">
@@ -115,34 +83,41 @@ export default function AssessmentDetailPage() {
           </div>
         </dl>
 
-        {!canStart && (
+        {buttonState.kind === 'not-live' && (
           <p className="mt-4 rounded-md bg-muted p-3 text-sm text-muted-foreground">
             This assessment is scheduled but not live yet — the Start button will be enabled once
             it opens.
           </p>
         )}
 
-        {startAttempt.isError && (
-          <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {describeStartAttemptError(startAttempt.error)}
-          </p>
+        {/* Completed (no retake left) links straight to the results page —
+            there's nothing left here to start. Every other state uses the
+            same instructions-flow navigation as before ("Continue"/"Retake"
+            resuming/re-starting is the backend's own job — attempts.
+            service.ts's startAttempt already returns the existing
+            in_progress attempt instead of creating a new one when one
+            exists, so this click handler doesn't need to know which case
+            it is). */}
+        {buttonState.kind === 'completed' ? (
+          <Link
+            to={`/student/attempts/${buttonState.resultsAttemptId}/submitted`}
+            className={cn(buttonVariants({ variant: 'default' }), 'mt-4 w-full')}
+          >
+            Test Completed
+          </Link>
+        ) : (
+          <Button
+            className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent/90"
+            disabled={buttonState.kind === 'not-live'}
+            onClick={() => navigate(`/student/assessments/${assessment.id}/instructions`)}
+          >
+            {/* "View details" (the shared label for 'not-live') reads oddly
+                as a button ON the details page itself — this page shows
+                "Start Test" disabled instead; every other state uses the
+                shared label so it matches the card that linked here. */}
+            {buttonState.kind === 'not-live' ? 'Start Test' : ATTEMPT_BUTTON_LABELS[buttonState.kind]}
+          </Button>
         )}
-
-        <Button
-          className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          disabled={!canStart || startAttempt.isPending}
-          onClick={() =>
-            startAttempt.mutate(
-              { assessmentId: assessment.id, idempotencyKey },
-              {
-                onSuccess: (attempt) =>
-                  navigate(`/student/attempts/${attempt.id}`, { replace: true }),
-              },
-            )
-          }
-        >
-          {startAttempt.isPending ? 'Starting…' : 'Start Attempt'}
-        </Button>
       </div>
     </div>
   )

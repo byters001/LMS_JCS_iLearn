@@ -49,9 +49,47 @@ async function requireStudentProfileId(userId: string): Promise<string> {
   return studentProfile.id;
 }
 
-function toMyAttemptSummary(row: AttemptSummaryRow): MyAttemptSummary {
+function toMyAttemptSummary(row: AttemptSummaryRow, scorePercent: number | null): MyAttemptSummary {
   const { studentId: _studentId, ...summary } = row;
-  return summary;
+  return { ...summary, scorePercent };
+}
+
+// Performance-page %-change phase — reuses analyticsService's existing
+// getScorePercentagesForAttempts (already built and in production use for
+// getLeaderboard below), NOT a new/duplicated max-possible-marks query.
+// Confirmed by reading analytics.service.ts/analytics.repository.ts
+// directly before writing this: getScorePercentagesForAttempts already
+// sums question_versions.marks across an attempt's frozen question set via
+// one batched, GROUP-BY query (sumPossibleMarksForAttempts) — building a
+// second, separate implementation of the same computation here would have
+// been exactly the kind of duplicated business logic this codebase
+// consistently avoids. ONE call for the whole page of rows (or the single
+// row getMyAttemptDetail passes), never per-row — the N+1 pattern
+// PerformanceAnalyticsSection.tsx's own comment already documented as
+// deliberately avoided for this exact endpoint.
+//
+// Attempts with a null totalScore (not yet graded) are excluded from the
+// analyticsService call entirely — there's no score to compute a
+// percentage FROM yet — and simply end up with scorePercent: null via the
+// `?? null` fallback below, same as an attempt whose possible marks
+// resolved to zero (analyticsService's own "possible <= 0 -> omit from
+// results" rule, not duplicated here either).
+async function attachScorePercents(rows: AttemptSummaryRow[]): Promise<MyAttemptSummary[]> {
+  const scored = rows
+    .filter((row): row is AttemptSummaryRow & { totalScore: string } => row.totalScore !== null)
+    .map((row) => ({ attemptId: row.id, totalScore: row.totalScore }));
+  const percentages = await analyticsService.getScorePercentagesForAttempts(scored);
+  const percentByAttempt = new Map(percentages.map((p) => [p.attemptId, p.scorePercent]));
+
+  return rows.map((row) => {
+    const rawPercent = percentByAttempt.get(row.id);
+    // Rounded to one decimal place for display — the leaderboard's own
+    // averaging (below) deliberately keeps full precision pre-average, but
+    // this is a per-attempt number shown directly in a table, not an
+    // intermediate value feeding a further calculation.
+    const scorePercent = rawPercent === undefined ? null : Math.round(rawPercent * 10) / 10;
+    return toMyAttemptSummary(row, scorePercent);
+  });
 }
 
 // --- Caching (item 4) ---
@@ -78,7 +116,7 @@ async function listMyAttempts(
     page: query.page,
     pageSize: query.pageSize,
   });
-  return { items: items.map(toMyAttemptSummary), total, page: query.page, pageSize: query.pageSize };
+  return { items: await attachScorePercents(items), total, page: query.page, pageSize: query.pageSize };
 }
 
 async function getMyAttemptDetail(
@@ -98,7 +136,8 @@ async function getMyAttemptDetail(
   const breakdownRows = await reportsRepository.listAttemptQuestionBreakdown(attemptId);
   const questions = await Promise.all(breakdownRows.map(buildQuestionBreakdown));
 
-  return { attempt: toMyAttemptSummary(summaryRow), questions };
+  const [attempt] = await attachScorePercents([summaryRow]);
+  return { attempt, questions };
 }
 
 // --- Sanitization (item 2) ---
