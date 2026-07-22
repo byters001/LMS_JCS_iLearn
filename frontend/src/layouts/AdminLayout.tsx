@@ -1,5 +1,6 @@
 import { BarChart3, BookOpen, Building2, ClipboardList, HelpCircle, Layers, Library, Presentation, UserCog, Users } from 'lucide-react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { UserAvatarMenu } from '@/components/UserAvatarMenu'
 import { useLogout } from '@/features/auth/api'
 import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
@@ -52,19 +53,31 @@ function AdminLayout() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar navItems={NAV_ITEMS} user={user} onLogout={handleLogout} isLoggingOut={logout.isPending} />
+      <Sidebar navItems={NAV_ITEMS} />
 
       {/* min-w-0 is load-bearing here: without it, this flex child refuses
           to shrink below its content's intrinsic width (a common flexbox
           gotcha), which would let the search input push the column wider
           than the viewport instead of wrapping/scrolling within it. */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-end gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
+        {/* justify-between (not justify-end): search now lives at the LEFT
+            edge, notification bell + account avatar at the right — the
+            avatar replaces the old sidebar bottom-block avatar/logout
+            entirely (see Sidebar.tsx's own comment). */}
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
           {/* Item 5a — was a bare, unwired <Input> (no value/onChange/
               onSubmit at all — confirmed a pure visual shell before this
               fix). GlobalSearch owns its own icon/input/dropdown now. */}
           <GlobalSearch basePath="/admin" />
-          <NotificationBell />
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <UserAvatarMenu
+              name={user?.fullName ?? ''}
+              email={user?.email ?? ''}
+              onLogout={handleLogout}
+              isLoggingOut={logout.isPending}
+            />
+          </div>
         </header>
         <main className="flex-1">
           <Outlet />

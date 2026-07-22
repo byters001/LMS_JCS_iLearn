@@ -7,11 +7,12 @@ import type { Notification } from '../types'
 const RECENT_PAGE_SIZE = 10
 
 // Placement call: this is feature-owned (features/notifications/components/),
-// not shared/components/ despite the task's "shared" framing. UserMenu.tsx's
-// own comment documents exactly why that boundary exists: CLAUDE1.md says
-// shared components/ never imports from a specific features/* folder, so
-// every layout instead OWNS its feature hook calls (useLogout) and hands
-// UserMenu plain props. Notifications carry real internal state — a list,
+// not shared/components/ despite the task's "shared" framing.
+// UserAvatarMenu.tsx's own comment documents exactly why that boundary
+// exists: CLAUDE1.md says shared components/ never imports from a specific
+// features/* folder, so every layout instead OWNS its feature hook calls
+// (useLogout) and hands UserAvatarMenu plain props. Notifications carry
+// real internal state — a list,
 // pagination, open/closed, per-item mark-read, a poll interval — that would
 // mean re-deriving the same data-fetching in all three layout files if this
 // lived in shared/components/ as a purely presentational piece. Keeping it

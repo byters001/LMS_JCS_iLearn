@@ -1,12 +1,10 @@
-import { ChevronDown, MoreHorizontal, Settings } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import logo from '@/assets/brand/logo.jpeg'
-import { UserMenu } from '@/components/UserMenu'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import type { AuthUser } from '@/store/authStore'
 
 export type SidebarNavItem =
   | { type: 'link'; to: string; label: string; end?: boolean; icon: LucideIcon }
@@ -19,9 +17,6 @@ export type SidebarNavItem =
 
 interface SidebarProps {
   navItems: SidebarNavItem[]
-  user: AuthUser | null
-  onLogout: () => void
-  isLoggingOut: boolean
 }
 
 function navLinkClassName(collapsed: boolean) {
@@ -42,22 +37,27 @@ function navLinkClassName(collapsed: boolean) {
 // its exam-mode chrome has no persistent sidebar at all, by design — see
 // that file's own comment).
 //
-// Default is COLLAPSED (icon rail), not expanded — a deliberate reversal of
-// this sidebar's previous always-expanded default, per NeoPAT's collapsible-
-// rail pattern. `useState` (not Zustand/localStorage): this is a pure UI
-// toggle, session-only by request, and store/ is reserved for auth/session
-// data per CLAUDE1.md's folder rules (see store/authStore.ts's own "in-
-// memory only" comment) — plain component state already satisfies "session
-// only, no new storage key" without promoting a UI toggle to global state.
-// It naturally resets to collapsed on a full page reload (new component
-// mount), which matches "session" scope.
-export function Sidebar({ navItems, user, onLogout, isLoggingOut }: SidebarProps) {
+// Default is COLLAPSED (icon rail); hovering the whole <aside> expands it,
+// leaving on mouseleave collapses it back — replaces the earlier 3-dot
+// click-to-toggle (NeoPAT-style hover rail is the more direct interaction
+// for a rail this narrow, and removes a click most users didn't need).
+// Navigating via a NavLink doesn't fight this: React Router keeps this same
+// Sidebar instance mounted across route changes within a layout (only the
+// Outlet's child swaps), and the pointer stays over the sidebar through the
+// click itself, so mouseleave only fires once the user actually moves away
+// — no special-casing needed.
+//
+// `useState` (not Zustand/localStorage): this is a pure UI toggle, and
+// store/ is reserved for auth/session data per CLAUDE1.md's folder rules
+// (see store/authStore.ts's own "in-memory only" comment).
+export function Sidebar({ navItems }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(true)
   const location = useLocation()
-  const firstName = user?.fullName?.split(' ')[0]
 
   return (
     <aside
+      onMouseEnter={() => setCollapsed(false)}
+      onMouseLeave={() => setCollapsed(true)}
       className={cn(
         'sticky top-0 flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200',
         collapsed ? 'w-16' : 'w-60',
@@ -65,11 +65,11 @@ export function Sidebar({ navItems, user, onLogout, isLoggingOut }: SidebarProps
     >
       <div className={cn('flex h-16 shrink-0 items-center border-b border-sidebar-border', collapsed ? 'justify-center px-2' : 'px-4')}>
         {collapsed ? (
-          // Collapsed state swaps the full wordmark for a compact glyph —
-          // lucide-react already ships a gear icon (Settings), so no new
-          // image asset is needed here (see this task's own logo-asset
-          // check for the full reasoning).
-          <Settings className="size-6 text-brand-primary" aria-hidden="true" />
+          // Collapsed state swaps the full wordmark for just its gear/
+          // checkmark mark — the same public/jcs-logo.png asset the login
+          // page uses for its brand mark (LoginPage.tsx), not a lucide
+          // stand-in icon.
+          <img src="/jcs-logo.png" alt="JCS iLearn" className="size-8 object-contain" />
         ) : (
           // logo.jpeg is a 1600x1600 square canvas with the actual wordmark
           // centered in a thin horizontal band (heavy white padding
@@ -131,39 +131,6 @@ export function Sidebar({ navItems, user, onLogout, isLoggingOut }: SidebarProps
           )
         })}
       </nav>
-
-      {/* Toggle row — sits directly below the nav icons, above the user
-          block. `nav` above is flex-1, so this and the user block below it
-          stay pinned to the bottom together regardless of nav item count. */}
-      <div className={cn('shrink-0 border-t border-sidebar-border', collapsed ? 'flex justify-center py-2' : 'p-2')}>
-        <button
-          type="button"
-          onClick={() => setCollapsed((current) => !current)}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-expanded={!collapsed}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={cn(
-            'flex items-center justify-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-brand-primary',
-            collapsed ? 'size-9' : 'w-full py-1.5 text-xs font-medium',
-          )}
-        >
-          <MoreHorizontal className="size-4 shrink-0" />
-          {!collapsed && <span>Collapse menu</span>}
-        </button>
-      </div>
-
-      {/* User block pinned to the bottom — also where the "Welcome back"
-          greeting lives (see UserMenu.tsx's `greeting` prop). */}
-      <div className={cn('shrink-0 border-t border-sidebar-border', collapsed ? 'flex justify-center py-3' : 'p-4')}>
-        <UserMenu
-          name={user?.fullName ?? ''}
-          email={user?.email ?? ''}
-          onLogout={onLogout}
-          isLoggingOut={isLoggingOut}
-          greeting={!collapsed && firstName ? `Welcome back, ${firstName}` : undefined}
-          collapsed={collapsed}
-        />
-      </div>
     </aside>
   )
 }
