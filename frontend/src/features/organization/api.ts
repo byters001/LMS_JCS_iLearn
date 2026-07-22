@@ -117,11 +117,18 @@ function listColleges(params: ListCollegesParams): Promise<ListCollegesResponse>
   return api.get<ListCollegesResponse>('/colleges', { params })
 }
 
-export function useColleges(params: ListCollegesParams) {
+// `enabled` added for BatchesEditor.tsx's Super Admin-only college picker
+// (same optional-`enabled` shape useBatches/useDepartments/useMyBatches
+// already use) — without it, this fired unconditionally regardless of
+// caller role, which is exactly what made Faculty hit a colleges.view 403
+// even on assessments where the college picker itself never rendered (see
+// BatchesEditor.tsx's own module comment for the full fix writeup).
+export function useColleges(params: ListCollegesParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['organization', 'colleges', 'list', params],
     queryFn: () => listColleges(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 
@@ -281,12 +288,17 @@ function listMyBatches(params: ListMyBatchesParams): Promise<ListBatchesResponse
 }
 
 // Backs Trainer's "My Batches" nav item/page — self-scoped server-side by
-// the caller's own id (GET /batches/mine), not a client-side filter.
-export function useMyBatches(params: ListMyBatchesParams) {
+// the caller's own id (GET /batches/mine), not a client-side filter. Also
+// backs BatchesEditor.tsx's Faculty picker (assessments feature) — `enabled`
+// added there so a Super Admin caller (who isn't a trainer) doesn't fire
+// this request at all, same optional-`enabled` shape useBatches/
+// useDepartments already use.
+export function useMyBatches(params: ListMyBatchesParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['organization', 'batches', 'mine', params],
     queryFn: () => listMyBatches(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 

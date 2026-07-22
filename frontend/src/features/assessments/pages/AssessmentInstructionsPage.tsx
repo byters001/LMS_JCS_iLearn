@@ -140,71 +140,75 @@ export default function AssessmentInstructionsPage() {
         &larr; Back to assessment details
       </Link>
 
-      {/* System Check phase — a second, same-size card to the right of the
-          instructions card (CodeSignal's pre-assessment environment-check
-          flow, CLAUDE1.md's design references). Equal-width grid columns is
-          what "same size" means here — forcing equal HEIGHT on top of that
-          would fight the two cards' genuinely different content lengths
-          (a fixed bullet list vs. four independently-resolving check rows)
-          for no real benefit, so this only equalizes width. max-w-4xl
-          (up from the single card's previous max-w-xl) since there are now
-          two columns to fit side by side. */}
-      <div className="mt-3 grid max-w-4xl grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
-          <h1 className="font-heading text-xl font-semibold text-brand-primary">
-            Before you start: {assessment.title}
-          </h1>
+      {/* Centering wrapper around the card PAIR as a unit (mx-auto here, not
+          on each card individually) — the grid below still controls the two
+          cards' own equal-width layout; this only centers that whole block
+          horizontally on the page. */}
+      <div className="mx-auto max-w-4xl">
+        {/* System Check phase — a second, same-size card to the right of the
+            instructions card (CodeSignal's pre-assessment environment-check
+            flow, CLAUDE1.md's design references). Equal-width grid columns is
+            what "same size" means here — forcing equal HEIGHT on top of that
+            would fight the two cards' genuinely different content lengths
+            (a fixed bullet list vs. four independently-resolving check rows)
+            for no real benefit, so this only equalizes width. */}
+        <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+            <h1 className="font-heading text-xl font-semibold text-brand-primary">
+              Before you start: {assessment.title}
+            </h1>
 
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-            <li>
-              {assessment.timerMinutes
-                ? `You have ${assessment.timerMinutes} minutes once you start — the timer cannot be paused.`
-                : 'This assessment has no time limit.'}
-            </li>
-            <li>Once you submit, you cannot change any answers — this cannot be undone.</li>
-            {requiresFullscreen && (
-              <>
-                <li>
-                  This assessment requires fullscreen. Starting will ask your browser to enter
-                  fullscreen mode — please allow it.
-                </li>
-                <li>
-                  Exiting fullscreen or switching to another tab or window will automatically
-                  submit your attempt as-is. Stay on this tab, in fullscreen, for the whole
-                  attempt.
-                </li>
-              </>
-            )}
-          </ul>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+              <li>
+                {assessment.timerMinutes
+                  ? `You have ${assessment.timerMinutes} minutes once you start — the timer cannot be paused.`
+                  : 'This assessment has no time limit.'}
+              </li>
+              <li>Once you submit, you cannot change any answers — this cannot be undone.</li>
+              {requiresFullscreen && (
+                <>
+                  <li>
+                    This assessment requires fullscreen. Starting will ask your browser to enter
+                    fullscreen mode — please allow it.
+                  </li>
+                  <li>
+                    Exiting fullscreen or switching to another tab or window will automatically
+                    submit your attempt as-is. Stay on this tab, in fullscreen, for the whole
+                    attempt.
+                  </li>
+                </>
+              )}
+            </ul>
+          </div>
+
+          <SystemCheckCard onAllChecksPassedChange={setSystemChecksPassed} />
         </div>
 
-        <SystemCheckCard onAllChecksPassedChange={setSystemChecksPassed} />
-      </div>
+        <div className="mt-4">
+          {startAttempt.isError && (
+            <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              {describeStartAttemptError(startAttempt.error)}
+            </p>
+          )}
 
-      <div className="mt-4 max-w-4xl">
-        {startAttempt.isError && (
-          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {describeStartAttemptError(startAttempt.error)}
-          </p>
-        )}
-
-        {/* Button itself only ever changes disabled/color state (the
-            existing disabled:opacity-50 the Button component's base variant
-            already applies — no separate grey classes invented here) — its
-            label and the mutate() -> requestFullscreen() -> navigate()
-            sequence in handleStart are completely untouched. */}
-        {!systemChecksPassed && !startAttempt.isPending && (
-          <p className="mb-2 text-xs text-muted-foreground">
-            Complete all system checks above before starting.
-          </p>
-        )}
-        <Button
-          className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          disabled={startAttempt.isPending || !systemChecksPassed}
-          onClick={handleStart}
-        >
-          {startAttempt.isPending ? 'Starting…' : 'I understand, start assessment'}
-        </Button>
+          {/* Button itself only ever changes disabled/color state (the
+              existing disabled:opacity-50 the Button component's base variant
+              already applies — no separate grey classes invented here) — its
+              label and the mutate() -> requestFullscreen() -> navigate()
+              sequence in handleStart are completely untouched. */}
+          {!systemChecksPassed && !startAttempt.isPending && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Complete all system checks above before starting.
+            </p>
+          )}
+          <Button
+            className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
+            disabled={startAttempt.isPending || !systemChecksPassed}
+            onClick={handleStart}
+          >
+            {startAttempt.isPending ? 'Starting…' : 'I understand, start assessment'}
+          </Button>
+        </div>
       </div>
     </div>
   )

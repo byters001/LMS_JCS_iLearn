@@ -3,7 +3,7 @@ import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/Combobox'
 import { cn } from '@/lib/utils'
-import { useBatches, useColleges } from '@/features/organization/api'
+import { useBatches, useColleges, useMyBatches } from '@/features/organization/api'
 import { useAuthStore } from '@/store/authStore'
 import { useUpdateAssessmentBatches } from '../api'
 import type { AssessmentStatus } from '../types'
@@ -29,6 +29,10 @@ function haveSameBatchIds(a: string[], b: string[]): boolean {
 // CreateAssessmentPage's trainingSessionId dropdown already established.
 const BATCH_PICKER_PAGE_SIZE = 100
 const COLLEGE_PICKER_PAGE_SIZE = 100
+// A trainer is realistically assigned to a handful of batches — same
+// "just fetch it all in one page" call as the two picker sizes above, not
+// real pagination for a dropdown.
+const MY_BATCHES_PICKER_PAGE_SIZE = 100
 
 interface BatchesEditorProps {
   assessmentId: string
@@ -36,36 +40,63 @@ interface BatchesEditorProps {
   batchIds: string[]
 }
 
+// Two genuinely different flows by role, not one flow with a conditional
+// field:
+//
+// - Super Admin: UNCHANGED college-then-batch browse, same data scope as
+//   before (every batch, every college) — GET /batches requires a real
+//   collegeId server-side (listBatchesQuerySchema has no optional variant,
+//   confirmed by reading it directly) and there's no unscoped/all-colleges
+//   batch-listing endpoint to switch to instead, so there's no "cleaner
+//   single picker" actually available for this role without inventing new
+//   backend surface. Left as-is rather than faking a single-picker UX that
+//   would either silently narrow Super Admin's real scope or require that
+//   new endpoint — out of scope for this fix.
+//
+// - Faculty: single picker over GET /batches/mine (self-scoped from the
+//   caller's own JWT id, permission-free — organization.routes.ts, not
+//   gated by colleges.view at all) instead of the old college-picker ->
+//   GET /batches?collegeId=... two-step. This is what was actually 403ing
+//   for Faculty (colleges.view was only ever granted to super_admin — see
+//   this fix's own writeup) — GET /batches/mine sidesteps that gap
+//   entirely rather than patching it, per the brief. Its query
+//   (organization.repository.ts's listMyBatches) already joins
+//   batches -> training_programs -> colleges/departments, the same chain
+//   organizationService.listBatchAssignmentsForTrainers performs, so
+//   collegeName arrives resolved with no separate lookup and no new
+//   endpoint was needed on top of the existing self-service one.
 export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorProps) {
   const updateBatches = useUpdateAssessmentBatches(assessmentId)
   const isLocked = BATCH_LOCKED_STATUSES.includes(status)
 
-  // GET /batches now requires collegeId, enforced server-side (Phase 2 of
-  // the batches work) — a Faculty caller's own activeCollegeId already
-  // resolves this with no extra step (they're scoped to one college), but
-  // Super Admin's activeCollegeId is null (a global grant, per
-  // auth.service.ts's resolveActiveCollegeId), so there's no single default
-  // college to fall back to. For that case only, this shows a college
-  // picker first — same temporary-stand-in reasoning as
-  // BatchListPage.tsx's own picker (no top-bar college switcher exists yet).
   const user = useAuthStore((state) => state.user)
-  const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
-  const collegeId = user?.activeCollegeId ?? pickedCollegeId
+  const isSuperAdmin = user?.roles.includes('super_admin') ?? false
 
+  const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
   const colleges = useColleges(
     { page: 1, pageSize: COLLEGE_PICKER_PAGE_SIZE },
-    // Only fetched when actually needed (no activeCollegeId to fall back
-    // on) — a Faculty caller never triggers this extra request.
+    { enabled: isSuperAdmin },
   )
   const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
     value: college.id,
     label: college.name,
   }))
-
-  const batches = useBatches(
-    { collegeId: collegeId ?? '', page: 1, pageSize: BATCH_PICKER_PAGE_SIZE },
-    { enabled: collegeId !== null },
+  const adminBatches = useBatches(
+    { collegeId: pickedCollegeId ?? '', page: 1, pageSize: BATCH_PICKER_PAGE_SIZE },
+    { enabled: isSuperAdmin && pickedCollegeId !== null },
   )
+
+  const myBatches = useMyBatches(
+    { page: 1, pageSize: MY_BATCHES_PICKER_PAGE_SIZE },
+    { enabled: !isSuperAdmin },
+  )
+
+  // Whichever source is actually active for this caller's role — the rest
+  // of this component (chips, add-picker options) reads from this single
+  // list rather than branching on isSuperAdmin a second time.
+  const availableBatches = isSuperAdmin ? (adminBatches.data?.items ?? []) : (myBatches.data?.items ?? [])
+  const isBatchListPending = isSuperAdmin ? adminBatches.isPending : myBatches.isPending
+  const isBatchListError = isSuperAdmin ? adminBatches.isError : myBatches.isError
 
   // Initialized once from the incoming prop, same convention as every other
   // form on this page (e.g. CreateAssessmentPage's useForm defaultValues) —
@@ -83,9 +114,9 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
   // with the just-saved batchIds.
   const hasUnsavedChanges = !haveSameBatchIds(selectedIds, batchIds)
 
-  const batchesById = new Map((batches.data?.items ?? []).map((batch) => [batch.id, batch]))
+  const batchesById = new Map(availableBatches.map((batch) => [batch.id, batch]))
 
-  const addOptions = (batches.data?.items ?? [])
+  const addOptions = availableBatches
     .filter((batch) => !selectedIds.includes(batch.id))
     .map((batch) => ({ value: batch.id, label: batch.name }))
 
@@ -103,66 +134,99 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Search and add every batch authorized to take this assessment. Saving replaces the
-            entire current list.
+            {isSuperAdmin
+              ? 'Search and add every batch authorized to take this assessment. Saving replaces the entire current list.'
+              : 'Add from your own assigned batches. Saving replaces the entire current list.'}
           </p>
 
           {selectedIds.length > 0 && (
             <ul className="flex flex-wrap gap-2">
-              {selectedIds.map((id) => (
-                <li
-                  key={id}
-                  className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-brand-primary"
-                >
-                  <span>{batchesById.get(id)?.name ?? id}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${batchesById.get(id)?.name ?? id}`}
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => setSelectedIds((prev) => prev.filter((existing) => existing !== id))}
+              {selectedIds.map((id) => {
+                const batch = batchesById.get(id)
+                return (
+                  <li
+                    key={id}
+                    className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-brand-primary"
                   >
-                    ×
-                  </button>
-                </li>
-              ))}
+                    {/* College name shown automatically alongside the batch,
+                        read-only, derived from the batch's own
+                        training_program -> college relationship — not a
+                        separate field the caller has to pick. */}
+                    <span>
+                      {batch?.name ?? id}
+                      {batch?.collegeName && (
+                        <span className="font-normal text-muted-foreground"> · {batch.collegeName}</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${batch?.name ?? id}`}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setSelectedIds((prev) => prev.filter((existing) => existing !== id))}
+                    >
+                      ×
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
 
-          {/* Only Super Admin ever sees this — Faculty's own activeCollegeId
-              already resolves `collegeId` above with no picker needed. */}
-          {user?.activeCollegeId == null && (
+          {isSuperAdmin ? (
+            <>
+              <Combobox
+                id="batchesEditorCollegePicker"
+                options={collegeOptions}
+                value={pickedCollegeId}
+                onSelect={setPickedCollegeId}
+                placeholder="Select a college to browse its batches…"
+                isLoading={colleges.isPending}
+                isError={colleges.isError}
+                errorMessage="Failed to load colleges."
+              />
+
+              <Combobox
+                id="batchPicker"
+                options={addOptions}
+                value={null}
+                onSelect={(value) => setSelectedIds((prev) => [...prev, value])}
+                placeholder={pickedCollegeId ? 'Search batches by name to add…' : 'Select a college first'}
+                disabled={pickedCollegeId === null}
+                isLoading={isBatchListPending}
+                isError={isBatchListError}
+                errorMessage="Failed to load batches."
+                emptyMessage={
+                  pickedCollegeId === null
+                    ? 'Select a college first.'
+                    : isBatchListPending
+                      ? 'Loading…'
+                      : addOptions.length === 0 && availableBatches.length > 0
+                        ? 'All available batches are already added.'
+                        : 'No batches found.'
+                }
+              />
+            </>
+          ) : (
+            // Single picker over the caller's own assigned batches — no
+            // college browse step (see this component's module comment).
             <Combobox
-              id="batchesEditorCollegePicker"
-              options={collegeOptions}
-              value={pickedCollegeId}
-              onSelect={setPickedCollegeId}
-              placeholder="Select a college to browse its batches…"
-              isLoading={colleges.isPending}
-              isError={colleges.isError}
-              errorMessage="Failed to load colleges."
+              id="batchPicker"
+              options={addOptions}
+              value={null}
+              onSelect={(value) => setSelectedIds((prev) => [...prev, value])}
+              placeholder="Search your assigned batches to add…"
+              isLoading={isBatchListPending}
+              isError={isBatchListError}
+              errorMessage="Failed to load your assigned batches."
+              emptyMessage={
+                isBatchListPending
+                  ? 'Loading…'
+                  : addOptions.length === 0 && availableBatches.length > 0
+                    ? 'All your assigned batches are already added.'
+                    : 'You have no assigned batches yet — contact an admin to get assigned to one.'
+              }
             />
           )}
-
-          <Combobox
-            id="batchPicker"
-            options={addOptions}
-            value={null}
-            onSelect={(value) => setSelectedIds((prev) => [...prev, value])}
-            placeholder={collegeId ? 'Search batches by name to add…' : 'Select a college first'}
-            disabled={collegeId === null}
-            isLoading={batches.isPending}
-            isError={batches.isError}
-            errorMessage="Failed to load batches."
-            emptyMessage={
-              collegeId === null
-                ? 'Select a college first.'
-                : batches.isPending
-                  ? 'Loading…'
-                  : addOptions.length === 0 && (batches.data?.items.length ?? 0) > 0
-                    ? 'All available batches are already added.'
-                    : 'No batches found.'
-            }
-          />
 
           {updateBatches.isError && (
             <p className="text-xs text-destructive">
