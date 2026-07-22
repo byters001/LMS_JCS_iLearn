@@ -10,6 +10,21 @@ import { downloadChatbotQueryExport, useAskChatbot } from '../api'
 import { EXPORTABLE_CHATBOT_FUNCTIONS } from '../types'
 import type { AskChatbotResult } from '../types'
 
+// FAB geometry (must match the size-14 button + right-6/bottom-6 default
+// classes below) — used both to compute the default drag position and to
+// clamp dragging within the viewport.
+const FAB_SIZE_PX = 56
+const EDGE_MARGIN_PX = 24
+// Below this many pixels of pointer movement, a pointerdown+pointerup is
+// treated as a click (open/close), not a drag — without this, the ordinary
+// "click to open" gesture would register as a zero-distance drag and never
+// actually open the panel.
+const DRAG_THRESHOLD_PX = 4
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 // Same wording as chatbot.service.ts's SYSTEM_PROMPT lists to the model —
 // kept in sync manually since the two live in different apps/languages,
 // not because the frontend calls into that prompt directly.
@@ -96,6 +111,23 @@ export function ChatbotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const askChatbot = useAskChatbot()
 
+  // Draggable FAB position — session-only component state (not
+  // localStorage), matching this app's existing in-memory-only UI-state
+  // convention (e.g. layouts/components/Sidebar.tsx's collapse toggle).
+  // `null` means "never dragged yet" — the default bottom-right position
+  // then comes from the right-6/bottom-6 CSS classes below, not from this
+  // state, so the very first render (before any layout measurement is even
+  // possible) looks identical to the pre-drag widget.
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
+  const dragRef = useRef<{
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    originX: number
+    originY: number
+    dragged: boolean
+  } | null>(null)
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -109,6 +141,58 @@ export function ChatbotWidget() {
     document.addEventListener('mousedown', handlePointerDown)
     return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [])
+
+  // Reads the FAB's actual current on-screen box rather than trusting
+  // `position` alone — needed because `position` stays null (CSS-default
+  // bottom-right) until the first drag, so this is the only way to know
+  // the real starting point a drag begins from.
+  function getCurrentFabRect(): { x: number; y: number } {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (rect) return { x: rect.left, y: rect.top }
+    return {
+      x: window.innerWidth - FAB_SIZE_PX - EDGE_MARGIN_PX,
+      y: window.innerHeight - FAB_SIZE_PX - EDGE_MARGIN_PX,
+    }
+  }
+
+  function handleFabPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+    const current = getCurrentFabRect()
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originX: current.x,
+      originY: current.y,
+      dragged: false,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function handleFabPointerMove(event: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const dx = event.clientX - drag.startClientX
+    const dy = event.clientY - drag.startClientY
+    if (!drag.dragged && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+    drag.dragged = true
+    setPosition({
+      x: clamp(drag.originX + dx, EDGE_MARGIN_PX, window.innerWidth - FAB_SIZE_PX - EDGE_MARGIN_PX),
+      y: clamp(drag.originY + dy, EDGE_MARGIN_PX, window.innerHeight - FAB_SIZE_PX - EDGE_MARGIN_PX),
+    })
+  }
+
+  function handleFabPointerUp(event: React.PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    dragRef.current = null
+    // A drag that never crossed the threshold is a plain click — toggling
+    // here (instead of a separate onClick) is what keeps an actual drag
+    // from also firing a click and immediately re-toggling the panel.
+    if (!drag.dragged) {
+      setIsOpen((open) => !open)
+    }
+  }
 
   // Client-side convenience only — the real gate is server-side
   // ('chatbot.query', seeded to super_admin + faculty only; see
@@ -146,10 +230,36 @@ export function ChatbotWidget() {
     }
   }
 
+  // Panel anchor flips to whichever side actually has room, based on the
+  // FAB's current half of the viewport — a plain `right-0 bottom-16` (the
+  // original, fixed-position-only layout) would run the 384px/24rem-wide
+  // panel off-screen once the FAB is dragged toward the left or top edge.
+  const fabCenterX = (position?.x ?? window.innerWidth - FAB_SIZE_PX - EDGE_MARGIN_PX) + FAB_SIZE_PX / 2
+  const fabCenterY = (position?.y ?? window.innerHeight - FAB_SIZE_PX - EDGE_MARGIN_PX) + FAB_SIZE_PX / 2
+  const openLeftward = fabCenterX > window.innerWidth / 2
+  const openUpward = fabCenterY > window.innerHeight / 2
+
   return (
-    <div ref={containerRef} className="fixed right-6 bottom-6 z-40">
+    <div
+      ref={containerRef}
+      // z-40 already sits above the sidebar (no z-index — implicit stacking
+      // order) and both layouts' sticky headers (z-10), confirmed by
+      // grepping every z-* usage in this codebase — the highest anything
+      // else reaches short of a modal is z-40 here already exceeding both.
+      // Kept below z-50 (Dialog/DropdownMenu/the fullscreen-exit and
+      // submit-attempt confirm modals) deliberately: a real modal should
+      // still cover this, dragged position or not.
+      className={cn('fixed z-40', position === null && 'right-6 bottom-6')}
+      style={position ? { left: position.x, top: position.y } : undefined}
+    >
       {isOpen && (
-        <div className="absolute right-0 bottom-16 flex h-[32rem] w-96 flex-col rounded-lg border border-border bg-background shadow-lg">
+        <div
+          className={cn(
+            'absolute flex h-[32rem] w-96 flex-col rounded-lg border border-border bg-background shadow-lg',
+            openLeftward ? 'right-0' : 'left-0',
+            openUpward ? 'bottom-16' : 'top-16',
+          )}
+        >
           <div className="flex shrink-0 items-center justify-between rounded-t-lg border-b border-border bg-brand-primary px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-white">Reports Assistant</p>
@@ -203,14 +313,20 @@ export function ChatbotWidget() {
         </div>
       )}
 
+      {/* Click-to-toggle AND drag-to-reposition on the same element — see
+          handleFabPointerUp for how the two are told apart (a pointer
+          gesture that never moved past DRAG_THRESHOLD_PX toggles the panel;
+          anything past that is a drag and doesn't). touch-none stops the
+          browser's own touch-scroll gesture from fighting the drag on
+          touchscreens. */}
       <button
         type="button"
         aria-label={isOpen ? 'Close reports assistant' : 'Open reports assistant'}
         aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-        className={cn(
-          'flex size-14 items-center justify-center rounded-full bg-brand-accent text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-accent/90',
-        )}
+        onPointerDown={handleFabPointerDown}
+        onPointerMove={handleFabPointerMove}
+        onPointerUp={handleFabPointerUp}
+        className="flex size-14 touch-none items-center justify-center rounded-full bg-brand-accent text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-accent/90 active:cursor-grabbing"
       >
         {isOpen ? <X className="size-6" /> : <MessageCircle className="size-6" />}
       </button>

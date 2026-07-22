@@ -1,4 +1,4 @@
-import { Clock } from 'lucide-react'
+import { Clock, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
@@ -53,9 +53,51 @@ function formatStartDate(startAt: string | null): string | null {
 // straight to the results page instead of the detail page — there's
 // nothing left to "view details" toward starting.
 function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
-  const startDate = formatStartDate(assessment.startAt)
   const durationLabel = assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'
   const buttonState = getAttemptButtonState(assessment)
+
+  // Item 2 fix — genuinely locked, not a dimmer version of the same
+  // clickable card: rendered as a plain <div>, not a <Link>, since there's
+  // nothing to navigate to yet (the old behavior linked through to
+  // AssessmentDetailPage's own disabled "Start Test" button, which is what
+  // made this read as "identical to a live one" — same blue button, same
+  // label, only a subtle opacity difference). No hover/translate/shadow
+  // treatment either, on top of the grayscale+opacity — a locked card
+  // shouldn't invite the same "hover to see it lift" affordance a real
+  // clickable card gets.
+  if (buttonState.kind === 'scheduled') {
+    const startDate = formatStartDate(buttonState.startAt)
+    return (
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 opacity-60 shadow-sm grayscale-[0.4]">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>
+          <StatusBadge status={assessment.status} />
+        </div>
+
+        {assessment.description && (
+          <p className="line-clamp-2 text-sm text-muted-foreground">{assessment.description}</p>
+        )}
+
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="size-3.5" />
+          <span>{durationLabel}</span>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary">{TEST_CATEGORY_LABELS[assessment.testCategory]}</Badge>
+          <Badge variant="outline">
+            {assessment.maxAttempts} attempt{assessment.maxAttempts === 1 ? '' : 's'}
+          </Badge>
+        </div>
+
+        <span className="mt-1 flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/40 text-sm font-medium text-muted-foreground">
+          <Lock className="size-3.5" />
+          {startDate ? `Opens ${startDate}` : 'Not open yet'}
+        </span>
+      </div>
+    )
+  }
+
   const linkTo =
     buttonState.kind === 'completed'
       ? `/student/attempts/${buttonState.resultsAttemptId}/submitted`
@@ -81,7 +123,6 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock className="size-3.5" />
         <span>{durationLabel}</span>
-        {assessment.status === 'scheduled' && startDate && <span>· Starts {startDate}</span>}
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -91,10 +132,18 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
         </Badge>
       </div>
 
+      {/* Item 1 fix — "completed" gets a distinct muted/outline treatment
+          instead of the same solid brand-accent blue every clickable action
+          state uses, so it reads at a glance as "done", not "here's another
+          thing to click." Still a real link to the results page — only the
+          styling branches, not the behavior. */}
       <span
         className={cn(
-          buttonVariants({ variant: 'default' }),
-          'mt-1 h-9 w-full group-hover:bg-primary/90',
+          buttonVariants({ variant: buttonState.kind === 'completed' ? 'outline' : 'default' }),
+          'mt-1 h-9 w-full',
+          buttonState.kind === 'completed'
+            ? 'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground'
+            : 'group-hover:bg-primary/90',
         )}
       >
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}

@@ -1,9 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { Lock } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { ListAvailableAssessmentsResponse } from '../types'
+
+function formatStartDate(startAt: string | null): string | null {
+  if (!startAt) return null
+  return new Date(startAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
 
 const TEST_CATEGORY_LABELS: Record<string, string> = {
   mcq: 'MCQ',
@@ -85,37 +91,48 @@ export default function AssessmentDetailPage() {
 
         {buttonState.kind === 'not-live' && (
           <p className="mt-4 rounded-md bg-muted p-3 text-sm text-muted-foreground">
-            This assessment is scheduled but not live yet — the Start button will be enabled once
-            it opens.
+            This assessment isn&apos;t live yet.
           </p>
         )}
 
-        {/* Completed (no retake left) links straight to the results page —
-            there's nothing left here to start. Every other state uses the
-            same instructions-flow navigation as before ("Continue"/"Retake"
-            resuming/re-starting is the backend's own job — attempts.
-            service.ts's startAttempt already returns the existing
-            in_progress attempt instead of creating a new one when one
-            exists, so this click handler doesn't need to know which case
-            it is). */}
-        {buttonState.kind === 'completed' ? (
+        {/* Item 2 fix — scheduled gets the same genuine lock treatment as
+            StudentAssessmentsPage.tsx's card (see that file's module
+            comment for the full reasoning): a real "opens at X" message,
+            not a disabled button that still literally says "Start Test". */}
+        {buttonState.kind === 'scheduled' ? (
+          <div className="mt-4 flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/40 p-3 text-sm text-muted-foreground">
+            <Lock className="size-4 shrink-0" />
+            {formatStartDate(buttonState.startAt)
+              ? `Opens ${formatStartDate(buttonState.startAt)}`
+              : 'Not open yet'}
+          </div>
+        ) : buttonState.kind === 'completed' ? (
+          // Completed (no retake left) links straight to the results page —
+          // there's nothing left here to start. Item 1 fix — same
+          // distinct muted/outline treatment as the card, not the solid
+          // brand-accent blue every clickable action state uses.
           <Link
             to={`/student/attempts/${buttonState.resultsAttemptId}/submitted`}
-            className={cn(buttonVariants({ variant: 'default' }), 'mt-4 w-full')}
+            className={cn(
+              buttonVariants({ variant: 'outline' }),
+              'mt-4 w-full border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}
           >
             Test Completed
           </Link>
         ) : (
+          // Every other state uses the same instructions-flow navigation as
+          // before ("Continue"/"Retake" resuming/re-starting is the
+          // backend's own job — attempts.service.ts's startAttempt already
+          // returns the existing in_progress attempt instead of creating a
+          // new one when one exists, so this click handler doesn't need to
+          // know which case it is).
           <Button
             className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent/90"
             disabled={buttonState.kind === 'not-live'}
             onClick={() => navigate(`/student/assessments/${assessment.id}/instructions`)}
           >
-            {/* "View details" (the shared label for 'not-live') reads oddly
-                as a button ON the details page itself — this page shows
-                "Start Test" disabled instead; every other state uses the
-                shared label so it matches the card that linked here. */}
-            {buttonState.kind === 'not-live' ? 'Start Test' : ATTEMPT_BUTTON_LABELS[buttonState.kind]}
+            {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
           </Button>
         )}
       </div>

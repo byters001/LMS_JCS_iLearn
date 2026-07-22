@@ -2,6 +2,14 @@ import type { AvailableAssessment } from './types'
 
 export type AttemptButtonState =
   | { kind: 'not-live' }
+  // Scheduled is its own kind (not folded into 'not-live') — item 2's fix:
+  // a scheduled assessment previously fell into the generic not-live branch,
+  // and AssessmentDetailPage.tsx specifically overrode that branch's label
+  // to literally read "Start Test" (just disabled) — easy to misread as
+  // live at a glance, screenshot-confirmed. Carrying startAt here lets both
+  // surfaces (the card and the detail page) render the same "opens at X"
+  // message from one source, instead of each formatting it independently.
+  | { kind: 'scheduled'; startAt: string | null }
   | { kind: 'start' }
   | { kind: 'continue' }
   | { kind: 'retake' }
@@ -21,6 +29,7 @@ const COMPLETED_TIER_STATUSES = new Set(['submitted', 'pending_evaluation', 'inv
 // returns (assessment.status + the new myLatestAttempt join added this
 // phase) — no per-card lookup, no new endpoint.
 export function getAttemptButtonState(assessment: AvailableAssessment): AttemptButtonState {
+  if (assessment.status === 'scheduled') return { kind: 'scheduled', startAt: assessment.startAt }
   if (assessment.status !== 'live') return { kind: 'not-live' }
 
   const attempt = assessment.myLatestAttempt
@@ -55,6 +64,10 @@ export function getAttemptButtonState(assessment: AvailableAssessment): AttemptB
 // assessment.
 export const ATTEMPT_BUTTON_LABELS: Record<AttemptButtonState['kind'], string> = {
   'not-live': 'View details',
+  // Generic fallback only — both call sites special-case 'scheduled' to
+  // show the actual formatted startAt instead of this static string (see
+  // StudentAssessmentsPage.tsx's card and AssessmentDetailPage.tsx).
+  scheduled: 'Not open yet',
   start: 'Start Test',
   continue: 'Continue Test',
   retake: 'Retake Test',
