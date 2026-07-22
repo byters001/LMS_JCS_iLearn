@@ -19,6 +19,21 @@ export function isFullscreenActive(): boolean {
   return Boolean(document.fullscreenElement ?? doc.webkitFullscreenElement)
 }
 
+// Pre-flight signal only, used by AssessmentInstructionsPage's System Check
+// card — confirms the Fullscreen API exists and reports itself allowed in
+// this context (browser support + any embedding iframe's permissions
+// policy), NOT that fullscreen is currently active or that entering it will
+// succeed. It CANNOT attempt real entry itself: requestFullscreen() above
+// must run synchronously inside a live user-gesture click handler, and the
+// System Check's checks run automatically on mount, well outside any click.
+// Real entry still only ever happens where it already did — inside
+// AssessmentInstructionsPage's handleStart, on the "I understand, start
+// assessment" click.
+export function isFullscreenSupported(): boolean {
+  const doc = document as FullscreenDocument & { webkitFullscreenEnabled?: boolean }
+  return Boolean(document.fullscreenEnabled ?? doc.webkitFullscreenEnabled)
+}
+
 // Must be called SYNCHRONOUSLY inside a user-gesture event handler (a click,
 // not a callback fired after an awaited request resolves) — browsers reject
 // requestFullscreen() called outside "user activation," and relying on

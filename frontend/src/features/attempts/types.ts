@@ -193,3 +193,21 @@ export interface SubmitCodeResult extends AttemptResponse {
   testCasesTotal: number
   testCaseResults: TestCaseResult[]
 }
+
+// Autosave phase — the imperative contract McqQuestion/PsychometricQuestion
+// expose via `ref` so AttemptPage can trigger a save of whatever's
+// currently selected right before any navigation away from the question
+// (Next/Previous/question-navigator click/section jump/Submit Attempt),
+// now that there's no more explicit "Save Answer" button for the student to
+// click themselves. CodingQuestion does NOT implement this — its Run/Submit
+// flow is a separate, already-explicit action, untouched by this phase — so
+// AttemptPage's ref is simply unset (null) whenever a coding question is
+// current, and callers treat a null ref as "nothing to save."
+export interface AnswerSaveHandle {
+  // Resolves true when it's safe to proceed with navigation: nothing was
+  // selected, the current selection already matches what's persisted, or a
+  // save was attempted and succeeded. Resolves false only when a save was
+  // actually attempted and failed — the caller must keep the student on the
+  // current question in that case, not navigate.
+  saveBeforeNavigate: () => Promise<boolean>
+}

@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import { ApiError } from '@/api'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useSubmitResponse } from '../api'
-import type { PsychometricAttemptQuestion } from '../types'
+import type { AnswerSaveHandle, PsychometricAttemptQuestion } from '../types'
 import { useStableIdempotencyKey } from '../useStableIdempotencyKey'
 
 interface PsychometricQuestionProps {
   attemptId: string
   question: PsychometricAttemptQuestion
+  ref?: Ref<AnswerSaveHandle>
 }
 
 // Generic 5-point labels, used whenever the question has no seeded
@@ -33,7 +33,15 @@ const GENERIC_LIKERT_LABELS = [
 // actually be answered. This renders a fixed 1-5 scale that always works:
 // psychometricOptions, when present, only relabel each point (option at
 // sortOrder N labels point N+1); when absent, generic labels are used.
-export function PsychometricQuestion({ attemptId, question }: PsychometricQuestionProps) {
+//
+// Autosave phase — same pattern as McqQuestion.tsx: the explicit "Save
+// Answer" button is gone, replaced by an imperative saveBeforeNavigate()
+// exposed via `ref` (types.ts's AnswerSaveHandle), which AttemptPage calls
+// right before Next/Previous/a question-navigator click/a section jump/
+// Submit Attempt would otherwise move the student away. See that file's own
+// comment for the full reasoning — identical here, just likertValue instead
+// of selectedOptionId.
+export function PsychometricQuestion({ attemptId, question, ref }: PsychometricQuestionProps) {
   const [likertValue, setLikertValue] = useState<number | null>(
     question.savedResponse?.likertValue ?? null,
   )
@@ -43,17 +51,22 @@ export function PsychometricQuestion({ attemptId, question }: PsychometricQuesti
   const sortedOptions = [...question.psychometricOptions].sort((a, b) => a.sortOrder - b.sortOrder)
   const scale = sortedOptions.length > 0 ? sortedOptions : null
 
-  const isSavedForCurrentSelection =
-    submitResponse.isSuccess && submitResponse.variables?.likertValue === likertValue
-
-  function handleSave() {
-    if (likertValue === null) return
-    submitResponse.mutate({
-      questionVersionId: question.questionVersionId,
-      likertValue,
-      idempotencyKey,
-    })
-  }
+  useImperativeHandle(ref, () => ({
+    saveBeforeNavigate: async () => {
+      if (likertValue === null) return true
+      if (likertValue === question.savedResponse?.likertValue) return true
+      try {
+        await submitResponse.mutateAsync({
+          questionVersionId: question.questionVersionId,
+          likertValue,
+          idempotencyKey,
+        })
+        return true
+      } catch {
+        return false
+      }
+    },
+  }))
 
   return (
     <div>
@@ -113,21 +126,13 @@ export function PsychometricQuestion({ attemptId, question }: PsychometricQuesti
         </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
-        <Button disabled={likertValue === null || submitResponse.isPending} onClick={handleSave}>
-          {submitResponse.isPending ? 'Saving…' : 'Save Answer'}
-        </Button>
-        {isSavedForCurrentSelection && (
-          <span className="text-sm font-medium text-green-600 dark:text-green-500">Saved</span>
-        )}
-        {submitResponse.isError && !submitResponse.isPending && (
-          <span className="text-sm text-destructive">
-            {submitResponse.error instanceof ApiError
-              ? submitResponse.error.message
-              : 'Failed to save — try again.'}
-          </span>
-        )}
-      </div>
+      {submitResponse.isError && (
+        <p className="mt-4 text-sm text-destructive">
+          {submitResponse.error instanceof ApiError
+            ? submitResponse.error.message
+            : 'Failed to save your answer — try moving to the next question again.'}
+        </p>
+      )}
     </div>
   )
 }

@@ -9,6 +9,21 @@ interface SubmitAttemptButtonProps {
   answeredCount: number
   totalCount: number
   onSubmitted: () => void
+  // Autosave phase — Submit Attempt is reachable at any time, not gated on
+  // "last question" or on having navigated away first, so it's itself a
+  // form of leaving the current question — the same unsaved-answer risk
+  // Next/Previous/the navigator already guard against (see AttemptPage.tsx's
+  // trySaveCurrentAnswer, passed in as this prop). Optional because
+  // AttemptPage only has a save handle to offer while the current question
+  // is mcq/psychometric — undefined means "nothing to save, proceed."
+  // Returning false means the save failed; the confirm dialog does not open
+  // in that case, keeping the student on the question that failed to save.
+  onBeforeSubmit?: () => Promise<boolean>
+  // True for the brief window a save triggered by onBeforeSubmit (or by
+  // AttemptPage's Next/Previous/navigator) is in flight — disables this
+  // button too, so a click here can't race a save already underway from a
+  // different trigger.
+  disabled?: boolean
 }
 
 // The exact string a student must type (case-insensitive) before "Yes,
@@ -30,8 +45,14 @@ export function SubmitAttemptButton({
   answeredCount,
   totalCount,
   onSubmitted,
+  onBeforeSubmit,
+  disabled,
 }: SubmitAttemptButtonProps) {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  // Distinct from submitAttempt.isPending below — this covers only the
+  // brief onBeforeSubmit() window, BEFORE the confirm dialog has even
+  // opened, so the button can't be clicked again while that's in flight.
+  const [isCheckingBeforeSubmit, setIsCheckingBeforeSubmit] = useState(false)
   // Generated once when the confirmation is TRIGGERED (dialog opened), not
   // once per click of "Yes, submit" inside it — retrying the same confirm
   // click after a network failure (without closing the dialog) reuses this
@@ -44,7 +65,16 @@ export function SubmitAttemptButton({
 
   const isConfirmationValid = confirmationText.trim().toUpperCase() === CONFIRMATION_PHRASE
 
-  function openConfirm() {
+  async function openConfirm() {
+    if (onBeforeSubmit) {
+      setIsCheckingBeforeSubmit(true)
+      const canProceed = await onBeforeSubmit().finally(() => setIsCheckingBeforeSubmit(false))
+      // onBeforeSubmit itself is responsible for surfacing why (toast +
+      // inline error on the question that failed to save) — this just
+      // stops short of opening a confirmation dialog for a submission that
+      // wouldn't include the student's latest answer.
+      if (!canProceed) return
+    }
     setIdempotencyKey(crypto.randomUUID())
     setConfirmationText('')
     setIsConfirmOpen(true)
@@ -63,8 +93,13 @@ export function SubmitAttemptButton({
 
   return (
     <>
-      <Button variant="outline" className="w-full" onClick={openConfirm}>
-        Submit Attempt
+      <Button
+        variant="outline"
+        className="w-full"
+        disabled={disabled || isCheckingBeforeSubmit}
+        onClick={openConfirm}
+      >
+        {isCheckingBeforeSubmit ? 'Saving…' : 'Submit Attempt'}
       </Button>
 
       {isConfirmOpen && (

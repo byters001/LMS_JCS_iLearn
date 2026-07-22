@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { requestMediaStream } from '@/lib/mediaPermissions'
 
 // Item 1 — a purely local live mirror. NO recording, NO snapshot capture,
 // NO upload: the MediaStream opened below is attached directly to a
@@ -18,7 +19,12 @@ export function CameraPreview() {
 
     async function start() {
       try {
-        const media = await navigator.mediaDevices.getUserMedia({ video: true })
+        // requestMediaStream (lib/mediaPermissions.ts) — the same raw
+        // getUserMedia call AssessmentInstructionsPage's pre-attempt System
+        // Check card now also goes through for its own camera/microphone
+        // checks, so there's one place that makes this browser call, not
+        // two independently hand-rolled ones.
+        const media = await requestMediaStream({ video: true })
         if (cancelled) {
           // Unmounted while the permission prompt was still pending — don't
           // leave a live camera light on for a component that no longer

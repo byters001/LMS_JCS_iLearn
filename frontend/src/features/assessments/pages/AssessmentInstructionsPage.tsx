@@ -5,6 +5,7 @@ import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { requestFullscreen } from '@/lib/fullscreen'
 import { useStartAttempt } from '@/features/attempts/api'
+import { SystemCheckCard } from '../components/SystemCheckCard'
 import type { ListAvailableAssessmentsResponse } from '../types'
 
 // Moved from AssessmentDetailPage.tsx — that page no longer calls
@@ -44,6 +45,14 @@ export default function AssessmentInstructionsPage() {
   // Same one-per-page-visit reasoning as AssessmentDetailPage.tsx previously
   // used for this same mutation.
   const [idempotencyKey] = useState(() => crypto.randomUUID())
+
+  // System Check phase — SystemCheckCard owns its own four checks
+  // internally and reports the combined pass/fail up via this callback;
+  // this page only needs the single boolean to gate the start button below.
+  // Starts false (checks run async on mount, so nothing has passed yet at
+  // render time) — the button is genuinely disabled until every check
+  // resolves successfully, not just briefly appearing that way.
+  const [systemChecksPassed, setSystemChecksPassed] = useState(false)
 
   // Same cached-list lookup fallback as AssessmentDetailPage.tsx — there is
   // still no student-scoped GET /assessments/:id. A direct URL visit with an
@@ -131,41 +140,67 @@ export default function AssessmentInstructionsPage() {
         &larr; Back to assessment details
       </Link>
 
-      <div className="mt-3 max-w-xl rounded-lg border border-border bg-background p-6 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">
-          Before you start: {assessment.title}
-        </h1>
+      {/* System Check phase — a second, same-size card to the right of the
+          instructions card (CodeSignal's pre-assessment environment-check
+          flow, CLAUDE1.md's design references). Equal-width grid columns is
+          what "same size" means here — forcing equal HEIGHT on top of that
+          would fight the two cards' genuinely different content lengths
+          (a fixed bullet list vs. four independently-resolving check rows)
+          for no real benefit, so this only equalizes width. max-w-4xl
+          (up from the single card's previous max-w-xl) since there are now
+          two columns to fit side by side. */}
+      <div className="mt-3 grid max-w-4xl grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+          <h1 className="font-heading text-xl font-semibold text-brand-primary">
+            Before you start: {assessment.title}
+          </h1>
 
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-          <li>
-            {assessment.timerMinutes
-              ? `You have ${assessment.timerMinutes} minutes once you start — the timer cannot be paused.`
-              : 'This assessment has no time limit.'}
-          </li>
-          <li>Once you submit, you cannot change any answers — this cannot be undone.</li>
-          {requiresFullscreen && (
-            <>
-              <li>
-                This assessment requires fullscreen. Starting will ask your browser to enter
-                fullscreen mode — please allow it.
-              </li>
-              <li>
-                Exiting fullscreen or switching to another tab or window will automatically submit
-                your attempt as-is. Stay on this tab, in fullscreen, for the whole attempt.
-              </li>
-            </>
-          )}
-        </ul>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              {assessment.timerMinutes
+                ? `You have ${assessment.timerMinutes} minutes once you start — the timer cannot be paused.`
+                : 'This assessment has no time limit.'}
+            </li>
+            <li>Once you submit, you cannot change any answers — this cannot be undone.</li>
+            {requiresFullscreen && (
+              <>
+                <li>
+                  This assessment requires fullscreen. Starting will ask your browser to enter
+                  fullscreen mode — please allow it.
+                </li>
+                <li>
+                  Exiting fullscreen or switching to another tab or window will automatically
+                  submit your attempt as-is. Stay on this tab, in fullscreen, for the whole
+                  attempt.
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
 
+        <SystemCheckCard onAllChecksPassedChange={setSystemChecksPassed} />
+      </div>
+
+      <div className="mt-4 max-w-4xl">
         {startAttempt.isError && (
-          <p className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
             {describeStartAttemptError(startAttempt.error)}
           </p>
         )}
 
+        {/* Button itself only ever changes disabled/color state (the
+            existing disabled:opacity-50 the Button component's base variant
+            already applies — no separate grey classes invented here) — its
+            label and the mutate() -> requestFullscreen() -> navigate()
+            sequence in handleStart are completely untouched. */}
+        {!systemChecksPassed && !startAttempt.isPending && (
+          <p className="mb-2 text-xs text-muted-foreground">
+            Complete all system checks above before starting.
+          </p>
+        )}
         <Button
-          className="mt-5 w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          disabled={startAttempt.isPending}
+          className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
+          disabled={startAttempt.isPending || !systemChecksPassed}
           onClick={handleStart}
         >
           {startAttempt.isPending ? 'Starting…' : 'I understand, start assessment'}

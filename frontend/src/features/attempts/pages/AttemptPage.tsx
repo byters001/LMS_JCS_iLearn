@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import type { ListAvailableAssessmentsResponse } from '@/features/assessments/types'
@@ -19,7 +20,7 @@ import { PsychometricQuestion } from '../components/PsychometricQuestion'
 import { QuestionNavigator } from '../components/QuestionNavigator'
 import { SectionPickerMenu } from '../components/SectionPickerMenu'
 import { SubmitAttemptButton } from '../components/SubmitAttemptButton'
-import type { AttemptQuestion } from '../types'
+import type { AnswerSaveHandle, AttemptQuestion } from '../types'
 
 // Item 4 — same pattern as features/assessments/pages/AssessmentDetailPage.tsx's
 // describeStartAttemptError: read the real ApiError.code/.message instead of
@@ -160,6 +161,59 @@ export default function AttemptPage() {
   //      BOTH the manual-submit and auto-submit paths, closing this race
   //      regardless of exact event timing.
   const hasFiredRef = useRef(false)
+
+  // Autosave phase — set (via `ref`) by whichever of McqQuestion/
+  // PsychometricQuestion is currently rendered below; left unset (null)
+  // whenever the current question is coding (CodingQuestion never attaches
+  // to this ref — its Run/Submit flow is separate and untouched) or briefly
+  // during a remount between questions. A ref, not state: this only needs
+  // to be read at the moment of a navigation attempt, never drives a
+  // re-render itself.
+  const answerSaveRef = useRef<AnswerSaveHandle | null>(null)
+  // Distinguishes WHICH control triggered the in-flight save so the
+  // Previous/Next buttons can each show their own "Saving…" label instead
+  // of both changing for a save the student didn't ask either of them to
+  // start. Also doubles as the "something is already in flight" guard for
+  // every navigation trigger below (Previous/Next/the question navigator/
+  // the section picker/Submit Attempt) — all disabled while this is set, so
+  // a second click can't fire a second, overlapping save.
+  const [pendingNavigation, setPendingNavigation] = useState<'previous' | 'next' | 'other' | null>(
+    null,
+  )
+
+  // Sequencing decision (item 1): WAIT for the save to resolve before doing
+  // anything that leaves the current question — not fire-and-forget. A
+  // failed save that had already navigated the student to the NEXT question
+  // would be invisible: there is no longer a persistent button/status next
+  // to the (now different, already-visible) question to notice it failed,
+  // and the student could keep answering later questions on top of a gap
+  // earlier in the attempt with no signal anything went wrong. Waiting costs
+  // one network round trip's worth of delay (the same request the old Save
+  // button already made — this doesn't add a new one, just moves when it
+  // fires), which is a small, honest cost against silently losing an
+  // answer. Surfaced via both a toast (visible regardless of what's
+  // currently on screen) and each question component's own persistent
+  // inline error (McqQuestion/PsychometricQuestion's submitResponse.isError
+  // block) for as long as the student stays stuck on it.
+  async function trySaveCurrentAnswer(): Promise<boolean> {
+    const handle = answerSaveRef.current
+    if (!handle) return true
+    const saved = await handle.saveBeforeNavigate()
+    if (!saved) {
+      toast.error('Failed to save your answer — please try again before moving on.')
+    }
+    return saved
+  }
+
+  async function navigateTo(nextIndex: number, action: 'previous' | 'next' | 'other' = 'other') {
+    if (pendingNavigation) return
+    setPendingNavigation(action)
+    try {
+      if (await trySaveCurrentAnswer()) setCurrentIndex(nextIndex)
+    } finally {
+      setPendingNavigation(null)
+    }
+  }
 
   // There is no student-scoped GET /assessments/:id (assessments.routes.ts's
   // GET /assessments/:id is staff-only, ASSESSMENTS_MANAGE-gated) — same gap
@@ -396,7 +450,7 @@ export default function AttemptPage() {
             activeSectionId={activeSection?.sectionId ?? sections[0].sectionId}
             onSelectSection={(sectionId) => {
               const section = sections.find((candidate) => candidate.sectionId === sectionId)
-              if (section) setCurrentIndex(section.questionIndexes[0])
+              if (section) void navigateTo(section.questionIndexes[0], 'other')
             }}
           />
         )}
@@ -483,8 +537,9 @@ export default function AttemptPage() {
           <QuestionNavigator
             questions={questions}
             currentIndex={currentIndex}
-            onNavigate={setCurrentIndex}
+            onNavigate={(index) => void navigateTo(index, 'other')}
             visibleIndexes={sections.length > 1 ? activeSection?.questionIndexes : undefined}
+            disabled={pendingNavigation !== null}
           />
           {attemptId && (
             <SubmitAttemptButton
@@ -492,6 +547,8 @@ export default function AttemptPage() {
               answeredCount={answeredCount}
               totalCount={questions.length}
               onSubmitted={goToSubmittedPage}
+              onBeforeSubmit={trySaveCurrentAnswer}
+              disabled={pendingNavigation !== null}
             />
           )}
         </div>
@@ -507,11 +564,17 @@ export default function AttemptPage() {
             was padding/gap values, not a width cap, so that's what shrank. */}
         <div className="min-w-0 flex-1 rounded-xl border border-border bg-background p-4 shadow-sm">
           {attemptId && currentQuestion.type === 'mcq' && (
-            <McqQuestion key={currentQuestion.id} attemptId={attemptId} question={currentQuestion} />
+            <McqQuestion
+              key={currentQuestion.id}
+              ref={answerSaveRef}
+              attemptId={attemptId}
+              question={currentQuestion}
+            />
           )}
           {attemptId && currentQuestion.type === 'psychometric' && (
             <PsychometricQuestion
               key={currentQuestion.id}
+              ref={answerSaveRef}
               attemptId={attemptId}
               question={currentQuestion}
             />
@@ -527,17 +590,19 @@ export default function AttemptPage() {
           <div className="mt-5 flex justify-between border-t border-border pt-4">
             <Button
               variant="outline"
-              disabled={currentIndex === 0}
-              onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}
+              disabled={currentIndex === 0 || pendingNavigation !== null}
+              onClick={() => void navigateTo(Math.max(0, currentIndex - 1), 'previous')}
             >
-              Previous
+              {pendingNavigation === 'previous' ? 'Saving…' : 'Previous'}
             </Button>
             <Button
               className="bg-brand-accent text-white hover:bg-brand-accent/90"
-              disabled={currentIndex === questions.length - 1}
-              onClick={() => setCurrentIndex((index) => Math.min(questions.length - 1, index + 1))}
+              disabled={currentIndex === questions.length - 1 || pendingNavigation !== null}
+              onClick={() =>
+                void navigateTo(Math.min(questions.length - 1, currentIndex + 1), 'next')
+              }
             >
-              Next
+              {pendingNavigation === 'next' ? 'Saving…' : 'Next'}
             </Button>
           </div>
         </div>

@@ -20,6 +20,12 @@ interface QuestionNavigatorProps {
   // default) renders every question, byte-identical to this component's
   // behavior before section tabs existed.
   visibleIndexes?: number[]
+  // Autosave phase — true for the brief window AttemptPage is awaiting the
+  // current question's saveBeforeNavigate() before acting on a click here,
+  // so a second click during that gap can't fire a second, overlapping
+  // navigate-away attempt (same "disable during the async gap" precedent
+  // CodingQuestion's own Submit button already established).
+  disabled?: boolean
 }
 
 const TYPE_LABELS: Record<AttemptQuestion['type'], string> = {
@@ -33,6 +39,7 @@ export function QuestionNavigator({
   currentIndex,
   onNavigate,
   visibleIndexes,
+  disabled,
 }: QuestionNavigatorProps) {
   const indexesToRender = visibleIndexes ?? questions.map((_, index) => index)
 
@@ -62,10 +69,11 @@ export function QuestionNavigator({
               key={question.id}
               type="button"
               onClick={() => onNavigate(index)}
+              disabled={disabled}
               aria-current={isCurrent}
               title={`${TYPE_LABELS[question.type]} — Question ${position + 1}${isAnswered ? ' (answered)' : ''}`}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-md border text-sm font-medium transition-all',
+                'flex h-9 w-9 items-center justify-center rounded-md border text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50',
                 isCurrent && 'border-brand-accent bg-brand-accent text-white shadow-sm ring-2 ring-brand-accent/30',
                 !isCurrent &&
                   isAnswered &&

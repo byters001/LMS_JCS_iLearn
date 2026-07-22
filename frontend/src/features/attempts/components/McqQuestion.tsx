@@ -1,49 +1,62 @@
-import { useState } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import { ApiError } from '@/api'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useSubmitResponse } from '../api'
-import type { McqAttemptQuestion } from '../types'
+import type { AnswerSaveHandle, McqAttemptQuestion } from '../types'
 import { useStableIdempotencyKey } from '../useStableIdempotencyKey'
 
 interface McqQuestionProps {
   attemptId: string
   question: McqAttemptQuestion
+  ref?: Ref<AnswerSaveHandle>
 }
 
-// Explicit Save Answer button, not save-on-select: a click on an option is
-// often exploratory (a student trying out choices before committing), and
-// auto-saving on every one of those would fire a real network request —
-// and burn a fresh Idempotency-Key — per exploratory click rather than per
-// actual decision. This also matches the existing stub button from Part 2
-// rather than replacing it with a different interaction model.
+// Autosave phase — the previous explicit "Save Answer" button is gone.
+// Selecting an option still fires no network request by itself (same
+// "exploratory click vs. a real decision" reasoning the button-based
+// version already documented) — the request now fires when AttemptPage
+// calls this component's exposed saveBeforeNavigate() (via `ref`, see
+// types.ts's AnswerSaveHandle), right before Next/Previous/a
+// question-navigator click/a section jump/Submit Attempt would otherwise
+// move the student away from this question. This is still exactly one save
+// per genuine decision, just triggered by "the student is done with this
+// question" instead of a dedicated click.
 //
 // Initial selection comes from question.savedResponse (Part 3's backend
 // addition to GET /attempts/:id/questions) so a reload shows what was
 // already answered — this component still remounts (and resets local
 // state) on question change via AttemptPage's key={question.id}, exactly
-// as it did in Part 2.
-export function McqQuestion({ attemptId, question }: McqQuestionProps) {
+// as it did before.
+export function McqQuestion({ attemptId, question, ref }: McqQuestionProps) {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(
     question.savedResponse?.selectedOptionId ?? null,
   )
   const submitResponse = useSubmitResponse(attemptId)
   const idempotencyKey = useStableIdempotencyKey(selectedOptionId ?? '')
 
-  // Once the selection moves away from whatever the last successful save
-  // was for, that save no longer describes the CURRENT selection — the
-  // "Saved" indicator must stop claiming it does.
-  const isSavedForCurrentSelection =
-    submitResponse.isSuccess && submitResponse.variables?.selectedOptionId === selectedOptionId
-
-  function handleSave() {
-    if (selectedOptionId === null) return
-    submitResponse.mutate({
-      questionVersionId: question.questionVersionId,
-      selectedOptionId,
-      idempotencyKey,
-    })
-  }
+  useImperativeHandle(ref, () => ({
+    saveBeforeNavigate: async () => {
+      // Nothing selected — there's nothing to save, and an unanswered
+      // question must never block navigation (the student can come back
+      // later; QuestionNavigator already shows it as unanswered).
+      if (selectedOptionId === null) return true
+      // Already matches what's persisted (question.savedResponse, which
+      // survives this component's own remounts unlike submitResponse's own
+      // isSuccess/variables) — nothing changed since the last save, so
+      // re-saving would just be a redundant request.
+      if (selectedOptionId === question.savedResponse?.selectedOptionId) return true
+      try {
+        await submitResponse.mutateAsync({
+          questionVersionId: question.questionVersionId,
+          selectedOptionId,
+          idempotencyKey,
+        })
+        return true
+      } catch {
+        return false
+      }
+    },
+  }))
 
   return (
     <div>
@@ -97,24 +110,17 @@ export function McqQuestion({ attemptId, question }: McqQuestionProps) {
         ))}
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
-        <Button
-          disabled={selectedOptionId === null || submitResponse.isPending}
-          onClick={handleSave}
-        >
-          {submitResponse.isPending ? 'Saving…' : 'Save Answer'}
-        </Button>
-        {isSavedForCurrentSelection && (
-          <span className="text-sm font-medium text-green-600 dark:text-green-500">Saved</span>
-        )}
-        {submitResponse.isError && !submitResponse.isPending && (
-          <span className="text-sm text-destructive">
-            {submitResponse.error instanceof ApiError
-              ? submitResponse.error.message
-              : 'Failed to save — try again.'}
-          </span>
-        )}
-      </div>
+      {/* Persists until the next successful save (or the selection changes
+          back to something already-saved) — a durable reminder of WHY the
+          student got kept on this question, alongside AttemptPage's
+          one-shot toast for the same failure. */}
+      {submitResponse.isError && (
+        <p className="mt-4 text-sm text-destructive">
+          {submitResponse.error instanceof ApiError
+            ? submitResponse.error.message
+            : 'Failed to save your answer — try moving to the next question again.'}
+        </p>
+      )}
     </div>
   )
 }
