@@ -249,13 +249,26 @@ export async function createDraftAssessment(
 // draft -> review -> approved -> scheduled -> live. startAttempt requires
 // status === 'live' specifically (see attempts.service.ts's
 // assertAssessmentAttemptable) — this is the only way to reach it.
-export async function publishDraftAssessment(assessmentId: string, actorId: string) {
-  await assessmentsService.submitAssessment(assessmentId, actorId, {});
-  await assessmentsService.approveAssessment(assessmentId, actorId, {});
-  await assessmentsService.scheduleAssessment(assessmentId, actorId, {
+//
+// window param (optional): defaults to a window that's already open
+// (startAt 1 minute ago, endAt 1 hour from now) so every existing caller
+// gets an immediately-attemptable 'live' assessment unchanged. Pass an
+// explicit window to reach the CONFIRMED GAP this fixes — publishAssessment
+// itself never validates startAt/endAt against "now" (see
+// assessments.service.ts's publishAssessment), so a caller can reach
+// status='live' with a future startAt on purpose, to exercise
+// attempts.service.ts's new time-window rejection.
+export async function publishDraftAssessment(
+  assessmentId: string,
+  actorId: string,
+  window: { startAt: Date; endAt: Date } = {
     startAt: new Date(Date.now() - 60_000),
     endAt: new Date(Date.now() + 60 * 60_000),
-  });
+  },
+) {
+  await assessmentsService.submitAssessment(assessmentId, actorId, {});
+  await assessmentsService.approveAssessment(assessmentId, actorId, {});
+  await assessmentsService.scheduleAssessment(assessmentId, actorId, window);
   return assessmentsService.publishAssessment(assessmentId, actorId, {});
 }
 

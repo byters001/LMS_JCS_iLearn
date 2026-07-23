@@ -32,6 +32,30 @@ export function getAttemptButtonState(assessment: AvailableAssessment): AttemptB
   if (assessment.status === 'scheduled') return { kind: 'scheduled', startAt: assessment.startAt }
   if (assessment.status !== 'live') return { kind: 'not-live' }
 
+  // Backend fix: publishAssessment never checked startAt against "now" —
+  // status='live' only ever meant "reachable," not "the scheduled window
+  // has actually opened." attempts.service.ts's assertAssessmentAttemptable
+  // now enforces this server-side (rejects startAttempt with a
+  // ConflictError before startAt), so status alone can no longer be trusted
+  // here either. This branch mirrors the server check: a 'live' assessment
+  // whose startAt is still in the future gets the exact same lock
+  // treatment as a 'scheduled' one, reusing the 'scheduled' kind rather
+  // than inventing a parallel one — both surfaces already render that
+  // kind's "Opens at X" message from `startAt` alone, so nothing else
+  // needs to change to pick this up.
+  //
+  // Known gap, NOT fixed here (flagging rather than silently leaving half
+  // done, same as the retake-ceiling gap below): endAt passing while
+  // status is still 'live' isn't checked in this function at all. The
+  // backend now also rejects startAttempt once endAt has passed, but a
+  // student with no existing attempt would still see "Start Test" here and
+  // only discover the window closed after clicking. Confirm if you want
+  // this branch to also treat a passed endAt as 'not-live' (or a new
+  // dedicated kind) before that gets added.
+  if (assessment.startAt && new Date(assessment.startAt).getTime() > Date.now()) {
+    return { kind: 'scheduled', startAt: assessment.startAt }
+  }
+
   const attempt = assessment.myLatestAttempt
   if (!attempt) return { kind: 'start' }
 

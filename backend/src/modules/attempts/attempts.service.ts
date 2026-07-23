@@ -1,4 +1,4 @@
-import type { StudentProfile } from '../../db/types';
+import type { Assessment, StudentProfile } from '../../db/types';
 import { assessmentsService } from '../assessments/assessments.service';
 import { codingService } from '../coding/coding.service';
 import type { SubmitCodeInput } from '../coding/coding.schema';
@@ -111,20 +111,43 @@ async function findAttemptOr404(attemptId: string): Promise<AssessmentAttempt> {
 // (scheduleAssessment's own validation requires both to be set) — it is
 // NOT the same as being open to students. Only the dedicated `publish`
 // action moves status to 'live', which is the actual "this is now
-// attemptable" signal this codebase already models. Nothing in this phase
-// additionally re-checks assessment.startAt/endAt against the current time
-// on top of the status gate — schema.sql's own jobs/ folder (scheduler)
-// is the natural home for time-driven status transitions in a later phase;
-// this module trusts assessment.status as the single source of truth for
-// "is this open right now," same as every other status-gated action in
-// this codebase (e.g. assertAssessmentEditable trusting status='draft'
-// alone, no extra time-based re-check).
+// attemptable" signal this codebase already models.
+//
+// Time-window gate (confirmed gap, fixed here): publishAssessment (see
+// assessments.service.ts) has no check against startAt/endAt at all — it
+// only requires status === 'scheduled' and at least one batch. That means
+// status='live' on its own is NOT proof the current time is inside the
+// scheduled window; an assessment can be published early (before its own
+// startAt) or simply never get a status transition after endAt passes,
+// since nothing in jobs/ (no such time-driven transition exists yet)
+// flips it to 'completed' automatically. Publishing therefore means
+// "reachable," not "open right now" — the two are allowed to diverge, and
+// this function is the one place that must not conflate them.
+// This is a strictly ADDITIONAL check, not a replacement: the status
+// !== 'live' branch below is untouched and still runs first, so a
+// draft/review/approved/scheduled/completed/archived assessment is
+// rejected exactly as before. The startAt/endAt check only ever narrows
+// what a 'live' assessment lets through — it can never let something the
+// old check already blocked through, and it can never block anything the
+// old check alone would have blocked less than it already did.
 async function assertAssessmentAttemptable(
-  status: 'draft' | 'review' | 'approved' | 'scheduled' | 'live' | 'completed' | 'archived',
+  assessment: Pick<Assessment, 'status' | 'startAt' | 'endAt'>,
 ): Promise<void> {
-  if (status !== 'live') {
+  if (assessment.status !== 'live') {
     throw new ConflictError(
-      `Cannot start an attempt — this assessment's status is "${status}", must be "live"`,
+      `Cannot start an attempt — this assessment's status is "${assessment.status}", must be "live"`,
+    );
+  }
+
+  const now = new Date();
+  if (assessment.startAt && now.getTime() < assessment.startAt.getTime()) {
+    throw new ConflictError(
+      `Cannot start an attempt — this assessment opens at ${assessment.startAt.toISOString()}`,
+    );
+  }
+  if (assessment.endAt && now.getTime() > assessment.endAt.getTime()) {
+    throw new ConflictError(
+      `Cannot start an attempt — this assessment's attempt window closed at ${assessment.endAt.toISOString()}`,
     );
   }
 }
@@ -216,7 +239,7 @@ async function startAttempt(
 ): Promise<AssessmentAttempt> {
   const studentProfile = await requireStudentProfile(userId);
   const assessment = await assessmentsService.findAssessmentById(assessmentId);
-  await assertAssessmentAttemptable(assessment.status);
+  await assertAssessmentAttemptable(assessment);
   await assertBatchAuthorized(assessmentId, studentProfile.id);
 
   const existingOpenAttempt = await attemptsRepository.findOpenAttempt(

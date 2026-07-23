@@ -273,4 +273,89 @@ describe('attempts integration', () => {
       expect(second.isRetake).toBe(true);
     });
   });
+
+  // Confirmed gap this test exists for: publishAssessment never validated
+  // startAt/endAt against "now" (see assessments.service.ts's
+  // publishAssessment) — so status='live' alone was never proof the
+  // scheduled window had actually opened. This exercises exactly that:
+  // status IS 'live', but startAt is still in the future, and
+  // attempts.service.ts's assertAssessmentAttemptable must reject anyway.
+  describe('time-window gate on a live assessment with a future startAt', () => {
+    const registry: FixtureRegistry = createRegistry();
+    let studentUserId: string;
+    let assessmentId: string;
+
+    beforeAll(async () => {
+      await setupWithCleanup(registry, async () => {
+        const staff = await makeUser(registry, 'staff');
+        const college = await makeCollege(registry, staff.id);
+        const department = await makeDepartment(registry, college.id, staff.id);
+        const program = await makeTrainingProgram(registry, college.id, department.id, staff.id);
+        const batch = await makeBatch(registry, program.id, staff.id);
+        const session = await makeTrainingSession(registry, program.id, staff.id);
+        const { user: studentUser, profile } = await makeStudent(registry, college.id, staff.id);
+        studentUserId = studentUser.id;
+        await enrollStudentInBatch(registry, program.id, profile.id, batch.id, staff.id);
+
+        const mcq = await makeApprovedQuestion(
+          registry,
+          {
+            type: 'mcq',
+            difficulty: 'easy',
+            questionText: 'What is 5 + 5?',
+            marks: 1,
+            options: [
+              { optionText: '9', isCorrect: false, sortOrder: 0 },
+              { optionText: '10', isCorrect: true, sortOrder: 1 },
+            ],
+          },
+          staff.id,
+        );
+
+        const assessment = await createDraftAssessment(
+          registry,
+          {
+            trainingSessionId: session.id,
+            title: 'Future-startAt time-window test assessment',
+            testCategory: 'mcq',
+            maxAttempts: 1,
+            batchIds: [batch.id],
+          },
+          staff.id,
+        );
+        assessmentId = assessment.id;
+
+        const section = await assessmentsService.createAssessmentSection(
+          assessmentId,
+          { title: 'Section 1' },
+          staff.id,
+        );
+        await assessmentsService.createAssessmentQuestion(assessmentId, section.id, {
+          questionVersionId: mcq.currentVersion!.id,
+        });
+
+        // Published early, on purpose — startAt is an hour from now, but
+        // publishAssessment doesn't check that, so status reaches 'live'
+        // anyway. This is the exact "early-publish mistake" shape the
+        // confirmed gap describes.
+        await publishDraftAssessment(assessmentId, staff.id, {
+          startAt: new Date(Date.now() + 60 * 60_000),
+          endAt: new Date(Date.now() + 2 * 60 * 60_000),
+        });
+      });
+    });
+
+    afterAll(async () => {
+      await cleanupRegistry(registry);
+    });
+
+    it('rejects startAttempt even though status is live, because now() < startAt', async () => {
+      const assessment = await assessmentsService.findAssessmentById(assessmentId);
+      expect(assessment.status).toBe('live');
+
+      await expect(attemptsService.startAttempt(studentUserId, assessmentId, {})).rejects.toThrow(
+        ConflictError,
+      );
+    });
+  });
 });
