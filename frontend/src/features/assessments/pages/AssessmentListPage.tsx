@@ -27,6 +27,30 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// Batches column — truncate to the first 2 names inline, "+N more" for the
+// rest (my call, per the task's own "your call, state which"). Full list is
+// still available via the native `title` attribute (a real tooltip
+// component doesn't exist anywhere in components/ui yet, and building one
+// is out of this phase's scope for a single column) rather than silently
+// dropping the overflow.
+const BATCH_NAMES_INLINE_LIMIT = 2
+
+function formatBatchNames(assessmentBatches: { id: string; name: string }[]): {
+  display: string
+  title: string
+} {
+  if (assessmentBatches.length === 0) {
+    return { display: '—', title: 'Not assigned to any batch yet' }
+  }
+  const names = assessmentBatches.map((batch) => batch.name)
+  const shown = names.slice(0, BATCH_NAMES_INLINE_LIMIT)
+  const remaining = names.length - shown.length
+  return {
+    display: remaining > 0 ? `${shown.join(', ')} +${remaining} more` : shown.join(', '),
+    title: names.join(', '),
+  }
+}
+
 // Staff-facing assessment list at /trainer/assessments and
 // /admin/assessments — mirrors StudentListPage.tsx's exact pattern (api.ts
 // hook -> paginated table -> brand styling). No filter controls
@@ -83,39 +107,46 @@ export default function AssessmentListPage() {
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Timer</TableHead>
+                <TableHead>Batches</TableHead>
                 <TableHead className="pr-4">Created</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No assessments found.
                   </TableCell>
                 </TableRow>
               ) : (
-                data.items.map((assessment) => (
-                  <TableRow key={assessment.id} className="hover:bg-muted/30">
-                    <TableCell className="pl-4 font-medium">
-                      <Link
-                        to={`${assessment.id}/edit`}
-                        className="text-brand-primary hover:underline"
-                      >
-                        {assessment.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{TEST_CATEGORY_LABELS[assessment.testCategory]}</TableCell>
-                    <TableCell>
-                      <AssessmentStatusBadge status={assessment.status} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
-                    </TableCell>
-                    <TableCell className="pr-4 text-muted-foreground">
-                      {formatDate(assessment.createdAt)}
-                    </TableCell>
-                  </TableRow>
-                ))
+                data.items.map((assessment) => {
+                  const batchNames = formatBatchNames(assessment.batches)
+                  return (
+                    <TableRow key={assessment.id} className="hover:bg-muted/30">
+                      <TableCell className="pl-4 font-medium">
+                        <Link
+                          to={`${assessment.id}/edit`}
+                          className="text-brand-primary hover:underline"
+                        >
+                          {assessment.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{TEST_CATEGORY_LABELS[assessment.testCategory]}</TableCell>
+                      <TableCell>
+                        <AssessmentStatusBadge status={assessment.status} />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground" title={batchNames.title}>
+                        {batchNames.display}
+                      </TableCell>
+                      <TableCell className="pr-4 text-muted-foreground">
+                        {formatDate(assessment.createdAt)}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>

@@ -98,8 +98,20 @@ export interface ListAssessmentsParams {
   search?: string
 }
 
+// AssessmentListPage batches column — matches backend's AssessmentListItem
+// exactly (assessments.types.ts): GET /assessments' items now each carry
+// which batch(es) they're assigned to (assessment_batches, same table
+// BatchesEditor.tsx already edits), a straightforward join the list
+// endpoint never did before this. Deliberately NOT added to the plain
+// `Assessment` type above — GET /assessments/available (the student-facing
+// endpoint) does not carry this field, so widening the shared base type
+// would be a lie for that caller.
+export interface AssessmentListItem extends Assessment {
+  batches: { id: string; name: string }[]
+}
+
 export interface ListAssessmentsResult {
-  items: Assessment[]
+  items: AssessmentListItem[]
   total: number
   page: number
   pageSize: number

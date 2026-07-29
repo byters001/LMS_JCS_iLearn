@@ -2,6 +2,9 @@
 // This is the only file in this feature allowed to import from api/.
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
+import { env } from '@/lib/env'
+import { triggerBlobDownload } from '@/lib/spreadsheet'
+import { useAuthStore } from '@/store/authStore'
 import type {
   BatchAssessmentParticipationResult,
   BatchPerformanceSummary,
@@ -57,4 +60,49 @@ export function useBatchAssessmentParticipation(batchId: string | undefined) {
     queryFn: () => getBatchAssessmentParticipation(batchId as string),
     enabled: Boolean(batchId),
   })
+}
+
+// --- CSV exports (BatchPerformancePage reports follow-up) ---
+// Same "fetch the raw CSV directly, bypass the shared api/ client's
+// {success,data}-envelope unwrapping" approach as features/students/api.ts's
+// downloadStudentsExport, for the identical reason: these two backend
+// routes send a raw CSV body, not the JSON envelope api/index.ts's response
+// interceptor unconditionally expects.
+async function downloadCsv(path: string, filenameFallback: string): Promise<void> {
+  const accessToken = useAuthStore.getState().accessToken
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error?.message ?? 'Failed to export report.')
+  }
+
+  const csvText = await response.text()
+  // The backend's Content-Disposition header already names the file, but
+  // fetch() doesn't expose that filename directly to the caller — the
+  // fallback here is only ever used if that header is somehow missing.
+  const disposition = response.headers.get('Content-Disposition')
+  const match = disposition?.match(/filename="([^"]+)"/)
+  triggerBlobDownload(
+    new Blob([csvText], { type: 'text/csv;charset=utf-8' }),
+    match?.[1] ?? filenameFallback,
+  )
+}
+
+export function downloadBatchPerformanceExport(
+  batchId: string,
+  assessmentId: string | undefined,
+): Promise<void> {
+  const query = assessmentId ? `?assessmentId=${assessmentId}` : ''
+  return downloadCsv(
+    `/analytics/batches/${batchId}/performance/export${query}`,
+    'batch-results.csv',
+  )
+}
+
+export function downloadBatchSummaryExport(batchId: string): Promise<void> {
+  return downloadCsv(`/analytics/batches/${batchId}/summary-export`, 'batch-summary.csv')
 }

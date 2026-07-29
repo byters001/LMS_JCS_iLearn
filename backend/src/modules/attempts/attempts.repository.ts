@@ -169,6 +169,16 @@ async function listFrozenQuestions(attemptId: string): Promise<FrozenAttemptQues
       sortOrder: attemptQuestionSelections.sortOrder,
       sectionOrder: assessmentSections.sectionOrder,
       sectionTitle: assessmentSections.title,
+      // Section-wise timer phase — assessment_sections.timer_minutes was
+      // being written by the assessment builder but never read anywhere on
+      // this read path, which is why setting it had zero effect on a
+      // student's attempt (confirmed: no other query in this codebase
+      // selects it for attempt-taking). Named distinctly from the
+      // assessment-level `timerMinutes` this same response never carried
+      // before (assessments.timerMinutes is looked up separately, client
+      // side, from the cached assessment list) so the two can never be
+      // confused once both exist on the same row.
+      sectionTimerMinutes: assessmentSections.timerMinutes,
       assessmentTitle: assessments.title,
     })
     .from(attemptQuestionSelections)

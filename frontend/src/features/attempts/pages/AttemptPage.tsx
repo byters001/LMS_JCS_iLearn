@@ -71,11 +71,18 @@ type AutoSubmitReason = 'timer' | 'fullscreen-exit' | 'tab-switch'
 // before then), which a hook can't be — same treatment `answeredCount`'s
 // .filter() below already gets, and just as cheap to recompute per render
 // for a list this size.
+// Section-wise timer phase — timerMinutesBySectionId collected the same way
+// titleBySectionId already was (one value per section, read off its first
+// question). Each question's sectionTimerMinutes is identical across every
+// question in that section (it's a straight join of assessment_sections, one
+// row per section — see backend's listFrozenQuestions), so first-occurrence
+// is exactly as safe here as it already is for title.
 function groupQuestionsBySections(
   questions: AttemptQuestion[],
-): { sectionId: string; title: string; questionIndexes: number[] }[] {
+): { sectionId: string; title: string; timerMinutes: number | null; questionIndexes: number[] }[] {
   const indexesBySectionId = new Map<string, number[]>()
   const titleBySectionId = new Map<string, string>()
+  const timerMinutesBySectionId = new Map<string, number | null>()
   const sectionIdsInOrder: string[] = []
 
   questions.forEach((question, index) => {
@@ -85,6 +92,7 @@ function groupQuestionsBySections(
     } else {
       indexesBySectionId.set(question.assessmentSectionId, [index])
       titleBySectionId.set(question.assessmentSectionId, question.sectionTitle)
+      timerMinutesBySectionId.set(question.assessmentSectionId, question.sectionTimerMinutes)
       sectionIdsInOrder.push(question.assessmentSectionId)
     }
   })
@@ -92,6 +100,7 @@ function groupQuestionsBySections(
   return sectionIdsInOrder.map((sectionId) => ({
     sectionId,
     title: titleBySectionId.get(sectionId) ?? '',
+    timerMinutes: timerMinutesBySectionId.get(sectionId) ?? null,
     questionIndexes: indexesBySectionId.get(sectionId) ?? [],
   }))
 }
@@ -234,7 +243,11 @@ export default function AttemptPage() {
       .map(([, data]) => data?.items.find((item) => item.id === assessmentId))
       .find((item) => item !== undefined)
   }, [cachedLists, attemptQuery.data?.assessmentId])
-  const timerMinutes = assessment?.timerMinutes ?? null
+  // Renamed from the prior phase's bare `timerMinutes` (section-wise timer
+  // phase) — now that a SECOND, per-section timer value exists (see
+  // `sections` below), keeping the assessment-level one unqualified would
+  // make the two impossible to tell apart at a glance.
+  const overallTimerMinutes = assessment?.timerMinutes ?? null
   // Gating decision (asked and confirmed): the fullscreenchange/tab-switch
   // lockdown below is only armed for assessments actually configured to
   // require it — matching the backend's own existing flag and its rejection
@@ -386,6 +399,27 @@ export default function AttemptPage() {
   const activeSection = sections.find((section) =>
     section.questionIndexes.includes(currentIndex),
   )
+  // Section-wise timer phase — diagnosed first: assessment_sections.timer_minutes
+  // was being written by the assessment builder (AddSectionForm/EditSectionDialog)
+  // and stored, but nothing on this page — or anywhere else in the frontend —
+  // ever read it; only the assessment-level `overallTimerMinutes` above had any
+  // effect. Confirmed by grepping the whole frontend for the field before this
+  // phase started. Mode decision: section-wise timing is engaged for the WHOLE
+  // attempt as soon as ANY section carries its own timer (the intended usage is
+  // "every section has one, or none do" — a mixed setup is not something the
+  // assessment builder currently prevents, so a section with no timer of its
+  // own, in an otherwise section-timed assessment, is handled below by simply
+  // never auto-expiring — the explicit "Finish Section" action is still its only
+  // way forward). When this is true, the OVERALL timer (and free section
+  // switching) is deliberately suppressed in favor of per-section countdowns —
+  // the two models are mutually exclusive, matching how the task described them
+  // ("when section-wise timing is used" vs "when the overall/common timer is
+  // used instead (no per-section timer set)").
+  const hasSectionTimers = sections.some((section) => section.timerMinutes !== null)
+  const activeSectionIndex = activeSection
+    ? sections.findIndex((section) => section.sectionId === activeSection.sectionId)
+    : -1
+  const isLastSection = activeSectionIndex === sections.length - 1
   // Header-title phase — assessmentTitle is identical on every row (one
   // assessment per attempt), read from whichever question is convenient;
   // questions[0] always exists here (the questions.length === 0 guard above
@@ -414,6 +448,39 @@ export default function AttemptPage() {
     : currentIndex
   const sectionQuestionCount = activeSection?.questionIndexes.length ?? questions.length
 
+  // Section-wise timer phase — a section's own countdown expiring. On the
+  // LAST section this is functionally identical to the overall timer
+  // expiring, so it reuses autoSubmit('timer') exactly as the task asked,
+  // rather than duplicating submit logic. On any earlier section it instead
+  // moves the student into the next section's first question — no save
+  // attempt first, matching the overall timer's own "time's up, act
+  // immediately" precedent (handleTimerExpire/autoSubmit never call
+  // trySaveCurrentAnswer either).
+  function handleSectionTimerExpire() {
+    if (isLastSection) {
+      autoSubmitRef.current('timer')
+      return
+    }
+    const next = sections[activeSectionIndex + 1]
+    if (!next) return
+    toast.error("Time's up for this section — moving you to the next one.")
+    setCurrentIndex(next.questionIndexes[0])
+  }
+
+  // Section-wise timer phase — the explicit "finish this section early"
+  // trigger (the other of the two ways described in the task to leave a
+  // locked section besides its timer expiring). Unlike the timer-expiry
+  // path above, this goes through navigateTo — a normal, cancelable
+  // navigation the student chose, so it saves whatever's currently selected
+  // first and respects the same pendingNavigation in-flight guard every
+  // other navigation trigger on this page already shares.
+  async function finishCurrentSection() {
+    if (activeSectionIndex === -1) return
+    const next = sections[activeSectionIndex + 1]
+    if (!next) return
+    await navigateTo(next.questionIndexes[0], 'other')
+  }
+
   return (
     // Density phase — top padding cut way down (p-4/p-5 on every side ->
     // pt-2/pt-3 specifically) so this title row sits close under
@@ -438,13 +505,19 @@ export default function AttemptPage() {
           structurally grouped with the camera/timer "you're being
           monitored" signals — it's exam-content navigation, not a
           proctoring control. Menu only renders when there's more than one
-          section to jump between. */}
+          section to jump between — AND (section-wise timer phase) only when
+          sections aren't locked: jumping freely between sections is exactly
+          what a per-section timer must prevent, so the menu is withheld
+          entirely rather than rendered disabled/with locked entries, which
+          is out of this functional phase's scope (see the sidebar's
+          "Finish Section" button and QuestionNavigator below for how a
+          locked attempt still moves forward). */}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-brand-primary">{assessmentTitle}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{currentSectionTitle}</p>
         </div>
-        {sections.length > 1 && (
+        {sections.length > 1 && !hasSectionTimers && (
           <SectionPickerMenu
             sections={sections}
             activeSectionId={activeSection?.sectionId ?? sections[0].sectionId}
@@ -518,9 +591,29 @@ export default function AttemptPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          {timerMinutes !== null && (
-            <AttemptTimer timerMinutes={timerMinutes} onExpire={handleTimerExpire} />
-          )}
+          {/* Section-wise timer phase — mutually exclusive with the overall
+              timer below (see hasSectionTimers' own comment for why): when
+              this attempt uses section-wise timing, the countdown shown here
+              is the ACTIVE section's own, not the assessment-level one, and
+              it does not render at all for a section that itself has no
+              timer set (a mixed/misconfigured setup — see hasSectionTimers'
+              comment). `key={activeSection.sectionId}` is deliberate, not
+              decorative: AttemptTimer starts counting down from its
+              timerMinutes prop the instant it MOUNTS (see that component),
+              so keying on the section id forces a fresh mount — and a fresh
+              full-duration countdown — every time the active section
+              changes, exactly matching "each section gets its own timer." */}
+          {hasSectionTimers
+            ? activeSection?.timerMinutes != null && (
+                <AttemptTimer
+                  key={activeSection.sectionId}
+                  timerMinutes={activeSection.timerMinutes}
+                  onExpire={handleSectionTimerExpire}
+                />
+              )
+            : overallTimerMinutes !== null && (
+                <AttemptTimer timerMinutes={overallTimerMinutes} onExpire={handleTimerExpire} />
+              )}
           {requiresCameraPreview && <CameraPreview />}
         </div>
       </div>
@@ -541,6 +634,26 @@ export default function AttemptPage() {
             visibleIndexes={sections.length > 1 ? activeSection?.questionIndexes : undefined}
             disabled={pendingNavigation !== null}
           />
+          {/* Section-wise timer phase — the explicit "student finishes it
+              themselves" trigger, the counterpart to handleSectionTimerExpire
+              above. Only for a non-final locked section: on the last
+              section, the SubmitAttemptButton right below already IS that
+              same explicit action (submitting ends the last section and the
+              whole attempt at once), so a second button here would be a
+              redundant way to do the same thing. Available at any point in
+              the section, not gated on every question being answered first —
+              matching SubmitAttemptButton's own precedent of never requiring
+              full completion before letting the student act. */}
+          {hasSectionTimers && !isLastSection && (
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={pendingNavigation !== null}
+              onClick={() => void finishCurrentSection()}
+            >
+              {pendingNavigation !== null ? 'Saving…' : 'Finish Section →'}
+            </Button>
+          )}
           {attemptId && (
             <SubmitAttemptButton
               attemptId={attemptId}
@@ -588,16 +701,35 @@ export default function AttemptPage() {
           )}
 
           <div className="mt-5 flex justify-between border-t border-border pt-4">
+            {/* Section-wise timer phase — Previous/Next step by raw global
+                currentIndex +-1 with no other boundary check, which (before
+                this phase) meant Next silently walked from a section's last
+                question straight into the NEXT section's first one, and
+                Previous did the same in reverse — the actual mechanism
+                behind "free switching between sections" today. Left
+                completely untouched when hasSectionTimers is false, per the
+                task's explicit "do not change that path." When true, the
+                extra localIndexInSection boundary check below is what makes
+                a locked section actually locked from these two buttons, not
+                just from the header's SectionPickerMenu. */}
             <Button
               variant="outline"
-              disabled={currentIndex === 0 || pendingNavigation !== null}
+              disabled={
+                currentIndex === 0 ||
+                pendingNavigation !== null ||
+                (hasSectionTimers && localIndexInSection === 0)
+              }
               onClick={() => void navigateTo(Math.max(0, currentIndex - 1), 'previous')}
             >
               {pendingNavigation === 'previous' ? 'Saving…' : 'Previous'}
             </Button>
             <Button
               className="bg-brand-accent text-white hover:bg-brand-accent/90"
-              disabled={currentIndex === questions.length - 1 || pendingNavigation !== null}
+              disabled={
+                currentIndex === questions.length - 1 ||
+                pendingNavigation !== null ||
+                (hasSectionTimers && localIndexInSection === sectionQuestionCount - 1)
+              }
               onClick={() =>
                 void navigateTo(Math.min(questions.length - 1, currentIndex + 1), 'next')
               }

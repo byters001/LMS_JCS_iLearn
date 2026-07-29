@@ -94,6 +94,14 @@ interface SubmitResponseVariables {
   questionVersionId: string
   selectedOptionId?: string
   likertValue?: number
+  // Per-question time tracking phase — seconds spent on this question since
+  // the component mounted (see McqQuestion/PsychometricQuestion's own
+  // enteredAtRef), forwarded as-is onto the request body via `...body`
+  // below. Matches backend/attempts.schema.ts's submitResponseSchema field
+  // of the same name exactly, which already existed and already persisted
+  // to attempt_responses.time_spent_seconds — the frontend simply never
+  // sent it before this phase.
+  timeSpentSeconds?: number
   // Fresh per distinct answer, stable across a retry of the same one — see
   // useStableIdempotencyKey.ts for exactly how callers derive this.
   idempotencyKey: string
@@ -129,6 +137,11 @@ interface SubmitCodeVariables {
   questionVersionId: string
   language: string
   sourceCode: string
+  // Per-question time tracking phase — same field/meaning as
+  // SubmitResponseVariables' own timeSpentSeconds above, see CodingQuestion's
+  // enteredAtRef for how it's computed. Matches backend/coding.schema.ts's
+  // submitCodeSchema, extended this phase to accept it.
+  timeSpentSeconds?: number
   idempotencyKey: string
 }
 

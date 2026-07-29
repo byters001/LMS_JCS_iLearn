@@ -17,5 +17,18 @@ export const getBatchPerformanceQuerySchema = z
   })
   .strict();
 
+// CSV exports (BatchPerformancePage reports follow-up) — part (a)'s
+// assessmentId is optional for the same reason getBatchPerformanceQuerySchema's
+// is: omitted means "the batch's most recently active assessment," resolved
+// server-side by getBatchPerformance itself. No page/pageSize here — the
+// export always returns every student (see analytics.service.ts's
+// exportBatchPerformanceCsv), not a paginated slice.
+export const exportBatchPerformanceQuerySchema = z
+  .object({
+    assessmentId: z.string().uuid('assessmentId must be a valid UUID').optional(),
+  })
+  .strict();
+
 export type BatchIdParams = z.infer<typeof batchIdParamsSchema>;
 export type GetBatchPerformanceQuery = z.infer<typeof getBatchPerformanceQuerySchema>;
+export type ExportBatchPerformanceQuery = z.infer<typeof exportBatchPerformanceQuerySchema>;

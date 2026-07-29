@@ -109,6 +109,14 @@ interface AttemptQuestionBase {
   // AttemptPage's header (replacing the old ordinal "Section 1"/"Section 2"
   // placeholder labels) and the section-picker menu.
   sectionTitle: string
+  // Section-wise timer phase — null for a section with no timer of its own
+  // (the pre-existing default; this field was never sent to the frontend
+  // before, so section timerMinutes had zero effect regardless of what a
+  // trainer set on the assessment-builder side — see AttemptPage.tsx's
+  // handling of this for the fix). Distinct name from the assessment-level
+  // timer (looked up separately via the cached assessment list, see
+  // AttemptPage's own `overallTimerMinutes`) so the two can never collide.
+  sectionTimerMinutes: number | null
   assessmentTitle: string
   // Question-level illustrative images — applies regardless of `type`,
   // unlike options/psychometricOptions/coding below (see backend's

@@ -1,4 +1,4 @@
-import { useImperativeHandle, useState, type Ref } from 'react'
+import { useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { ApiError } from '@/api'
 import { cn } from '@/lib/utils'
 import { useSubmitResponse } from '../api'
@@ -33,6 +33,14 @@ export function McqQuestion({ attemptId, question, ref }: McqQuestionProps) {
   )
   const submitResponse = useSubmitResponse(attemptId)
   const idempotencyKey = useStableIdempotencyKey(selectedOptionId ?? '')
+  // Per-question time tracking phase — set once, when this question instance
+  // mounts. AttemptPage remounts this component fresh (key={question.id})
+  // every time the student navigates to a different question, so this is
+  // exactly "time since arriving at THIS question" — not cumulative across
+  // separate visits if the student leaves and comes back later (a revisit's
+  // save overwrites, rather than adds to, the previously persisted value —
+  // a deliberate simplification, not an oversight; see this phase's summary).
+  const enteredAtRef = useRef(Date.now())
 
   useImperativeHandle(ref, () => ({
     saveBeforeNavigate: async () => {
@@ -49,6 +57,7 @@ export function McqQuestion({ attemptId, question, ref }: McqQuestionProps) {
         await submitResponse.mutateAsync({
           questionVersionId: question.questionVersionId,
           selectedOptionId,
+          timeSpentSeconds: Math.round((Date.now() - enteredAtRef.current) / 1000),
           idempotencyKey,
         })
         return true

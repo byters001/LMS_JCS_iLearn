@@ -646,7 +646,15 @@ async function submitCode(
   }
 
   // Phase 1: ensure the response row exists before Judge0 grading runs.
-  const placeholder = await attemptsRepository.upsertResponse(attemptId, questionVersionId, {});
+  // timeSpentSeconds (per-question time tracking phase) is written here,
+  // not in phase 3b below — phase 3b only ever sets isCorrect/marksObtained,
+  // so writing it in this earlier call is the only place in this function
+  // that actually persists it; Drizzle's undefined-skip behavior (see
+  // upsertResponse's own comment) means phase 3b's later call, which never
+  // sets this field, leaves whatever value this call wrote untouched.
+  const placeholder = await attemptsRepository.upsertResponse(attemptId, questionVersionId, {
+    timeSpentSeconds: input.timeSpentSeconds,
+  });
 
   // Phase 2: Judge0 orchestration + coding_submissions persistence — the
   // cross-module service call. Mapped explicitly onto coding.types.ts's

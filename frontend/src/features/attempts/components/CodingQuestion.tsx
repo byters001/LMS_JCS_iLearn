@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,14 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
   const [sourceCode, setSourceCode] = useState('')
   const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(false)
   const submitCode = useSubmitCode(attemptId)
+  // Per-question time tracking phase — same "since this question instance
+  // mounted" measurement as McqQuestion/PsychometricQuestion's own
+  // enteredAtRef (see McqQuestion's comment); AttemptPage also remounts this
+  // component fresh via key={question.id} per question. Not reset between
+  // multiple Run/Submit clicks within the same visit, so a second submit
+  // reports cumulative time on the question so far, not just since the
+  // first submit.
+  const enteredAtRef = useRef(Date.now())
 
   // Auto-open the results panel the moment a new run starts (mirrors
   // LeetCode/HackerRank surfacing the console immediately on Run/Submit,
@@ -62,6 +70,7 @@ export function CodingQuestion({ attemptId, question }: CodingQuestionProps) {
       questionVersionId: question.questionVersionId,
       language,
       sourceCode,
+      timeSpentSeconds: Math.round((Date.now() - enteredAtRef.current) / 1000),
       idempotencyKey,
     })
   }

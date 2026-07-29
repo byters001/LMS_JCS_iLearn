@@ -3,6 +3,7 @@ import { assessmentsService } from '../assessments/assessments.service';
 import { organizationService } from '../organization/organization.service';
 import { userHasRole } from '../../rbac/role-assignments';
 import { ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
+import { buildCsv } from '../../shared/utils/csv.util';
 import {
   analyticsRepository,
   type BatchAttemptRow,
@@ -442,6 +443,113 @@ async function getTrainerPerformanceTrend(
   return trend.sort((a, b) => a.attemptedAt.localeCompare(b.attemptedAt));
 }
 
+// --- CSV exports (BatchPerformancePage reports follow-up) ---
+//
+// Two separate exports, not one combined file — they're genuinely
+// different shapes (one row per student vs. one row per assessment), same
+// "don't force two different tables into one CSV" convention
+// students.service.ts's own export already keeps to (a roster export, not
+// merged with anything else). Both reuse getBatchPerformance verbatim —
+// zero duplication of assertCanAccessBatch, threshold resolution, or the
+// average/pass-rate/distribution math — and both reuse shared/utils/
+// csv.util.ts's buildCsv, the same escaping helper students.service.ts's
+// exportStudentsCsv and modules/chatbot already share, rather than a third
+// implementation of CSV row-joining.
+
+const STUDENT_RESULTS_CSV_HEADER = ['Student Name', 'Score', 'Status'];
+
+function studentRowToCsvRow(row: PerStudentPerformanceRow): string[] {
+  return [row.fullName, row.totalScore ?? '', row.status];
+}
+
+// Part (a): the CURRENTLY SELECTED assessment's full per-student results —
+// every student in the batch, not just one paginated page of them.
+// pageSize: MAX_PAGE_SIZE mirrors getFailedStudents' own precedent for "a
+// full-batch snapshot for a report, not the UI's own smaller page size."
+async function exportBatchPerformanceCsv(
+  batchId: string,
+  assessmentId: string | undefined,
+  userId: string,
+): Promise<{ csv: string; assessmentTitle: string }> {
+  const summary = await getBatchPerformance(
+    batchId,
+    { assessmentId, page: 1, pageSize: MAX_PAGE_SIZE },
+    userId,
+  );
+  const csv = buildCsv(STUDENT_RESULTS_CSV_HEADER, summary.students.map(studentRowToCsvRow));
+  return { csv, assessmentTitle: summary.assessmentTitle };
+}
+
+const BATCH_SUMMARY_CSV_HEADER = [
+  'Assessment',
+  'Average Score',
+  'Pass Rate (%)',
+  'Students Attempted',
+  'Total Students',
+  'Min Score',
+  'Median Score',
+  'Max Score',
+];
+
+function summaryToCsvRow(summary: BatchPerformanceSummary): string[] {
+  return [
+    summary.assessmentTitle,
+    summary.averageScore ?? '',
+    summary.passRate !== null ? (summary.passRate * 100).toFixed(1) : '',
+    String(summary.studentsAttempted),
+    String(summary.totalStudents),
+    summary.scoreDistribution.min ?? '',
+    summary.scoreDistribution.median ?? '',
+    summary.scoreDistribution.max ?? '',
+  ];
+}
+
+// Part (b): one row per assessment ASSIGNED TO THE BATCH (not just the
+// selected one) — reuses analyticsRepository.listAssessmentsAssignedToBatch
+// (already built for getBatchAssessmentParticipation) and
+// getTrainerPerformanceTrend's own "call getBatchPerformance once per
+// assessment, pageSize: 1 since only the aggregate fields are read" reuse
+// shape, rather than a fourth independent aggregation implementation.
+//
+// assertCanAccessBatch is called explicitly here (not just relied on via
+// the per-assessment getBatchPerformance calls below, which each redo the
+// same check — a harmless, already-established redundancy, same as this
+// file's own "cheap re-read" precedent elsewhere) because a batch with
+// ZERO assigned assessments would otherwise skip every getBatchPerformance
+// call and return an unauthenticated-looking empty CSV to a caller who was
+// never actually checked.
+async function exportBatchSummaryCsv(
+  batchId: string,
+  userId: string,
+): Promise<{ csv: string; batchName: string }> {
+  await assertCanAccessBatch(batchId, userId);
+  const batch = await organizationService.findBatchById(batchId);
+  const assessmentRows = await analyticsRepository.listAssessmentsAssignedToBatch(batchId);
+
+  const summaries: BatchPerformanceSummary[] = [];
+  for (const row of assessmentRows) {
+    try {
+      summaries.push(
+        await getBatchPerformance(
+          batchId,
+          { assessmentId: row.assessmentId, page: 1, pageSize: 1 },
+          userId,
+        ),
+      );
+    } catch (err) {
+      // Same "skip, don't hard-fail the whole report" precedent as
+      // getFailedStudents above — an assessment assigned to this batch
+      // with zero attempts yet (NotFoundError) shouldn't block every other
+      // assessment's row from exporting.
+      if (err instanceof NotFoundError) continue;
+      throw err;
+    }
+  }
+
+  const csv = buildCsv(BATCH_SUMMARY_CSV_HEADER, summaries.map(summaryToCsvRow));
+  return { csv, batchName: batch.name };
+}
+
 // --- Attendance-by-date (Phase 6a chatbot tool) ---
 //
 // See analytics.repository.ts's listTrainingSessionsOnDate for the full
@@ -608,4 +716,6 @@ export const analyticsService = {
   getAttendanceByDate,
   getFailedStudents,
   getScorePercentagesForAttempts,
+  exportBatchPerformanceCsv,
+  exportBatchSummaryCsv,
 };

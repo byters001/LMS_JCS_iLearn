@@ -38,6 +38,10 @@ export interface FrozenAttemptQuestion {
   marks: string;
   sortOrder: number;
   sectionTitle: string;
+  // Section-wise timer phase — see attempts.repository.ts's listFrozenQuestions
+  // comment; null for a section with no timer of its own (the common case
+  // today, since nothing has ever read this before), never omitted.
+  sectionTimerMinutes: number | null;
   assessmentTitle: string;
 }
 

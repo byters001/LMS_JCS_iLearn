@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   Bar,
   BarChart,
@@ -25,10 +26,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useAssessments } from '@/features/assessments/api'
-import { useBatches, useColleges } from '@/features/organization/api'
+import { useBatches, useColleges, useMyBatches } from '@/features/organization/api'
 import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
-import { useBatchPerformance } from '../api'
+import { downloadBatchPerformanceExport, downloadBatchSummaryExport, useBatchPerformance } from '../api'
 import type { PerStudentStatus } from '../types'
 
 const STUDENT_PAGE_SIZE = 20
@@ -154,27 +155,60 @@ export default function BatchPerformancePage() {
   const [batchId, setBatchId] = useState<string | null>(() => searchParams.get('batchId'))
   const [assessmentId, setAssessmentId] = useState<string | null>(() => searchParams.get('assessmentId'))
   const [page, setPage] = useState(1)
+  // Two independent downloads (BatchPerformancePage reports follow-up) —
+  // separate loading flags so clicking one doesn't disable the other.
+  const [isDownloadingResults, setIsDownloadingResults] = useState(false)
+  const [isDownloadingSummary, setIsDownloadingSummary] = useState(false)
 
-  // GET /batches now requires collegeId, enforced server-side (Phase 2 of
-  // the batches work) — same fix as BatchesEditor.tsx: Faculty's own
-  // activeCollegeId already resolves this with no extra step, Super Admin
-  // (activeCollegeId null, a global grant) gets a college picker instead,
-  // since there's no single default college to fall back to and no top-bar
-  // college switcher yet.
+  // Root-cause fix (BatchPerformancePage reports follow-up) — this used to
+  // gate the college picker on `user.activeCollegeId == null`, treating
+  // that as a Super-Admin proxy. Confirmed against the real DB that it
+  // isn't one: gomathi@gmail.com (a real faculty account) has exactly one
+  // role assignment, but that assignment's OWN college_id is null (faculty
+  // are trainers who travel between colleges — CLAUDE.md — so their
+  // user_roles row was never tied to a single college to begin with), which
+  // makes auth.service.ts's resolveActiveCollegeId return null for them
+  // too, not only for a genuine Super Admin grant. analytics.service.ts's
+  // own assertCanAccessBatch comment documents fixing this EXACT heuristic
+  // bug once already, backend-side; this page had the same bug in its
+  // frontend picker gate. With the old gate, Faculty fell into the
+  // Super-Admin branch, fired useColleges below, and hit a real 403
+  // (colleges.view is granted to super_admin only — organization.routes.ts)
+  // — the reported "Failed to load colleges".
+  //
+  // Fixed to the same real-role check BatchesEditor.tsx already
+  // established for the identical picker-split problem: `user.roles`
+  // (from the JWT, `roles: string[]`) is checked directly for the
+  // 'super_admin' slug, never inferred from activeCollegeId. Faculty now
+  // gets a single dropdown over their own assigned batches (GET
+  // /batches/mine, self-scoped, no colleges.view needed) instead of the
+  // college-then-batch picker — Super Admin's flow is untouched.
   const user = useAuthStore((state) => state.user)
-  const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
-  const collegeId = user?.activeCollegeId ?? pickedCollegeId
+  const isSuperAdmin = user?.roles.includes('super_admin') ?? false
 
-  const colleges = useColleges({ page: 1, pageSize: PICKER_PAGE_SIZE })
+  const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
+  const colleges = useColleges({ page: 1, pageSize: PICKER_PAGE_SIZE }, { enabled: isSuperAdmin })
   const collegeOptions = (colleges.data?.items ?? []).map((college) => ({
     value: college.id,
     label: college.name,
   }))
 
-  const batches = useBatches(
-    { collegeId: collegeId ?? '', page: 1, pageSize: PICKER_PAGE_SIZE },
-    { enabled: collegeId !== null },
+  const adminBatches = useBatches(
+    { collegeId: pickedCollegeId ?? '', page: 1, pageSize: PICKER_PAGE_SIZE },
+    { enabled: isSuperAdmin && pickedCollegeId !== null },
   )
+  const myBatches = useMyBatches(
+    { page: 1, pageSize: PICKER_PAGE_SIZE },
+    { enabled: !isSuperAdmin },
+  )
+  // Whichever source is actually active for this caller's role — the rest
+  // of this component reads from these instead of branching on
+  // isSuperAdmin a second time, same shape as BatchesEditor.tsx's
+  // availableBatches/isBatchListPending/isBatchListError.
+  const availableBatches = isSuperAdmin ? (adminBatches.data?.items ?? []) : (myBatches.data?.items ?? [])
+  const isBatchListPending = isSuperAdmin ? adminBatches.isPending : myBatches.isPending
+  const isBatchListError = isSuperAdmin ? adminBatches.isError : myBatches.isError
+
   // Unfiltered, same "unscoped discovery" precedent as the trainingSessionId
   // dropdown and the question/pool/batch pickers — GET /assessments has no
   // batchId filter to narrow this by (confirmed against the real schema).
@@ -203,7 +237,7 @@ export default function BatchPerformancePage() {
       .map((student) => Number(student.totalScore)),
   )
 
-  const batchOptions = (batches.data?.items ?? []).map((batch) => ({
+  const batchOptions = availableBatches.map((batch) => ({
     value: batch.id,
     label: batch.name,
   }))
@@ -232,6 +266,36 @@ export default function BatchPerformancePage() {
     performance.error instanceof ApiError &&
     performance.error.code === 'NOT_FOUND'
 
+  // Two separate downloads, not one combined file (BatchPerformancePage
+  // reports follow-up) — (a) the selected assessment's full per-student
+  // results and (b) an aggregate row per assessment across the whole
+  // batch are genuinely different shapes, same "don't merge two different
+  // tables into one export" call as the backend side (see
+  // analytics.service.ts's own comment on these two functions).
+  async function handleDownloadResults() {
+    if (!batchId) return
+    setIsDownloadingResults(true)
+    try {
+      await downloadBatchPerformanceExport(batchId, assessmentId ?? undefined)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export results.')
+    } finally {
+      setIsDownloadingResults(false)
+    }
+  }
+
+  async function handleDownloadSummary() {
+    if (!batchId) return
+    setIsDownloadingSummary(true)
+    try {
+      await downloadBatchSummaryExport(batchId)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export batch summary.')
+    } finally {
+      setIsDownloadingSummary(false)
+    }
+  }
+
   return (
     <div className="p-5">
       <div className="mb-4">
@@ -244,9 +308,10 @@ export default function BatchPerformancePage() {
 
       <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {/* Only Super Admin ever sees this — Faculty's own activeCollegeId
-              already resolves `collegeId` above with no picker needed. */}
-          {user?.activeCollegeId == null && (
+          {/* Only Super Admin ever sees this — Faculty gets a single
+              dropdown over their own assigned batches below instead (see
+              this component's own root-cause-fix comment above). */}
+          {isSuperAdmin && (
             <div className="space-y-1.5 sm:col-span-2">
               <label className="text-xs font-medium text-brand-primary" htmlFor="collegePicker">
                 College
@@ -278,17 +343,27 @@ export default function BatchPerformancePage() {
                 setBatchId(value)
                 setPage(1)
               }}
-              placeholder={collegeId ? 'Search batches by name…' : 'Select a college first'}
-              disabled={collegeId === null}
-              isLoading={batches.isPending}
-              isError={batches.isError}
-              errorMessage="Failed to load batches."
+              placeholder={
+                isSuperAdmin
+                  ? pickedCollegeId
+                    ? 'Search batches by name…'
+                    : 'Select a college first'
+                  : 'Search your assigned batches…'
+              }
+              disabled={isSuperAdmin && pickedCollegeId === null}
+              isLoading={isBatchListPending}
+              isError={isBatchListError}
+              errorMessage={
+                isSuperAdmin ? 'Failed to load batches.' : 'Failed to load your assigned batches.'
+              }
               emptyMessage={
-                collegeId === null
+                isSuperAdmin && pickedCollegeId === null
                   ? 'Select a college first.'
-                  : batches.isPending
+                  : isBatchListPending
                     ? 'Loading…'
-                    : 'No batches found.'
+                    : isSuperAdmin
+                      ? 'No batches found.'
+                      : 'You have no assigned batches yet — contact an admin to get assigned to one.'
               }
             />
           </div>
@@ -341,9 +416,34 @@ export default function BatchPerformancePage() {
       {batchId && performance.data && (
         <div className="mt-4 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-              {performance.data.assessmentTitle}
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                {performance.data.assessmentTitle}
+              </h2>
+              {/* Two separate reports — see handleDownloadResults/
+                  handleDownloadSummary above for why these aren't combined
+                  into one file. */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  disabled={isDownloadingResults}
+                  onClick={() => void handleDownloadResults()}
+                >
+                  {isDownloadingResults ? 'Downloading…' : 'Download Results (CSV)'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  disabled={isDownloadingSummary}
+                  onClick={() => void handleDownloadSummary()}
+                >
+                  {isDownloadingSummary ? 'Downloading…' : 'Download Batch Summary (CSV)'}
+                </Button>
+              </div>
+            </div>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatTile
                 label="Average Score"

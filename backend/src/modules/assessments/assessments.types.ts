@@ -8,8 +8,16 @@ import type {
 } from '../../db/types';
 import type { ResolvedQuestionPool } from '../question-bank/question-bank.types';
 
+// AssessmentListPage batches column — see assessments.repository.ts's
+// attachBatchNames for how `batches` is populated (a second, grouped-in-JS
+// query keyed off the page of assessment ids already fetched, not a join on
+// the paginated query itself).
+export interface AssessmentListItem extends Assessment {
+  batches: { id: string; name: string }[];
+}
+
 export interface ListAssessmentsResult {
-  items: Assessment[];
+  items: AssessmentListItem[];
   total: number;
   page: number;
   pageSize: number;

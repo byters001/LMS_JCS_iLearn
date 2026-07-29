@@ -1,4 +1,4 @@
-import { useImperativeHandle, useState, type Ref } from 'react'
+import { useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { ApiError } from '@/api'
 import { cn } from '@/lib/utils'
 import { useSubmitResponse } from '../api'
@@ -47,6 +47,9 @@ export function PsychometricQuestion({ attemptId, question, ref }: PsychometricQ
   )
   const submitResponse = useSubmitResponse(attemptId)
   const idempotencyKey = useStableIdempotencyKey(String(likertValue ?? ''))
+  // Per-question time tracking phase — same "since this question instance
+  // mounted" measurement as McqQuestion's own enteredAtRef, see its comment.
+  const enteredAtRef = useRef(Date.now())
 
   const sortedOptions = [...question.psychometricOptions].sort((a, b) => a.sortOrder - b.sortOrder)
   const scale = sortedOptions.length > 0 ? sortedOptions : null
@@ -59,6 +62,7 @@ export function PsychometricQuestion({ attemptId, question, ref }: PsychometricQ
         await submitResponse.mutateAsync({
           questionVersionId: question.questionVersionId,
           likertValue,
+          timeSpentSeconds: Math.round((Date.now() - enteredAtRef.current) / 1000),
           idempotencyKey,
         })
         return true

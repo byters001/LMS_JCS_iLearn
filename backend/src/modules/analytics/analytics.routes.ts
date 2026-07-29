@@ -5,8 +5,10 @@ import { ValidationError } from '../../shared/errors/app-error';
 import { analyticsController } from './analytics.controller';
 import {
   batchIdParamsSchema,
+  exportBatchPerformanceQuerySchema,
   getBatchPerformanceQuerySchema,
   type BatchIdParams,
+  type ExportBatchPerformanceQuery,
   type GetBatchPerformanceQuery,
 } from './analytics.schema';
 
@@ -68,6 +70,30 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: [validateParams(batchIdParamsSchema)],
     },
     analyticsController.getBatchAssessmentParticipation,
+  );
+
+  // --- CSV exports (BatchPerformancePage reports follow-up) ---
+  // Same ANALYTICS_VIEW gate as the read endpoints above — exporting is
+  // read-only, no separate permission key invented.
+  fastify.get<{ Params: BatchIdParams; Querystring: ExportBatchPerformanceQuery }>(
+    '/analytics/batches/:batchId/performance/export',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [
+        validateParams(batchIdParamsSchema),
+        validateQuery(exportBatchPerformanceQuerySchema),
+      ],
+    },
+    analyticsController.exportBatchPerformanceCsv,
+  );
+
+  fastify.get<{ Params: BatchIdParams }>(
+    '/analytics/batches/:batchId/summary-export',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateParams(batchIdParamsSchema)],
+    },
+    analyticsController.exportBatchSummaryCsv,
   );
 }
 
