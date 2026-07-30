@@ -1,4 +1,4 @@
-import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
+import { Minus, Triangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import {
   Table,
@@ -75,7 +75,6 @@ function ChangeCell({ change }: { change: number | null }) {
     )
   }
   const isUp = change > 0
-  const Icon = isUp ? TrendingUp : TrendingDown
   return (
     <span
       className={cn(
@@ -83,7 +82,7 @@ function ChangeCell({ change }: { change: number | null }) {
         isUp ? 'text-emerald-600' : 'text-destructive',
       )}
     >
-      <Icon className="size-3.5" />
+      <Triangle className={cn('size-3.5', !isUp && 'rotate-180')} fill="currentColor" />
       {isUp ? '+' : '-'}
       {formatPercent(Math.abs(change))}
     </span>

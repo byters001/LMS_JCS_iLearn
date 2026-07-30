@@ -1,4 +1,4 @@
-import { TrendingDown, TrendingUp } from 'lucide-react'
+import { Triangle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
@@ -78,12 +78,11 @@ function DeltaCallout({ diff }: { diff: number }) {
     return <p className="text-sm font-medium text-muted-foreground">No change vs last attempt</p>
   }
   const isUp = diff > 0
-  const Icon = isUp ? TrendingUp : TrendingDown
   return (
     <p
       className={`flex items-center gap-1.5 text-sm font-medium ${isUp ? 'text-emerald-600' : 'text-destructive'}`}
     >
-      <Icon className="size-4" />
+      <Triangle className={cn('size-4', !isUp && 'rotate-180')} fill="currentColor" />
       {isUp ? '+' : '-'}
       {formatScore(Math.abs(diff))} pts vs last attempt
     </p>

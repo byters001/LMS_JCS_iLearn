@@ -22,8 +22,8 @@ interface SidebarProps {
 function navLinkClassName(collapsed: boolean) {
   return ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex items-center gap-2.5 rounded-md border-l-4 py-2 font-heading text-sm font-medium tracking-tight transition-colors',
-      collapsed ? 'justify-center border-l-0 px-0' : 'px-3',
+      'flex items-center gap-2.5 rounded-md border-l-4 font-heading text-sm font-medium tracking-tight transition-colors',
+      collapsed ? 'justify-center border-l-0 px-0 py-3' : 'px-3 py-2',
       isActive
         ? collapsed
           ? 'bg-brand-accent/10 text-brand-accent'
@@ -69,7 +69,7 @@ export function Sidebar({ navItems }: SidebarProps) {
           // checkmark mark — the same public/jcs-logo.png asset the login
           // page uses for its brand mark (LoginPage.tsx), not a lucide
           // stand-in icon.
-          <img src="/jcs-logo.png" alt="JCS iLearn" className="size-8 object-contain" />
+          <img src="/jcs-logo.png" alt="JCS iLearn" className="size-10 object-contain" />
         ) : (
           // logo.jpeg is a 1600x1600 square canvas with the actual wordmark
           // centered in a thin horizontal band (heavy white padding
@@ -80,12 +80,12 @@ export function Sidebar({ navItems }: SidebarProps) {
         )}
       </div>
 
-      <nav className={cn('flex-1 space-y-1 overflow-y-auto py-4', collapsed ? 'px-2' : 'px-3')}>
+      <nav className={cn('flex-1 overflow-y-auto py-4', collapsed ? 'space-y-2 px-2' : 'space-y-1 px-3')}>
         {navItems.map((item) => {
           if (item.type === 'link') {
             return (
               <NavLink key={item.to} to={item.to} end={item.end} title={collapsed ? item.label : undefined} className={navLinkClassName(collapsed)}>
-                <item.icon className="size-4 shrink-0" />
+                <item.icon className={cn('shrink-0', collapsed ? 'size-6' : 'size-4')} />
                 {!collapsed && item.label}
               </NavLink>
             )
@@ -99,7 +99,7 @@ export function Sidebar({ navItems }: SidebarProps) {
           if (collapsed) {
             return item.children.map((child) => (
               <NavLink key={child.to} to={child.to} end={child.end} title={child.label} className={navLinkClassName(true)}>
-                <child.icon className="size-4 shrink-0" />
+                <child.icon className="size-6 shrink-0" />
               </NavLink>
             ))
           }
