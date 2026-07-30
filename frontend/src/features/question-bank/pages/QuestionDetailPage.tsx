@@ -26,12 +26,14 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-// Minimal by design — question content editing/versioning UI (options/
-// codingDetails/testCases/psychometricOptions display and edit) is a
-// separate, later phase (see CreateQuestionPage.tsx's module comment on
-// scope discipline). This exists specifically to host the workflow-status
+// Minimal by design — this exists specifically to host the workflow-status
 // actions QuestionListPage had nowhere to link to, since that list is
-// explicitly read-only with no click-through of its own.
+// explicitly read-only with no click-through of its own. Content editing
+// (question-content-editing phase) links out to EditQuestionContentPage
+// rather than living inline here — that form is as large/complex as
+// CreateQuestionPage's, the same reasoning EditQuestionDialog.tsx already
+// gives for staying metadata-only inline while deferring content edits
+// elsewhere.
 export default function QuestionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -76,6 +78,14 @@ export default function QuestionDetailPage() {
         <div className="mt-3 flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
             Edit
+          </Button>
+          {/* Distinct from "Edit" above (metadata only — category/
+              difficulty/college). This creates a NEW question_versions row
+              pre-filled from the current one and immediately activates it —
+              content is never edited in place (EditQuestionContentPage.tsx's
+              own module comment has the full reasoning + evidence). */}
+          <Button variant="outline" size="sm" asChild>
+            <Link to="edit-content">Edit Content</Link>
           </Button>
           <Button
             variant="outline"

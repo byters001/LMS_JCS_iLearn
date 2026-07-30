@@ -73,12 +73,62 @@ export interface QuestionImageContent {
   sortOrder: number
 }
 
+// Matches backend's CodingQuestionDetails/CodingTestCase/PsychometricDetails/
+// PsychometricOption row shapes exactly (db/schema/question-bank.schema.ts,
+// confirmed column-for-column, not assumed) — the type-specific children of
+// a question_versions row, same version-scoped-content idea as
+// QuestionOptionContent/QuestionImageContent above.
+export interface CodingQuestionDetailsContent {
+  id: string
+  questionVersionId: string
+  problemStatement: string
+  inputFormat: string | null
+  outputFormat: string | null
+  constraints: string | null
+  timeLimitMs: number
+  memoryLimitKb: number
+  supportedLanguages: CodingLanguageKey[]
+}
+
+export interface CodingTestCaseContent {
+  id: string
+  questionVersionId: string
+  input: string | null
+  expectedOutput: string | null
+  isHidden: boolean
+  points: string
+  sortOrder: number
+}
+
+export interface PsychometricDetailsContent {
+  id: string
+  questionVersionId: string
+  traitCategory: string | null
+  scaleType: string
+}
+
+export interface PsychometricOptionContent {
+  id: string
+  questionVersionId: string
+  optionText: string
+  traitWeight: string | null
+  sortOrder: number
+}
+
 // The version-scoped content GET /questions/:id joins in. Item 2 expanded
 // this from text/marks-only to also carry options/images (both already
 // returned by the backend's QuestionVersionWithContent — see
 // question-bank.types.ts on the backend — this type had just never been
 // widened to match), so QuestionDetailPage can actually render uploaded
-// images/options instead of silently dropping them.
+// images/options instead of silently dropping them. Question-content-editing
+// phase: further widened to also carry codingDetails/testCases/
+// psychometricDetails/psychometricOptions — the backend's
+// findQuestionVersionContentById (question-bank.repository.ts) already
+// returns all of these regardless of type (null/empty when the parent
+// question's type doesn't match); this type just hadn't caught up, same
+// stale-type-not-stale-backend pattern as the options/images widening
+// above. Needed so EditQuestionContentPage can pre-fill a coding/
+// psychometric question's content, not just mcq's.
 export interface QuestionVersionContent {
   id: string
   questionId: string
@@ -88,6 +138,10 @@ export interface QuestionVersionContent {
   isActiveVersion: boolean
   options: QuestionOptionContent[]
   images: QuestionImageContent[]
+  codingDetails: CodingQuestionDetailsContent | null
+  testCases: CodingTestCaseContent[]
+  psychometricDetails: PsychometricDetailsContent | null
+  psychometricOptions: PsychometricOptionContent[]
 }
 
 // Matches backend's QuestionWithCurrentVersion — the questions row plus its
@@ -286,6 +340,27 @@ export interface CreateQuestionInput {
   psychometricOptions?: PsychometricOptionInput[]
   topicIds?: string[]
   tagIds?: string[]
+}
+
+// --- Question content editing via new-version creation (this phase) ---
+//
+// Matches backend's createQuestionVersionSchema exactly (.strict()) — the
+// SAME content fields as CreateQuestionInput above, minus type/difficulty/
+// categoryId/collegeId/topicIds/tagIds: those live on the `questions` row
+// itself (metadata, governed by UpdateQuestionInput/EditQuestionDialog.tsx),
+// never per-version. `type` specifically can't be part of this payload at
+// all — it isn't settable per-version (question-bank.service.ts's
+// createQuestionVersion reads it off the ALREADY-EXISTING parent question,
+// never from this input).
+export interface CreateQuestionVersionInput {
+  questionText: string
+  marks?: number
+  options?: QuestionOptionInput[]
+  images?: QuestionImageInput[]
+  codingDetails?: CodingQuestionDetailsInput
+  testCases?: CodingTestCaseInput[]
+  psychometricDetails?: PsychometricDetailsInput
+  psychometricOptions?: PsychometricOptionInput[]
 }
 
 // Matches backend's updateQuestionSchema exactly (.strict(), all fields

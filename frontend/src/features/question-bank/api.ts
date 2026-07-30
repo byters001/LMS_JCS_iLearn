@@ -7,6 +7,7 @@ import type {
   CreatePoolCriterionInput,
   CreatePoolInput,
   CreateQuestionInput,
+  CreateQuestionVersionInput,
   ListQuestionCategoriesParams,
   ListQuestionCategoriesResponse,
   ListQuestionPoolsParams,
@@ -20,6 +21,7 @@ import type {
   Question,
   QuestionPool,
   QuestionPoolCriterion,
+  QuestionVersionContent,
   QuestionWithCurrentVersion,
   QuestionWithText,
   ResolvedQuestionPool,
@@ -272,6 +274,50 @@ export function useUpdateQuestion() {
       queryClient.invalidateQueries({
         queryKey: ['question-bank', 'questions', 'detail', variables.id],
       })
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
+    },
+  })
+}
+
+// --- Question content editing via new-version creation (this phase) ---
+//
+// POST /questions/:id/versions already existed on the backend, unconsumed —
+// confirmed by reading question-bank.routes.ts/.service.ts/.repository.ts
+// directly before building this: it always creates a NEW question_versions
+// row (never mutates the current one) and NEVER auto-activates it
+// (question-bank.repository.ts's createQuestionVersion comment: "New
+// version rows are never marked active on creation — activation is a
+// separate, explicit step"). A subsequent POST .../activate is required to
+// point questions.current_version_id at it.
+//
+// This hook deliberately CHAINS both calls into one mutation rather than
+// exposing them as two separate frontend actions — "Edit Content" is meant
+// to feel like saving an edit, not staging an unpublished draft a trainer
+// has to remember to separately publish. There's no per-version review/
+// approval workflow in this codebase to preserve as a manual step (only
+// question-level submit/approve/reject, untouched by this), so nothing is
+// lost by auto-activating here.
+function createQuestionVersion(
+  questionId: string,
+  input: CreateQuestionVersionInput,
+): Promise<QuestionVersionContent> {
+  return api.post<QuestionVersionContent>(`/questions/${questionId}/versions`, input)
+}
+
+function activateQuestionVersion(questionId: string, versionId: string): Promise<Question> {
+  return api.post<Question>(`/questions/${questionId}/versions/${versionId}/activate`)
+}
+
+export function useEditQuestionContent(questionId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateQuestionVersionInput) => {
+      const version = await createQuestionVersion(questionId, input)
+      await activateQuestionVersion(questionId, version.id)
+      return version
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'detail', questionId] })
       queryClient.invalidateQueries({ queryKey: ['question-bank', 'questions', 'list'] })
     },
   })

@@ -12,6 +12,7 @@ import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessme
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
 import CreatePoolPage from '@/features/question-bank/pages/CreatePoolPage'
 import CreateQuestionPage from '@/features/question-bank/pages/CreateQuestionPage'
+import EditQuestionContentPage from '@/features/question-bank/pages/EditQuestionContentPage'
 import PoolDetailPage from '@/features/question-bank/pages/PoolDetailPage'
 import PoolListPage from '@/features/question-bank/pages/PoolListPage'
 import QuestionDetailPage from '@/features/question-bank/pages/QuestionDetailPage'
@@ -168,6 +169,7 @@ export function AppRoutes() {
               <Route index element={<QuestionListPage />} />
               <Route path="new" element={<CreateQuestionPage />} />
               <Route path=":id" element={<QuestionDetailPage />} />
+              <Route path=":id/edit-content" element={<EditQuestionContentPage />} />
             </Route>
             <Route path="pools">
               <Route index element={<PoolListPage />} />
@@ -220,6 +222,7 @@ export function AppRoutes() {
               <Route index element={<QuestionListPage />} />
               <Route path="new" element={<CreateQuestionPage />} />
               <Route path=":id" element={<QuestionDetailPage />} />
+              <Route path=":id/edit-content" element={<EditQuestionContentPage />} />
             </Route>
             <Route path="pools">
               <Route index element={<PoolListPage />} />
