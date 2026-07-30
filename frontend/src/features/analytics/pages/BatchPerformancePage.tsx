@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Bar,
@@ -556,19 +556,40 @@ export default function BatchPerformancePage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  performance.data.students.map((student) => (
-                    <TableRow key={student.studentId} className="hover:bg-muted/30">
-                      <TableCell className="pl-4 font-medium text-brand-primary">
-                        {student.fullName}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {student.totalScore ?? '—'}
-                      </TableCell>
-                      <TableCell className="pr-4">
-                        <StatusBadge status={student.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  performance.data.students.map((student) => {
+                    // Only a real attempt has anything to drill into —
+                    // 'not_attempted' students have no attemptId at all
+                    // (analytics.types.ts's PerStudentPerformanceRow), so
+                    // their row stays plain text, not a dead link.
+                    const detailSearch = new URLSearchParams({
+                      batchId: batchId ?? '',
+                      studentName: student.fullName,
+                    })
+                    if (assessmentId) detailSearch.set('assessmentId', assessmentId)
+
+                    return (
+                      <TableRow key={student.studentId} className="hover:bg-muted/30">
+                        <TableCell className="pl-4 font-medium text-brand-primary">
+                          {student.attemptId ? (
+                            <Link
+                              to={{ pathname: `attempts/${student.attemptId}`, search: `?${detailSearch}` }}
+                              className="hover:underline"
+                            >
+                              {student.fullName}
+                            </Link>
+                          ) : (
+                            student.fullName
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {student.totalScore ?? '—'}
+                        </TableCell>
+                        <TableCell className="pr-4">
+                          <StatusBadge status={student.status} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

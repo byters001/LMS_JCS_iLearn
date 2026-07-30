@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { reportsService } from './reports.service';
-import type { AttemptIdParams, ListMyAttemptsQuery } from './reports.schema';
+import type { AttemptIdParams, ListMyAttemptsQuery, StaffAttemptParams } from './reports.schema';
 
 function requireUserId(request: FastifyRequest): string {
   if (!request.user) {
@@ -38,8 +38,23 @@ async function getLeaderboard(request: FastifyRequest, reply: FastifyReply): Pro
   reply.status(200).send(response);
 }
 
+async function getAttemptDetailForStaff(
+  request: FastifyRequest<{ Params: StaffAttemptParams }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const detail = await reportsService.getAttemptDetailForStaff(
+    request.params.batchId,
+    request.params.attemptId,
+    userId,
+  );
+  const response: ApiSuccessResponse<typeof detail> = { success: true, data: detail };
+  reply.status(200).send(response);
+}
+
 export const reportsController = {
   listMyAttempts,
   getMyAttemptDetail,
+  getAttemptDetailForStaff,
   getLeaderboard,
 };

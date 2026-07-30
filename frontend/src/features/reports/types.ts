@@ -78,6 +78,24 @@ export interface MyAttemptDetail {
   questions: AttemptQuestionBreakdown[]
 }
 
+// --- Staff attempt detail (surface timeSpentSeconds to staff) ---
+// Matches backend/src/modules/reports/reports.types.ts's
+// StaffAttemptQuestionBreakdown/StaffAttemptDetail exactly — the SAME
+// sanitized shape as AttemptQuestionBreakdown above, plus exactly one
+// extra field (timeSpentSeconds, seconds spent on that question per the
+// per-question time tracking phase). Every exclusion documented on
+// AttemptQuestionBreakdown still applies: no selectedOptionId, no MCQ
+// option list, no psychometric trait weights, no hidden test case
+// content — staff reviewing a result still isn't shown the answer key.
+export interface StaffAttemptQuestionBreakdown extends AttemptQuestionBreakdown {
+  timeSpentSeconds: number | null
+}
+
+export interface StaffAttemptDetail {
+  attempt: MyAttemptSummary
+  questions: StaffAttemptQuestionBreakdown[]
+}
+
 // --- Leaderboard (item 8B) ---
 // Matches backend/src/modules/reports/reports.types.ts's LeaderboardEntry/
 // LeaderboardResult exactly. Strictly batch-scoped server-side — this

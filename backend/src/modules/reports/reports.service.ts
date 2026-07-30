@@ -6,7 +6,7 @@ import {
   type AttemptQuestionBreakdownRow,
   type AttemptSummaryRow,
 } from './reports.repository';
-import type { AttemptIdParams, ListMyAttemptsQuery } from './reports.schema';
+import type { AttemptIdParams, ListMyAttemptsQuery, StaffAttemptParams } from './reports.schema';
 import type {
   AttemptQuestionBreakdown,
   LeaderboardEntry,
@@ -15,6 +15,8 @@ import type {
   ListMyAttemptsResult,
   MyAttemptDetail,
   MyAttemptSummary,
+  StaffAttemptDetail,
+  StaffAttemptQuestionBreakdown,
 } from './reports.types';
 
 // --- Access (item 3) ---
@@ -140,6 +142,53 @@ async function getMyAttemptDetail(
   return { attempt, questions };
 }
 
+// --- Staff attempt detail (item: surface timeSpentSeconds to staff) ---
+//
+// The staff-facing counterpart to getMyAttemptDetail above — same
+// findAttemptSummaryById/listAttemptQuestionBreakdown/attachScorePercents
+// calls reused verbatim, zero duplicated query logic. Access model is
+// deliberately DIFFERENT, not self-ownership:
+//
+//   1. assertCanAccessBatch(batchId, userId) — the EXACT SAME
+//      batch_trainers-assignment / Super-Admin-unrestricted check
+//      analytics.service.ts's getBatchPerformance already enforces for
+//      BatchPerformancePage (exported from analyticsService specifically
+//      for this reuse — see that file's own comment on the export).
+//   2. The attempt's student must actually belong to THIS batchId —
+//      reuses studentsService.listActiveBatchIdsForStudent (the same
+//      lookup getLeaderboard below and attempts.service.ts's
+//      assertBatchAuthorized already use), so a caller who legitimately
+//      has access to batch A can't view an attempt belonging to a student
+//      in batch B just by guessing its attemptId. NotFoundError, not
+//      ForbiddenError, for a missing attempt — same distinction
+//      findAttemptSummaryById's own comment establishes for the student
+//      path (exists-but-not-yours stays distinguishable from
+//      doesn't-exist there; here there's no "not yours" concept for
+//      staff, only "not in a batch you can see").
+async function getAttemptDetailForStaff(
+  batchId: StaffAttemptParams['batchId'],
+  attemptId: StaffAttemptParams['attemptId'],
+  userId: string,
+): Promise<StaffAttemptDetail> {
+  await analyticsService.assertCanAccessBatch(batchId, userId);
+
+  const summaryRow = await reportsRepository.findAttemptSummaryById(attemptId);
+  if (!summaryRow) {
+    throw new NotFoundError('Attempt not found');
+  }
+
+  const studentBatchIds = await studentsService.listActiveBatchIdsForStudent(summaryRow.studentId);
+  if (!studentBatchIds.includes(batchId)) {
+    throw new ForbiddenError('This attempt does not belong to a student in the specified batch');
+  }
+
+  const breakdownRows = await reportsRepository.listAttemptQuestionBreakdown(attemptId);
+  const questions = await Promise.all(breakdownRows.map(buildStaffQuestionBreakdown));
+
+  const [attempt] = await attachScorePercents([summaryRow]);
+  return { attempt, questions };
+}
+
 // --- Sanitization (item 2) ---
 //
 // Deliberately a UNIFORM shape across mcq/coding/psychometric —
@@ -180,19 +229,24 @@ async function getMyAttemptDetail(
 //     risk showing a mismatched, misleading count), this is labeled
 //     "latest" and kept clearly separate from the official
 //     marksObtained/isCorrect fields.
-async function buildQuestionBreakdown(
+async function resolveLatestCodingTestCases(
   row: AttemptQuestionBreakdownRow,
-): Promise<AttemptQuestionBreakdown> {
-  let latestCodingTestCases: { passed: number; total: number } | null = null;
-
+): Promise<{ passed: number; total: number } | null> {
   if (row.questionType === 'coding' && row.attemptResponseId) {
     const counts = await reportsRepository.findLatestCodingSubmissionCounts(
       row.attemptResponseId,
     );
     if (counts) {
-      latestCodingTestCases = { passed: counts.testCasesPassed, total: counts.testCasesTotal };
+      return { passed: counts.testCasesPassed, total: counts.testCasesTotal };
     }
   }
+  return null;
+}
+
+async function buildQuestionBreakdown(
+  row: AttemptQuestionBreakdownRow,
+): Promise<AttemptQuestionBreakdown> {
+  const latestCodingTestCases = await resolveLatestCodingTestCases(row);
 
   return {
     questionVersionId: row.questionVersionId,
@@ -203,6 +257,24 @@ async function buildQuestionBreakdown(
     isCorrect: row.isCorrect,
     latestCodingTestCases,
   };
+}
+
+// --- Staff attempt detail (item: surface timeSpentSeconds to staff) ---
+//
+// Built ON TOP OF buildQuestionBreakdown (called first, unmodified) rather
+// than a second independent field-by-field construction — this is the
+// mechanism that GUARANTEES the staff view can never drift from the
+// student view's sanitization rules: every exclusion documented on
+// buildQuestionBreakdown/AttemptQuestionBreakdown (no selectedOptionId, no
+// MCQ option list, no psychometric trait_weight, no hidden coding test
+// case content) is enforced by that same shared call, not re-implemented
+// here. The ONLY thing added is timeSpentSeconds, straight off the row
+// (already selected by reportsRepository.listAttemptQuestionBreakdown).
+async function buildStaffQuestionBreakdown(
+  row: AttemptQuestionBreakdownRow,
+): Promise<StaffAttemptQuestionBreakdown> {
+  const base = await buildQuestionBreakdown(row);
+  return { ...base, timeSpentSeconds: row.timeSpentSeconds };
 }
 
 // --- Leaderboard (item 8B) ---
@@ -368,5 +440,6 @@ async function getLeaderboard(userId: string): Promise<LeaderboardResult> {
 export const reportsService = {
   listMyAttempts,
   getMyAttemptDetail,
+  getAttemptDetailForStaff,
   getLeaderboard,
 };

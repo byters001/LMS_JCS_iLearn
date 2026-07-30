@@ -718,4 +718,13 @@ export const analyticsService = {
   getScorePercentagesForAttempts,
   exportBatchPerformanceCsv,
   exportBatchSummaryCsv,
+  // Exported (staff attempt-detail phase) so reports.service.ts's
+  // getAttemptDetailForStaff can reuse the EXACT SAME batch_trainers-
+  // assignment / Super-Admin-unrestricted check getBatchPerformance
+  // itself enforces, rather than re-deriving batch authorization a
+  // second time for a different staff-facing endpoint. reports already
+  // imports analyticsService one-directionally (attachScorePercents/
+  // getLeaderboard, above) — this adds no new import direction, unlike
+  // the reverse (analytics importing reportsService) would.
+  assertCanAccessBatch,
 };

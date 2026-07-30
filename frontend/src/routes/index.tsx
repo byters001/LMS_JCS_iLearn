@@ -25,6 +25,7 @@ import FacultyListPage from '@/features/users/pages/FacultyListPage'
 import LeaderboardPage from '@/features/reports/pages/LeaderboardPage'
 import MyAttemptsListPage from '@/features/reports/pages/MyAttemptsListPage'
 import PerformancePage from '@/features/reports/pages/PerformancePage'
+import StaffAttemptDetailPage from '@/features/reports/pages/StaffAttemptDetailPage'
 import StudentListPage from '@/features/students/pages/StudentListPage'
 import TrainerDetailPage from '@/features/trainers/pages/TrainerDetailPage'
 import TrainersDashboardPage from '@/features/trainers/pages/TrainersDashboardPage'
@@ -173,7 +174,10 @@ export function AppRoutes() {
               <Route path="new" element={<CreatePoolPage />} />
               <Route path=":id" element={<PoolDetailPage />} />
             </Route>
-            <Route path="analytics" element={<BatchPerformancePage />} />
+            <Route path="analytics">
+              <Route index element={<BatchPerformancePage />} />
+              <Route path="attempts/:attemptId" element={<StaffAttemptDetailPage />} />
+            </Route>
           </Route>
         </Route>
 
@@ -222,7 +226,10 @@ export function AppRoutes() {
               <Route path="new" element={<CreatePoolPage />} />
               <Route path=":id" element={<PoolDetailPage />} />
             </Route>
-            <Route path="analytics" element={<BatchPerformancePage />} />
+            <Route path="analytics">
+              <Route index element={<BatchPerformancePage />} />
+              <Route path="attempts/:attemptId" element={<StaffAttemptDetailPage />} />
+            </Route>
           </Route>
         </Route>
       </Route>

@@ -66,6 +66,26 @@ export interface MyAttemptDetail {
   questions: AttemptQuestionBreakdown[];
 }
 
+// --- Staff attempt detail (item: surface timeSpentSeconds to staff) ---
+//
+// Same uniform mcq/coding/psychometric shape as AttemptQuestionBreakdown,
+// plus exactly one additional field: timeSpentSeconds, straight off
+// attempt_responses (per-question time tracking phase). Every exclusion
+// documented on AttemptQuestionBreakdown/reports.service.ts's module
+// comment still applies unchanged here — no selectedOptionId, no MCQ
+// option list, no psychometric trait_weight, no hidden coding_test_cases
+// content. A staff member reviewing a result still shouldn't see the
+// answer key; the only thing staff gets that a student doesn't is HOW
+// LONG the student spent, not any new fact about correctness.
+export interface StaffAttemptQuestionBreakdown extends AttemptQuestionBreakdown {
+  timeSpentSeconds: number | null;
+}
+
+export interface StaffAttemptDetail {
+  attempt: MyAttemptSummary;
+  questions: StaffAttemptQuestionBreakdown[];
+}
+
 // --- Leaderboard (item 8B) ---
 //
 // Strictly batch-scoped (never cross-batch/global — see reports.service.ts's

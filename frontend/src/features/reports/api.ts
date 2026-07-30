@@ -7,6 +7,7 @@ import type {
   ListMyAttemptsParams,
   ListMyAttemptsResult,
   MyAttemptDetail,
+  StaffAttemptDetail,
 } from './types'
 
 function listMyAttempts(params: ListMyAttemptsParams): Promise<ListMyAttemptsResult> {
@@ -30,6 +31,25 @@ export function useMyAttemptDetail(attemptId: string | undefined) {
     queryKey: ['reports', 'my-attempts', 'detail', attemptId],
     queryFn: () => getMyAttemptDetail(attemptId as string),
     enabled: Boolean(attemptId),
+  })
+}
+
+// Staff attempt detail (surface timeSpentSeconds to staff) — batchId is
+// required (not optional) since the backend route needs it up front for
+// the same batch-assignment check BatchPerformancePage's own endpoints
+// already enforce (analyticsService.assertCanAccessBatch). The caller
+// always already knows batchId — this is only ever reached by clicking a
+// student row in BatchPerformancePage's own table, which already has it
+// selected.
+function getStaffAttemptDetail(batchId: string, attemptId: string): Promise<StaffAttemptDetail> {
+  return api.get<StaffAttemptDetail>(`/reports/batches/${batchId}/attempts/${attemptId}`)
+}
+
+export function useStaffAttemptDetail(batchId: string | undefined, attemptId: string | undefined) {
+  return useQuery({
+    queryKey: ['reports', 'staff-attempt-detail', batchId, attemptId],
+    queryFn: () => getStaffAttemptDetail(batchId as string, attemptId as string),
+    enabled: Boolean(batchId) && Boolean(attemptId),
   })
 }
 

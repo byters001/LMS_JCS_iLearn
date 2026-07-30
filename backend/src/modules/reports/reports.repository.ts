@@ -108,6 +108,14 @@ async function findAttemptSummaryById(attemptId: string): Promise<AttemptSummary
 // what makes that possible). attemptResponseId is carried through only so
 // the service can look up a coding question's latest submission counts;
 // it is NOT part of the public API shape.
+//
+// timeSpentSeconds (staff attempt-detail phase) — attempt_responses' own
+// column, added to this row purely so the new staff-facing breakdown can
+// surface it (reports.service.ts's buildStaffQuestionBreakdown). The
+// student-facing buildQuestionBreakdown deliberately still does NOT
+// include it in AttemptQuestionBreakdown's returned shape — adding it to
+// this shared row is additive/harmless for that path (it's simply never
+// read there), not a change to what students are shown.
 export interface AttemptQuestionBreakdownRow {
   questionVersionId: string;
   sortOrder: number;
@@ -117,6 +125,7 @@ export interface AttemptQuestionBreakdownRow {
   isCorrect: boolean | null;
   questionType: 'mcq' | 'coding' | 'psychometric';
   attemptResponseId: string | null;
+  timeSpentSeconds: number | null;
 }
 
 async function listAttemptQuestionBreakdown(
@@ -132,6 +141,7 @@ async function listAttemptQuestionBreakdown(
       isCorrect: attemptResponses.isCorrect,
       questionType: questions.type,
       attemptResponseId: attemptResponses.id,
+      timeSpentSeconds: attemptResponses.timeSpentSeconds,
     })
     .from(attemptQuestionSelections)
     .innerJoin(
