@@ -1,7 +1,11 @@
+import { Building2 } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
 import {
   Table,
   TableBody,
@@ -59,13 +63,28 @@ export default function CollegeListPage() {
 
   return (
     <div className="space-y-4 p-5">
-      <div>
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Colleges</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Partner colleges and their departments — platform structure, not scoped to any one
-          batch or program.
-        </p>
-      </div>
+      {/* Stat row is a single card, not the 3-column grid StudentListPage
+          uses — "total departments across every college" would need a new,
+          unfiltered useDepartments query (departments are only ever fetched
+          scoped to one picked college here and in DepartmentListPage), and
+          per-status counts would have to come from colleges.data.items,
+          which is just the current PAGE_SIZE=20 page, not the true total —
+          silently wrong once colleges.data.total exceeds one page. The one
+          number that's both real and already fetched is the total college
+          count the backend returns in colleges.data.total regardless of
+          page size, so that's the only card here. */}
+      <PageHeader
+        title="Colleges"
+        description="Partner colleges and their departments — platform structure, not scoped to any one batch or program."
+      >
+        <StatCard
+          label="Total colleges"
+          value={colleges.data?.total}
+          icon={Building2}
+          iconClassName="bg-brand-primary/10 text-brand-primary"
+          className="max-w-64"
+        />
+      </PageHeader>
 
       <Tabs defaultValue="colleges">
         <TabsList>
@@ -109,8 +128,8 @@ export default function CollegeListPage() {
                 <TableBody>
                   {colleges.data.items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                        No colleges found yet.
+                      <TableCell colSpan={5} className="p-4">
+                        <EmptyState icon={Building2} message="No colleges found yet." />
                       </TableCell>
                     </TableRow>
                   ) : (

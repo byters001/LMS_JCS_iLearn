@@ -1,6 +1,6 @@
 // TanStack Query hooks for the "organization" feature, calling the shared api/ client.
 // This is the only file in this feature allowed to import from api/.
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api'
 import type {
   AssignBatchTrainerInput,
@@ -45,6 +45,32 @@ export function useBatches(params: ListBatchesParams, options?: { enabled?: bool
     placeholderData: keepPreviousData,
     enabled: options?.enabled,
   })
+}
+
+// One pageSize:1 "total batches" count per college — same useQueries "one
+// query per item" shape as students/api.ts's useStudentCountsByCollege,
+// backing StudentListPage's college-card second data row (student count was
+// already shown; batch count is the new row). Safe for every caller of that
+// page: StudentListPage is super_admin-only (routes/index.tsx), and
+// listBatches' collegeId scoping check only rejects a NON-null
+// activeCollegeId that disagrees with the requested collegeId (see
+// organization.service.ts's own comment) — super_admin's activeCollegeId is
+// always null, i.e. a global grant, so querying every college's batches here
+// never hits that 403 the way a Faculty caller would.
+export function useBatchCountsByCollege(collegeIds: string[]) {
+  const results = useQueries({
+    queries: collegeIds.map((collegeId) => ({
+      queryKey: ['organization', 'batches', 'list', { collegeId, page: 1, pageSize: 1 }] as const,
+      queryFn: () => listBatches({ collegeId, page: 1, pageSize: 1 }),
+    })),
+  })
+
+  const batchCountsByCollegeId = new Map<string, number | undefined>()
+  collegeIds.forEach((collegeId, index) => {
+    batchCountsByCollegeId.set(collegeId, results[index]?.data?.total)
+  })
+
+  return { batchCountsByCollegeId }
 }
 
 function createBatch(input: CreateBatchInput): Promise<Batch> {
