@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Building2, ClipboardList, HelpCircle, Layers, Library, Presentation, UserCog, Users } from 'lucide-react'
+import { BarChart3, BookOpen, Building2, ClipboardList, HelpCircle, Layers, Library, Presentation, ShieldAlert, UserCog, Users } from 'lucide-react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { UserAvatarMenu } from '@/components/UserAvatarMenu'
 import { useLogout } from '@/features/auth/api'
@@ -40,6 +40,11 @@ const NAV_ITEMS: SidebarNavItem[] = [
   },
   { type: 'link', to: '/admin/assessments', label: 'Assessments', end: true, icon: ClipboardList },
   { type: 'link', to: '/admin/analytics', label: 'Analytics', end: true, icon: BarChart3 },
+  // Audit/security data (who asked the chatbot what, including rejected
+  // prompt-injection/out-of-scope attempts) — Super-Admin-only, deliberately
+  // NOT mirrored in TrainerLayout.tsx's own NAV_ITEMS the way most other
+  // question-bank/analytics items are shared between the two shells.
+  { type: 'link', to: '/admin/chatbot-log', label: 'Chatbot Log', end: true, icon: ShieldAlert },
 ]
 
 function AdminLayout() {

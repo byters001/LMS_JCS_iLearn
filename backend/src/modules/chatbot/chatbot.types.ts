@@ -21,6 +21,38 @@ export interface ChatbotCsvExport {
   rows: string[][];
 }
 
+// --- GET /chatbot/queries (admin audit log) ---
+//
+// askedByName/askedByEmail are RESOLVED here (repository-level LEFT JOIN),
+// not left as a bare userId for the frontend to look up separately — this
+// is a super_admin-only audit view, and "who asked this" is the whole
+// point of an audit trail, not an incidental detail. Both are null only
+// when askedBy itself is null (the user account was since deleted —
+// chatbot_query_log.asked_by is ON DELETE SET NULL, chatbot.schema.ts's
+// own comment — an audit row outlives the account it references).
+export interface ChatbotQueryLogEntry {
+  id: string;
+  askedBy: string | null;
+  askedByName: string | null;
+  askedByEmail: string | null;
+  questionText: string;
+  // null means this question never resolved to an allowlisted function —
+  // either NVIDIA itself failed, the model declined to call a tool, or it
+  // proposed one that failed validateToolCall (an unallowlisted name or
+  // malformed arguments). These are the security-relevant rows this
+  // endpoint exists to surface — see chatbot.schema.ts's module comment.
+  resolvedFn: string | null;
+  resolvedArgs: unknown;
+  createdAt: Date;
+}
+
+export interface ListChatbotQueriesResult {
+  items: ChatbotQueryLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface AskChatbotResult {
   // The chatbot_query_log row id this call was recorded under (chatbot.
   // repository.ts's logQuery already returns the full inserted row —

@@ -4,12 +4,12 @@
 // mirrors features/students/api.ts's downloadStudentsExport (see that
 // function's own comment for why a raw-CSV endpoint can't go through the
 // shared client).
-import { useMutation } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { env } from '@/lib/env'
 import { triggerBlobDownload } from '@/lib/spreadsheet'
 import { useAuthStore } from '@/store/authStore'
-import type { AskChatbotResult } from './types'
+import type { AskChatbotResult, ListChatbotQueriesParams, ListChatbotQueriesResult } from './types'
 
 function askChatbot(question: string): Promise<AskChatbotResult> {
   return api.post<AskChatbotResult>('/chatbot/ask', { question })
@@ -18,6 +18,23 @@ function askChatbot(question: string): Promise<AskChatbotResult> {
 export function useAskChatbot() {
   return useMutation({
     mutationFn: askChatbot,
+  })
+}
+
+// --- Admin audit log (this phase) — GET /chatbot/queries, super_admin
+// only (chatbot.audit_log). The route itself is the real gate; this hook
+// has no client-side role check of its own, same as every other feature
+// hook in this codebase — an unauthorized call still surfaces the
+// backend's real 403 via isError, it isn't hidden pre-emptively here.
+function listChatbotQueries(params: ListChatbotQueriesParams): Promise<ListChatbotQueriesResult> {
+  return api.get<ListChatbotQueriesResult>('/chatbot/queries', { params })
+}
+
+export function useChatbotQueries(params: ListChatbotQueriesParams) {
+  return useQuery({
+    queryKey: ['chatbot', 'queries', 'list', params],
+    queryFn: () => listChatbotQueries(params),
+    placeholderData: keepPreviousData,
   })
 }
 

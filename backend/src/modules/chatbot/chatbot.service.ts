@@ -5,7 +5,13 @@ import type { NvidiaChatCompletionResponse, NvidiaToolDefinition } from '../../i
 import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { CHATBOT_TOOLS } from './chatbot.tools';
 import { chatbotRepository } from './chatbot.repository';
-import type { AskChatbotResult, ChatbotCsvExport, ChatbotToolContext } from './chatbot.types';
+import type { ListChatbotQueriesQuery } from './chatbot.schema';
+import type {
+  AskChatbotResult,
+  ChatbotCsvExport,
+  ChatbotToolContext,
+  ListChatbotQueriesResult,
+} from './chatbot.types';
 
 // --- Prompts ---
 //
@@ -267,7 +273,24 @@ async function exportResolvedQueryAsCsv(
   return csvExport;
 }
 
+// --- GET /chatbot/queries (admin audit log) ---
+//
+// No access-scoping logic here (unlike exportResolvedQueryAsCsv's self-
+// or-Super-Admin check above) — this endpoint is gated entirely at the
+// route layer by requirePermission('chatbot.audit_log'), a key seeded to
+// super_admin only (see the migration adding it). Every row, every
+// asker — that's the point of an audit log, not a per-caller filtered
+// view.
+async function listQueries(query: ListChatbotQueriesQuery): Promise<ListChatbotQueriesResult> {
+  const { items, total } = await chatbotRepository.listQueries({
+    page: query.page,
+    pageSize: query.pageSize,
+  });
+  return { items, total, page: query.page, pageSize: query.pageSize };
+}
+
 export const chatbotService = {
   askChatbot,
   exportResolvedQueryAsCsv,
+  listQueries,
 };

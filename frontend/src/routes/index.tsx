@@ -10,6 +10,7 @@ import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
 import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
+import ChatbotAuditLogPage from '@/features/chatbot/pages/ChatbotAuditLogPage'
 import CreatePoolPage from '@/features/question-bank/pages/CreatePoolPage'
 import CreateQuestionPage from '@/features/question-bank/pages/CreateQuestionPage'
 import EditQuestionContentPage from '@/features/question-bank/pages/EditQuestionContentPage'
@@ -233,6 +234,12 @@ export function AppRoutes() {
               <Route index element={<BatchPerformancePage />} />
               <Route path="attempts/:attemptId" element={<StaffAttemptDetailPage />} />
             </Route>
+            {/* Super-Admin-only, deliberately not mirrored under /trainer —
+                audit/security data (who asked the chatbot what, including
+                rejected prompt-injection/out-of-scope attempts), not a
+                general staff feature. See ChatbotAuditLogPage.tsx's own
+                comment. */}
+            <Route path="chatbot-log" element={<ChatbotAuditLogPage />} />
           </Route>
         </Route>
       </Route>

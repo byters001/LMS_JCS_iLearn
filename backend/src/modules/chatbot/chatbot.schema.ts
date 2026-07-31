@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../../config/constants';
 
 // This is the ONLY free-text surface the whole chatbot feature exposes —
 // everything past this point (which function, which arguments) is
@@ -24,5 +25,14 @@ export const chatbotQueryIdParamsSchema = z
   })
   .strict();
 
+// --- GET /chatbot/queries (admin audit log) ---
+export const listChatbotQueriesQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+  })
+  .strict();
+
 export type AskChatbotInput = z.infer<typeof askChatbotSchema>;
 export type ChatbotQueryIdParams = z.infer<typeof chatbotQueryIdParamsSchema>;
+export type ListChatbotQueriesQuery = z.infer<typeof listChatbotQueriesQuerySchema>;

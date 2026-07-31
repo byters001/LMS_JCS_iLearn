@@ -36,3 +36,33 @@ export const EXPORTABLE_CHATBOT_FUNCTIONS: ReadonlySet<ChatbotFunctionName> = ne
   'getTrainerPerformance',
   'getBatchRoster',
 ])
+
+// --- Admin audit log (GET /chatbot/queries) ---
+// Matches backend/src/modules/chatbot/chatbot.types.ts's ChatbotQueryLogEntry
+// exactly. resolvedFn is deliberately the bare backend string, not narrowed
+// to ChatbotFunctionName — a REJECTED attempt (the security-relevant case
+// this log exists for) can carry a hallucinated/unallowlisted function name
+// that was never in CHATBOT_TOOLS to begin with, so it wouldn't fit that
+// narrower union.
+export interface ChatbotQueryLogEntry {
+  id: string
+  askedBy: string | null
+  askedByName: string | null
+  askedByEmail: string | null
+  questionText: string
+  resolvedFn: string | null
+  resolvedArgs: unknown
+  createdAt: string
+}
+
+export interface ListChatbotQueriesParams {
+  page?: number
+  pageSize?: number
+}
+
+export interface ListChatbotQueriesResult {
+  items: ChatbotQueryLogEntry[]
+  total: number
+  page: number
+  pageSize: number
+}

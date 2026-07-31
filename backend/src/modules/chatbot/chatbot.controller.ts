@@ -3,7 +3,7 @@ import { buildCsv } from '../../shared/utils/csv.util';
 import { UnauthorizedError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { chatbotService } from './chatbot.service';
-import type { AskChatbotInput, ChatbotQueryIdParams } from './chatbot.schema';
+import type { AskChatbotInput, ChatbotQueryIdParams, ListChatbotQueriesQuery } from './chatbot.schema';
 import type { ChatbotToolContext } from './chatbot.types';
 
 // Confirmed against schema.sql: Super Admin's own role assignment always
@@ -54,7 +54,17 @@ async function exportQueryCsv(
     .send(buildCsv(csvExport.header, csvExport.rows));
 }
 
+async function listQueries(
+  request: FastifyRequest<{ Querystring: ListChatbotQueriesQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await chatbotService.listQueries(request.query);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const chatbotController = {
   ask,
   exportQueryCsv,
+  listQueries,
 };
