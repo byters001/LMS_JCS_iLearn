@@ -11,6 +11,7 @@ import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentP
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
 import ChatbotAuditLogPage from '@/features/chatbot/pages/ChatbotAuditLogPage'
+import BulkImportPage from '@/features/question-bank/pages/BulkImportPage'
 import CreatePoolPage from '@/features/question-bank/pages/CreatePoolPage'
 import CreateQuestionPage from '@/features/question-bank/pages/CreateQuestionPage'
 import EditQuestionContentPage from '@/features/question-bank/pages/EditQuestionContentPage'
@@ -169,6 +170,7 @@ export function AppRoutes() {
             <Route path="questions">
               <Route index element={<QuestionListPage />} />
               <Route path="new" element={<CreateQuestionPage />} />
+              <Route path="bulk-import" element={<BulkImportPage />} />
               <Route path=":id" element={<QuestionDetailPage />} />
               <Route path=":id/edit-content" element={<EditQuestionContentPage />} />
             </Route>
@@ -222,6 +224,7 @@ export function AppRoutes() {
             <Route path="questions">
               <Route index element={<QuestionListPage />} />
               <Route path="new" element={<CreateQuestionPage />} />
+              <Route path="bulk-import" element={<BulkImportPage />} />
               <Route path=":id" element={<QuestionDetailPage />} />
               <Route path=":id/edit-content" element={<EditQuestionContentPage />} />
             </Route>

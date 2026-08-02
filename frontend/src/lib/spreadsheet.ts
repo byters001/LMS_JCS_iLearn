@@ -46,6 +46,31 @@ export async function xlsxFileToCsvText(file: File): Promise<string> {
   return XLSX.utils.sheet_to_csv(worksheet)
 }
 
+// Parses an uploaded .xlsx or .csv file directly into raw rows (array of
+// arrays of cell strings) via SheetJS's own sheet_to_json, NOT the
+// CSV-text round-trip xlsxFileToCsvText above uses. That round-trip is fine
+// for AddStudentsDialog's simple name/email/roll-number rows, but question
+// text and MCQ option text routinely contain literal commas — a naive
+// `line.split(',')` (which is exactly what this codebase's existing
+// parseCsvText does) would mis-split those values. sheet_to_json reads the
+// underlying cell grid directly, so it never needs to parse
+// quoting/escaping out of a flattened comma-joined string at all. Used by
+// BulkImportPage.tsx (question bulk-import).
+export async function spreadsheetFileToRows(file: File): Promise<string[][]> {
+  const XLSX = await import('xlsx')
+  const isXlsx = file.name.toLowerCase().endsWith('.xlsx')
+  const workbook = isXlsx
+    ? XLSX.read(await file.arrayBuffer(), { type: 'array' })
+    : XLSX.read(await file.text(), { type: 'string' })
+  const firstSheetName = workbook.SheetNames[0]
+  const worksheet = workbook.Sheets[firstSheetName]
+  return XLSX.utils.sheet_to_json<string[]>(worksheet, {
+    header: 1,
+    blankrows: false,
+    defval: '',
+  })
+}
+
 export function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

@@ -38,6 +38,34 @@ function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsRespon
   return api.get<ListQuestionsResponse>('/questions', { params })
 }
 
+// Bulk-import duplicate detection (BulkImportPage.tsx) needs every existing
+// question's text for a given type, not one bounded page — the picker's
+// per-row detail-fetch N+1 (useQuestionsForPicker below) would mean one
+// request per EXISTING question, which could be hundreds; that pattern is
+// a deliberate stopgap for a small 30-row picker, not something to reuse at
+// this scale. GET /questions now returns questionText directly per row (see
+// types.ts's QuestionListItem — free column, already-joined), so this only
+// needs to paginate through every page at the backend's own MAX_PAGE_SIZE
+// (100) — not a second N+1, a handful of requests even for a large bank.
+// A plain async function, not a useQuery hook: this is a one-shot fetch
+// triggered when a file is uploaded, not something that needs to stay
+// reactive/cached across renders the way the picker/list hooks do.
+const DUPLICATE_CHECK_PAGE_SIZE = 100
+
+export async function fetchAllQuestionsForDuplicateCheck(
+  type: ListQuestionsParams['type'],
+): Promise<ListQuestionsResponse['items']> {
+  const all: ListQuestionsResponse['items'] = []
+  let page = 1
+  for (;;) {
+    const result = await listQuestions({ type, page, pageSize: DUPLICATE_CHECK_PAGE_SIZE })
+    all.push(...result.items)
+    if (all.length >= result.total || result.items.length === 0) break
+    page += 1
+  }
+  return all
+}
+
 // `options.enabled` mirrors features/students/api.ts's useStudentProfiles —
 // same "skip the fetch until a prerequisite selection exists" shape,
 // needed by QuestionListPage's type/difficulty drill-down (its level-2

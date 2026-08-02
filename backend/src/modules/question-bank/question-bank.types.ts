@@ -36,8 +36,11 @@ export interface ListQuestionTagsResult {
   pageSize: number;
 }
 
+// questionText included for free (see question-bank.repository.ts's
+// ListQuestionsResult comment) — the LEFT JOIN against question_versions
+// already happens for the `search` filter regardless.
 export interface ListQuestionsResult {
-  items: Question[];
+  items: (Question & { questionText: string | null })[];
   total: number;
   page: number;
   pageSize: number;

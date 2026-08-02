@@ -4,12 +4,12 @@ export type QuestionType = 'mcq' | 'coding' | 'psychometric'
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard'
 export type QuestionStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'archived'
 
-// Matches the raw `questions` row shape — GET /questions returns bare rows
-// only (backend/src/modules/question-bank/question-bank.types.ts's
-// ListQuestionsResult is `Question[]`, not the version-joined shape).
-// Notably NO question text here — question_text lives on question_versions,
-// only reachable via currentVersionId + a follow-up fetch (see
-// QuestionWithCurrentVersion below and api.ts's useQuestionsForPicker).
+// Matches the raw `questions` row shape. Deliberately has NO questionText —
+// GET /questions/:id's QuestionWithCurrentVersion (below) extends this same
+// base but keeps question text nested under `currentVersion`, never at this
+// top level, so adding it here would misdescribe that response. GET
+// /questions (list) DOES return question text at the top level — see
+// QuestionListItem below, not this type.
 export interface Question {
   id: string
   categoryId: string | null
@@ -22,6 +22,17 @@ export interface Question {
   updatedAt: string
   createdBy: string | null
   updatedBy: string | null
+}
+
+// GET /questions (list) row shape — includes questionText directly. The
+// backend's listQuestions already LEFT JOINs question_versions for its
+// `search` filter regardless of whether search is used, so returning this
+// one extra already-joined column is free (see question-bank.repository.ts's
+// ListQuestionsResult comment on the backend). Added so bulk-import
+// duplicate detection can fetch all existing questions' text in ONE list
+// call — no per-row detail-fetch N+1 (see BulkImportPage.tsx).
+export interface QuestionListItem extends Question {
+  questionText: string | null
 }
 
 // Matches backend/src/modules/question-bank/question-bank.schema.ts's
@@ -46,7 +57,7 @@ export interface ListQuestionsParams {
 }
 
 export interface ListQuestionsResponse {
-  items: Question[]
+  items: QuestionListItem[]
   total: number
   page: number
   pageSize: number

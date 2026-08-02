@@ -322,8 +322,19 @@ export interface ListQuestionsParams {
   pageSize: number;
 }
 
+// questionText is included here — NOT part of the `questions` row itself
+// (it lives on question_versions), but listQuestions already LEFT JOINs
+// question_versions for the `search` filter, so selecting this one extra
+// already-joined column is free (no additional query). Added specifically
+// so bulk-import duplicate detection (features/question-bank's
+// BulkImportPage) can fetch all existing questions' text in ONE list call
+// instead of the N+1 per-row detail-fetch pattern useQuestionsForPicker/
+// useQuestionsWithText use on the frontend — that pattern is a deliberate,
+// documented stopgap for a small, bounded picker page (30 rows); doing it
+// against potentially hundreds of existing questions for a bulk-import
+// duplicate check would be a real N+1 cost this avoids entirely.
 export interface ListQuestionsResult {
-  items: Question[];
+  items: (Question & { questionText: string | null })[];
   total: number;
 }
 
@@ -348,6 +359,10 @@ const QUESTIONS_COLUMNS = {
   createdBy: questions.createdBy,
   updatedBy: questions.updatedBy,
   deletedAt: questions.deletedAt,
+  // Free to include — the query below already LEFT JOINs question_versions
+  // for the `search` filter regardless of whether search is used. See this
+  // file's ListQuestionsResult comment for why this is selected at all.
+  questionText: questionVersions.questionText,
 } as const;
 
 function buildQuestionsWhere(params: Omit<ListQuestionsParams, 'page' | 'pageSize'>) {

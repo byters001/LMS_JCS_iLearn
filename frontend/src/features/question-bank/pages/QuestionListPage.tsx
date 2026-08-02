@@ -242,12 +242,17 @@ export default function QuestionListPage() {
             Browse the question bank by type, then difficulty.
           </p>
         </div>
-        <Button asChild className="bg-brand-accent text-white hover:bg-brand-accent/90">
-          <Link to="new">
-            <Plus className="size-4" />
-            Create Question
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link to="bulk-import">Bulk Import</Link>
+          </Button>
+          <Button asChild className="bg-brand-accent text-white hover:bg-brand-accent/90">
+            <Link to="new">
+              <Plus className="size-4" />
+              Create Question
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {typeCountsError && (
