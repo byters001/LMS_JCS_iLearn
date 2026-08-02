@@ -36,6 +36,11 @@ export const questionStatusEnum = pgEnum('question_status_enum', [
 export const questionCategories = pgTable('question_categories', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  // A category is scoped to exactly one question type — an "Aptitude"
+  // category groups MCQs, a "Coding" category groups coding problems, etc.
+  // Reuses questionTypeEnum rather than a second enum, same type universe as
+  // questions.type/question_pools.type.
+  type: questionTypeEnum('type').notNull(),
   // Self-referencing, ON DELETE SET NULL in schema.sql — deleting a parent
   // category orphans its children rather than cascading.
   parentCategoryId: uuid('parent_category_id').references(

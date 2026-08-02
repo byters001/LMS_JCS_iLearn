@@ -1,0 +1,1 @@
+ALTER TABLE "question_categories" ADD COLUMN "type" "question_type_enum" NOT NULL;

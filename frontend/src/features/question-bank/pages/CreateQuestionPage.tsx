@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
@@ -6,6 +7,8 @@ import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
 import { useCategories, useCreateQuestion, useTags, useTopics } from '../api'
+import { CreateCategoryDialog } from '../components/CreateCategoryDialog'
+import { CreateTopicDialog } from '../components/CreateTopicDialog'
 import {
   applyQuestionContentRefinements,
   buildQuestionContentPayload,
@@ -60,7 +63,10 @@ const createQuestionFormSchema = questionContentFieldsSchema
   .extend({
     type: z.enum(['mcq', 'coding', 'psychometric']),
     difficulty: z.enum(['easy', 'medium', 'hard']),
-    categoryId: z.string(),
+    // Required — categories are now type-scoped (question_categories.type),
+    // so every question must be filed under one. Previously optional/
+    // global-bank-if-unset; that fallback goes away along with this change.
+    categoryId: z.string().min(1, 'Category is required'),
     topicIds: z.array(z.string()),
     tagIds: z.array(z.string()),
   })
@@ -79,6 +85,7 @@ function MultiSelectChips({
   isLoading,
   isError,
   placeholder,
+  hideLabel,
 }: {
   label: string
   options: ComboboxOption[]
@@ -87,15 +94,18 @@ function MultiSelectChips({
   isLoading: boolean
   isError: boolean
   placeholder: string
+  hideLabel?: boolean
 }) {
   const optionsById = new Map(options.map((o) => [o.value, o.label]))
   const addOptions = options.filter((o) => !selectedIds.includes(o.value))
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-brand-primary">
-        {label} <span className="text-muted-foreground">(optional)</span>
-      </label>
+      {!hideLabel && (
+        <label className="text-xs font-medium text-brand-primary">
+          {label} <span className="text-muted-foreground">(optional)</span>
+        </label>
+      )}
       {selectedIds.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {selectedIds.map((id) => (
@@ -139,9 +149,9 @@ function MultiSelectChips({
 export default function CreateQuestionPage() {
   const navigate = useNavigate()
   const createQuestion = useCreateQuestion()
-  const categories = useCategories({ page: 1, pageSize: PICKER_PAGE_SIZE })
-  const topics = useTopics({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const tags = useTags({ page: 1, pageSize: PICKER_PAGE_SIZE })
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false)
+  const [isNewTopicOpen, setIsNewTopicOpen] = useState(false)
 
   // Pre-fill from QuestionListPage's drill-down "Add Question" action
   // (?type=&difficulty=), which navigates here already knowing which
@@ -198,10 +208,38 @@ export default function CreateQuestionPage() {
   const topicIds = watch('topicIds')
   const tagIds = watch('tagIds')
 
+  // Categories are type-scoped (question_categories.type) — the picker only
+  // ever shows categories matching the currently selected question type.
+  // Topics are scoped to whichever category is selected — not fetched at
+  // all until a category exists, since an unfiltered "all topics" list
+  // would be actively misleading here (see useTopics' own comment on this).
+  const categories = useCategories({ type, page: 1, pageSize: PICKER_PAGE_SIZE })
+  const topics = useTopics(
+    { categoryId, page: 1, pageSize: PICKER_PAGE_SIZE },
+    { enabled: Boolean(categoryId) },
+  )
+
+  // Switching type invalidates the previously selected category (it belonged
+  // to the old type's picker) and, transitively, any selected topics (they
+  // belonged to the old category).
+  useEffect(() => {
+    setValue('categoryId', '')
+    setValue('topicIds', [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type])
+
+  // Switching category invalidates previously selected topics — they
+  // belonged to the old category's topic list.
+  useEffect(() => {
+    setValue('topicIds', [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId])
+
   const categoryOptions: ComboboxOption[] = (categories.data?.items ?? []).map((c) => ({
     value: c.id,
     label: c.name,
   }))
+  const selectedCategory = (categories.data?.items ?? []).find((c) => c.id === categoryId)
   const topicOptions: ComboboxOption[] = (topics.data?.items ?? []).map((t) => ({
     value: t.id,
     label: t.name,
@@ -277,31 +315,82 @@ export default function CreateQuestionPage() {
           />
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary" htmlFor="categoryId">
-              Category <span className="text-muted-foreground">(optional — global bank if unset)</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-brand-primary" htmlFor="categoryId">
+                Category
+              </label>
+              <button
+                type="button"
+                className="text-xs font-medium text-brand-accent hover:underline"
+                onClick={() => setIsNewCategoryOpen(true)}
+              >
+                + New Category
+              </button>
+            </div>
             <Combobox
               id="categoryId"
               options={categoryOptions}
               value={categoryId || null}
               onSelect={(value) => setValue('categoryId', value)}
-              placeholder="Search categories…"
+              placeholder={`Search ${type} categories…`}
               isLoading={categories.isPending}
               isError={categories.isError}
               errorMessage="Failed to load categories."
-              emptyMessage={categories.isPending ? 'Loading…' : 'No categories found.'}
+              emptyMessage={categories.isPending ? 'Loading…' : `No ${type} categories yet.`}
             />
+            {errors.categoryId && (
+              <p className="text-sm text-destructive">{errors.categoryId.message}</p>
+            )}
           </div>
 
-          <MultiSelectChips
-            label="Topics"
-            options={topicOptions}
-            selectedIds={topicIds}
-            onChange={(ids) => setValue('topicIds', ids)}
-            isLoading={topics.isPending}
-            isError={topics.isError}
-            placeholder="Search topics to add…"
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-brand-primary">
+                Topics <span className="text-muted-foreground">(optional)</span>
+              </span>
+              {categoryId && (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-brand-accent hover:underline"
+                  onClick={() => setIsNewTopicOpen(true)}
+                >
+                  + New Topic
+                </button>
+              )}
+            </div>
+            {categoryId ? (
+              <MultiSelectChips
+                label="Topics"
+                hideLabel
+                options={topicOptions}
+                selectedIds={topicIds}
+                onChange={(ids) => setValue('topicIds', ids)}
+                isLoading={topics.isPending}
+                isError={topics.isError}
+                placeholder={
+                  topicOptions.length > 0 ? 'Search topics to add…' : 'No topics for this category yet.'
+                }
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a category first.</p>
+            )}
+          </div>
+
+          <CreateCategoryDialog
+            type={type}
+            open={isNewCategoryOpen}
+            onOpenChange={setIsNewCategoryOpen}
+            onCreated={(category) => setValue('categoryId', category.id)}
           />
+          {categoryId && (
+            <CreateTopicDialog
+              categoryId={categoryId}
+              categoryName={selectedCategory?.name ?? ''}
+              open={isNewTopicOpen}
+              onOpenChange={setIsNewTopicOpen}
+              onCreated={(topic) => setValue('topicIds', [...topicIds, topic.id])}
+            />
+          )}
 
           <MultiSelectChips
             label="Tags"

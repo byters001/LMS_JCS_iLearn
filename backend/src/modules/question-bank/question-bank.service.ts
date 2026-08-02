@@ -66,6 +66,7 @@ async function listQuestionCategories(
   query: ListQuestionCategoriesQuery,
 ): Promise<ListQuestionCategoriesResult> {
   const { items, total } = await questionBankRepository.listQuestionCategories({
+    type: query.type,
     parentCategoryId: query.parentCategoryId,
     page: query.page,
     pageSize: query.pageSize,
@@ -85,7 +86,10 @@ async function createQuestionCategory(
   input: CreateQuestionCategoryInput,
 ): Promise<QuestionCategory> {
   if (input.parentCategoryId) {
-    await findQuestionCategoryById(input.parentCategoryId);
+    const parent = await findQuestionCategoryById(input.parentCategoryId);
+    if (parent.type !== input.type) {
+      throw new ValidationError('A category must have the same type as its parent category');
+    }
   }
   return questionBankRepository.createQuestionCategory(input);
 }
@@ -94,13 +98,16 @@ async function updateQuestionCategory(
   id: string,
   input: UpdateQuestionCategoryInput,
 ): Promise<QuestionCategory> {
-  await findQuestionCategoryById(id);
+  const category = await findQuestionCategoryById(id);
 
   if (input.parentCategoryId) {
     if (input.parentCategoryId === id) {
       throw new ValidationError('A category cannot be its own parent');
     }
-    await findQuestionCategoryById(input.parentCategoryId);
+    const parent = await findQuestionCategoryById(input.parentCategoryId);
+    if (parent.type !== category.type) {
+      throw new ValidationError('A category must have the same type as its parent category');
+    }
   }
 
   const updated = await questionBankRepository.updateQuestionCategory(id, input);
@@ -338,7 +345,10 @@ async function createQuestion(
   createdBy: string,
 ): Promise<QuestionWithCurrentVersion> {
   if (input.categoryId) {
-    await findQuestionCategoryById(input.categoryId);
+    const category = await findQuestionCategoryById(input.categoryId);
+    if (category.type !== input.type) {
+      throw new ValidationError('categoryId must reference a category of the same type');
+    }
   }
   // NULL collegeId = global bank by design (schema.sql's own comment on the
   // column) — only validate when a specific college is actually named.
@@ -381,10 +391,13 @@ async function updateQuestion(
   input: UpdateQuestionInput,
   updatedBy: string,
 ): Promise<Question> {
-  await findQuestionById(id);
+  const question = await findQuestionById(id);
 
   if (input.categoryId) {
-    await findQuestionCategoryById(input.categoryId);
+    const category = await findQuestionCategoryById(input.categoryId);
+    if (category.type !== question.type) {
+      throw new ValidationError('categoryId must reference a category of the same type');
+    }
   }
   if (input.collegeId) {
     await organizationService.findCollegeById(input.collegeId);

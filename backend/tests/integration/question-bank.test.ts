@@ -1,14 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { beginAmbientTestTransaction, type AmbientTestTransaction } from '../../src/db/client';
 import { questionBankService } from '../../src/modules/question-bank/question-bank.service';
-import {
-  createRegistry,
-  makeUser,
-  makeQuestionTopic,
-  makeApprovedQuestion,
-  cleanupRegistry,
-  setupWithCleanup,
-  type FixtureRegistry,
-} from './helpers';
+import { createRegistry, makeUser, makeQuestionTopic, makeApprovedQuestion, type FixtureRegistry } from './helpers';
 
 // Recreates the exact bug fixed this session in
 // questionBankService.resolveQuestionPool: two criteria in the SAME pool
@@ -29,81 +22,93 @@ import {
 // for a bare (difficulty='easy', type='mcq', collegeId=null) filter could
 // include any other approved global mcq/easy question already sitting in
 // the database from earlier work, making the test non-deterministic.
+//
+// Transactional isolation (first file migrated to this): everything below
+// runs inside one ambient transaction opened by beginAmbientTestTransaction
+// (db/client.ts) and rolled back in afterAll — never committed, success or
+// failure. `registry`/FixtureRegistry is still threaded through because
+// every make* helper's signature requires it, but it's never used for
+// cleanup here (no cleanupRegistry call) — the whole point of this
+// migration is that individual-row bookkeeping is now unnecessary: rollback
+// undoes everything this file did in one atomic step, including a fixture
+// that only got halfway built before a crash. See db/client.ts's own module
+// comment for the session-mode-pooling dependency this relies on.
 describe('question-bank resolveQuestionPool cross-criteria dedup', () => {
   const registry: FixtureRegistry = createRegistry();
+  let tx: AmbientTestTransaction;
   let poolId: string;
   let questionAId: string;
   let questionBId: string;
 
   beforeAll(async () => {
-    await setupWithCleanup(registry, async () => {
-      const staff = await makeUser(registry, 'staff');
-      const topic = await makeQuestionTopic(registry);
+    tx = await beginAmbientTestTransaction();
 
-      const questionA = await makeApprovedQuestion(
-        registry,
-        {
-          type: 'mcq',
-          difficulty: 'easy',
-          questionText: 'Dedup fixture question A',
-          marks: 1,
-          options: [
-            { optionText: 'Option 1', isCorrect: true, sortOrder: 0 },
-            { optionText: 'Option 2', isCorrect: false, sortOrder: 1 },
-          ],
-          topicIds: [topic.id],
-        },
-        staff.id,
-      );
-      questionAId = questionA.id;
+    const staff = await makeUser(registry, 'staff');
+    const topic = await makeQuestionTopic(registry);
 
-      const questionB = await makeApprovedQuestion(
-        registry,
-        {
-          type: 'mcq',
-          difficulty: 'easy',
-          questionText: 'Dedup fixture question B',
-          marks: 1,
-          options: [
-            { optionText: 'Option 1', isCorrect: false, sortOrder: 0 },
-            { optionText: 'Option 2', isCorrect: true, sortOrder: 1 },
-          ],
-          topicIds: [topic.id],
-        },
-        staff.id,
-      );
-      questionBId = questionB.id;
-
-      const pool = await questionBankService.createQuestionPool(
-        { name: `Dedup Test Pool ${Date.now()}`, type: 'mcq' },
-        staff.id,
-      );
-      registry.questionPoolIds.add(pool.id);
-      poolId = pool.id;
-
-      // Criterion A is created first (the pool's own listQuestionPoolCriteria
-      // ordering is ORDER BY created_at ASC — so this one resolves first) and
-      // alone requires as many questions as exist for this topic (2) — it
-      // will draw both of the only two eligible questions.
-      await questionBankService.createQuestionPoolCriteria(poolId, {
+    const questionA = await makeApprovedQuestion(
+      registry,
+      {
+        type: 'mcq',
         difficulty: 'easy',
-        topicId: topic.id,
-        countRequired: 2,
-      });
+        questionText: 'Dedup fixture question A',
+        marks: 1,
+        options: [
+          { optionText: 'Option 1', isCorrect: true, sortOrder: 0 },
+          { optionText: 'Option 2', isCorrect: false, sortOrder: 1 },
+        ],
+        topicIds: [topic.id],
+      },
+      staff.id,
+    );
+    questionAId = questionA.id;
 
-      // Criterion B is created second (resolves second) and targets the
-      // exact same difficulty + topic with no other distinguishing filter —
-      // its eligible set, prior to dedup, is IDENTICAL to criterion A's.
-      await questionBankService.createQuestionPoolCriteria(poolId, {
+    const questionB = await makeApprovedQuestion(
+      registry,
+      {
+        type: 'mcq',
         difficulty: 'easy',
-        topicId: topic.id,
-        countRequired: 1,
-      });
+        questionText: 'Dedup fixture question B',
+        marks: 1,
+        options: [
+          { optionText: 'Option 1', isCorrect: false, sortOrder: 0 },
+          { optionText: 'Option 2', isCorrect: true, sortOrder: 1 },
+        ],
+        topicIds: [topic.id],
+      },
+      staff.id,
+    );
+    questionBId = questionB.id;
+
+    const pool = await questionBankService.createQuestionPool(
+      { name: `Dedup Test Pool ${Date.now()}`, type: 'mcq' },
+      staff.id,
+    );
+    registry.questionPoolIds.add(pool.id);
+    poolId = pool.id;
+
+    // Criterion A is created first (the pool's own listQuestionPoolCriteria
+    // ordering is ORDER BY created_at ASC — so this one resolves first) and
+    // alone requires as many questions as exist for this topic (2) — it
+    // will draw both of the only two eligible questions.
+    await questionBankService.createQuestionPoolCriteria(poolId, {
+      difficulty: 'easy',
+      topicId: topic.id,
+      countRequired: 2,
+    });
+
+    // Criterion B is created second (resolves second) and targets the
+    // exact same difficulty + topic with no other distinguishing filter —
+    // its eligible set, prior to dedup, is IDENTICAL to criterion A's.
+    await questionBankService.createQuestionPoolCriteria(poolId, {
+      difficulty: 'easy',
+      topicId: topic.id,
+      countRequired: 1,
     });
   });
 
   afterAll(async () => {
-    await cleanupRegistry(registry);
+    await tx.rollback();
   });
 
   it('never selects the same question for two criteria in one resolution', async () => {

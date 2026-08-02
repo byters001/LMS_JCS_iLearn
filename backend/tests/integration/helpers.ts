@@ -209,9 +209,19 @@ export async function makeApprovedQuestion(
   return question;
 }
 
-export async function makeQuestionCategory(registry: FixtureRegistry) {
+// type is required — question_categories.type is now a NOT NULL column
+// (question_categories.type migration), matching createQuestionCategorySchema
+// exactly. No default: which type a test fixture needs is a real per-test
+// decision (an mcq-fixture category is meaningless for a coding-type test),
+// same "no silent default" discipline CreateQuestionCategoryInput itself
+// applies.
+export async function makeQuestionCategory(
+  registry: FixtureRegistry,
+  type: 'mcq' | 'coding' | 'psychometric',
+) {
   const category = await questionBankService.createQuestionCategory({
     name: `Test Category ${randomUUID().slice(0, 8)}`,
+    type,
   });
   registry.questionCategoryIds.add(category.id);
   return category;

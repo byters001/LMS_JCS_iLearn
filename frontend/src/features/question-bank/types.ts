@@ -188,9 +188,14 @@ export interface ListQuestionPoolsResponse {
 
 // --- Question categories / topics / tags (creation-form pickers) ---
 
+// type is required — a category is scoped to exactly one question type
+// (Aptitude/Coding/Psychometric-level groupings), matching the backend's
+// question_categories.type column (added alongside this phase's category
+// CRUD UI — previously this table had no type/kind field at all).
 export interface QuestionCategory {
   id: string
   name: string
+  type: QuestionType
   parentCategoryId: string | null
   createdAt: string
 }
@@ -198,6 +203,7 @@ export interface QuestionCategory {
 export interface ListQuestionCategoriesParams {
   page?: number
   pageSize?: number
+  type?: QuestionType
   parentCategoryId?: string
 }
 
@@ -206,6 +212,13 @@ export interface ListQuestionCategoriesResponse {
   total: number
   page: number
   pageSize: number
+}
+
+// Matches backend's createQuestionCategorySchema exactly (.strict()).
+export interface CreateQuestionCategoryInput {
+  name: string
+  type: QuestionType
+  parentCategoryId?: string
 }
 
 export interface QuestionTopic {
@@ -226,6 +239,12 @@ export interface ListQuestionTopicsResponse {
   total: number
   page: number
   pageSize: number
+}
+
+// Matches backend's createQuestionTopicSchema exactly (.strict()).
+export interface CreateQuestionTopicInput {
+  name: string
+  categoryId?: string
 }
 
 // question_tags has no createdAt column at all (checked against the real

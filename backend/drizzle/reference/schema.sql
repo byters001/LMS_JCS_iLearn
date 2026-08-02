@@ -313,6 +313,7 @@ CREATE INDEX idx_tst_trainer ON training_session_trainers(trainer_id);
 CREATE TABLE question_categories (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name                  TEXT NOT NULL,
+  type                  question_type_enum NOT NULL,
   parent_category_id    UUID REFERENCES question_categories(id) ON DELETE SET NULL,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );

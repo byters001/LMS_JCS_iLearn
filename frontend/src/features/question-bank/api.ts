@@ -6,7 +6,9 @@ import type {
   ApprovalActionInput,
   CreatePoolCriterionInput,
   CreatePoolInput,
+  CreateQuestionCategoryInput,
   CreateQuestionInput,
+  CreateQuestionTopicInput,
   CreateQuestionVersionInput,
   ListQuestionCategoriesParams,
   ListQuestionCategoriesResponse,
@@ -19,8 +21,10 @@ import type {
   ListQuestionTopicsParams,
   ListQuestionTopicsResponse,
   Question,
+  QuestionCategory,
   QuestionPool,
   QuestionPoolCriterion,
+  QuestionTopic,
   QuestionVersionContent,
   QuestionWithCurrentVersion,
   QuestionWithText,
@@ -198,11 +202,17 @@ function listTopics(params: ListQuestionTopicsParams): Promise<ListQuestionTopic
   return api.get<ListQuestionTopicsResponse>('/question-topics', { params })
 }
 
-export function useTopics(params: ListQuestionTopicsParams) {
+// `options.enabled` lets CreateQuestionPage skip fetching until a category
+// has actually been selected — topics are scoped to a category in that UI
+// (see listQuestionTopicsQuerySchema's real categoryId filter), so fetching
+// the unfiltered "all topics" list before then would be misleading, not just
+// wasted.
+export function useTopics(params: ListQuestionTopicsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['question-bank', 'topics', 'list', params],
     queryFn: () => listTopics(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 
@@ -215,6 +225,41 @@ export function useTags(params: ListQuestionTagsParams) {
     queryKey: ['question-bank', 'tags', 'list', params],
     queryFn: () => listTags(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+// --- Category / topic creation (inline "+ New Category"/"+ New Topic" on
+// CreateQuestionPage) — POST /question-categories and POST /question-topics
+// were already real, working backend endpoints (confirmed by reading
+// question-bank.routes.ts/.service.ts/.repository.ts directly before
+// building this), just never called from the frontend; there was no way to
+// create a category/topic anywhere in the app before this.
+
+function createCategory(input: CreateQuestionCategoryInput): Promise<QuestionCategory> {
+  return api.post<QuestionCategory>('/question-categories', input)
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'categories', 'list'] })
+    },
+  })
+}
+
+function createTopic(input: CreateQuestionTopicInput): Promise<QuestionTopic> {
+  return api.post<QuestionTopic>('/question-topics', input)
+}
+
+export function useCreateTopic() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createTopic,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'topics', 'list'] })
+    },
   })
 }
 

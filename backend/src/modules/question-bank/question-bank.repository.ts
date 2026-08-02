@@ -54,6 +54,7 @@ import type { ResolvedPoolQuestion, QuestionVersionWithContent } from './questio
 // ON DELETE SET NULL; nothing RESTRICTs the delete.
 
 export interface ListQuestionCategoriesParams {
+  type?: 'mcq' | 'coding' | 'psychometric';
   parentCategoryId?: string;
   page: number;
   pageSize: number;
@@ -67,11 +68,12 @@ export interface ListQuestionCategoriesResult {
 async function listQuestionCategories(
   params: ListQuestionCategoriesParams,
 ): Promise<ListQuestionCategoriesResult> {
-  const { parentCategoryId, page, pageSize } = params;
+  const { type, parentCategoryId, page, pageSize } = params;
   const offset = (page - 1) * pageSize;
-  const where = parentCategoryId
-    ? eq(questionCategories.parentCategoryId, parentCategoryId)
-    : undefined;
+  const conditions = [];
+  if (type) conditions.push(eq(questionCategories.type, type));
+  if (parentCategoryId) conditions.push(eq(questionCategories.parentCategoryId, parentCategoryId));
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [items, totalRows] = await Promise.all([
     db
@@ -98,6 +100,7 @@ async function findQuestionCategoryById(id: string): Promise<QuestionCategory | 
 
 export interface CreateQuestionCategoryData {
   name: string;
+  type: 'mcq' | 'coding' | 'psychometric';
   parentCategoryId?: string | null;
 }
 

@@ -14,18 +14,30 @@ const paginationFields = {
 
 export const listQuestionCategoriesQuerySchema = z
   .object({
+    type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
     parentCategoryId: z.string().uuid('parentCategoryId must be a valid UUID').optional(),
     ...paginationFields,
   })
   .strict();
 
+// type is required — a category is scoped to exactly one question type
+// (Aptitude/Coding/Psychometric-level groupings), matching questions.type/
+// question_pools.type's own required-not-optional treatment. See
+// question-bank.service.ts's createQuestionCategory for the parent-type-match
+// guard this enables (a child category can't belong to a different type than
+// its parent).
 export const createQuestionCategorySchema = z
   .object({
     name: z.string().min(1, 'name is required'),
+    type: z.enum(['mcq', 'coding', 'psychometric']),
     parentCategoryId: z.string().uuid('parentCategoryId must be a valid UUID').optional(),
   })
   .strict();
 
+// type deliberately excluded from the update surface — same reasoning as
+// updateQuestionSchema/updateQuestionPoolSchema excluding `type`: changing a
+// category's type after questions/topics already reference it would silently
+// mismatch that existing content against the new type.
 export const updateQuestionCategorySchema = z
   .object({
     name: z.string().min(1).optional(),
