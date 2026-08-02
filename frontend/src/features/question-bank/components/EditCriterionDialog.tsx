@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useTags, useTopics, useUpdateCriterion } from '../api'
-import type { QuestionDifficulty, QuestionPoolCriterion } from '../types'
+import type { QuestionDifficulty, QuestionPoolCriterion, QuestionType } from '../types'
 import { TagFilterChips } from './TagFilterChips'
 
 const PICKER_PAGE_SIZE = 100
@@ -45,6 +45,7 @@ type EditCriterionFormValues = z.infer<typeof editCriterionFormSchema>
 
 interface EditCriterionDialogProps {
   poolId: string
+  poolType: QuestionType
   criterion: QuestionPoolCriterion
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -57,12 +58,15 @@ interface EditCriterionDialogProps {
 // just via a different FK shape.
 export function EditCriterionDialog({
   poolId,
+  poolType,
   criterion,
   open,
   onOpenChange,
 }: EditCriterionDialogProps) {
   const updateCriterion = useUpdateCriterion(poolId)
-  const topics = useTopics({ page: 1, pageSize: PICKER_PAGE_SIZE })
+  // Type-scoped to the pool's own type — same reasoning as
+  // PoolDetailPage.tsx's AddCriterionForm.
+  const topics = useTopics({ type: poolType, page: 1, pageSize: PICKER_PAGE_SIZE })
   const tags = useTags({ page: 1, pageSize: PICKER_PAGE_SIZE })
 
   const { handleSubmit, register, setValue, watch, reset } = useForm<EditCriterionFormValues>({

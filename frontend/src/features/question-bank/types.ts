@@ -233,6 +233,11 @@ export interface ListQuestionTopicsParams {
   page?: number
   pageSize?: number
   categoryId?: string
+  // Topics have no type of their own — filters via the topic's own
+  // category being of this type (question_categories.type). See
+  // listQuestionTopicsQuerySchema's own comment for why this exists
+  // alongside categoryId rather than requiring one.
+  type?: QuestionType
 }
 
 export interface ListQuestionTopicsResponse {

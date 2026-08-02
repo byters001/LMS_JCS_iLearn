@@ -129,6 +129,7 @@ async function listQuestionTopics(
 ): Promise<ListQuestionTopicsResult> {
   const { items, total } = await questionBankRepository.listQuestionTopics({
     categoryId: query.categoryId,
+    type: query.type,
     page: query.page,
     pageSize: query.pageSize,
   });

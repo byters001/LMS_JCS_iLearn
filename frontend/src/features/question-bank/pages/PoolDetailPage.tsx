@@ -20,7 +20,7 @@ import { DeletePoolDialog } from '../components/DeletePoolDialog'
 import { EditCriterionDialog } from '../components/EditCriterionDialog'
 import { EditPoolDialog } from '../components/EditPoolDialog'
 import { TagFilterChips } from '../components/TagFilterChips'
-import type { QuestionDifficulty, QuestionPoolCriterion } from '../types'
+import type { QuestionDifficulty, QuestionPoolCriterion, QuestionType } from '../types'
 
 const inputClassName =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
@@ -65,9 +65,13 @@ const addCriterionFormSchema = z.object({
 
 type AddCriterionFormValues = z.infer<typeof addCriterionFormSchema>
 
-function AddCriterionForm({ poolId }: { poolId: string }) {
+function AddCriterionForm({ poolId, poolType }: { poolId: string; poolType: QuestionType }) {
   const addCriterion = useAddCriterion(poolId)
-  const topics = useTopics({ page: 1, pageSize: PICKER_PAGE_SIZE })
+  // Type-scoped to the pool's own type — same reused topic-scoping logic as
+  // CreateQuestionPage/AttachQuestionForm, just keyed off the pool's fixed
+  // type instead of a form field, since criteria have no category-selection
+  // step of their own to scope through.
+  const topics = useTopics({ type: poolType, page: 1, pageSize: PICKER_PAGE_SIZE })
   const tags = useTags({ page: 1, pageSize: PICKER_PAGE_SIZE })
 
   const {
@@ -346,7 +350,7 @@ export default function PoolDetailPage() {
         <div className="mt-6 border-t border-border pt-6">
           <h3 className="text-sm font-semibold text-brand-primary">Add Criterion</h3>
           <div className="mt-3">
-            <AddCriterionForm poolId={pool.data.id} />
+            <AddCriterionForm poolId={pool.data.id} poolType={pool.data.type} />
           </div>
         </div>
       </div>
@@ -469,6 +473,7 @@ export default function PoolDetailPage() {
       {editingCriterion && (
         <EditCriterionDialog
           poolId={pool.data.id}
+          poolType={pool.data.type}
           criterion={editingCriterion}
           open={Boolean(editingCriterion)}
           onOpenChange={(open) => {

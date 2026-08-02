@@ -142,6 +142,7 @@ async function deleteQuestionCategory(id: string): Promise<boolean> {
 
 export interface ListQuestionTopicsParams {
   categoryId?: string;
+  type?: 'mcq' | 'coding' | 'psychometric';
   page: number;
   pageSize: number;
 }
@@ -154,9 +155,29 @@ export interface ListQuestionTopicsResult {
 async function listQuestionTopics(
   params: ListQuestionTopicsParams,
 ): Promise<ListQuestionTopicsResult> {
-  const { categoryId, page, pageSize } = params;
+  const { categoryId, type, page, pageSize } = params;
   const offset = (page - 1) * pageSize;
-  const where = categoryId ? eq(questionTopics.categoryId, categoryId) : undefined;
+  const conditions = [];
+  if (categoryId) conditions.push(eq(questionTopics.categoryId, categoryId));
+  // Topics have no type of their own — matches via the topic's own
+  // categoryId pointing at a category of this type (see this param's own
+  // comment in question-bank.schema.ts).
+  if (type) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(questionCategories)
+          .where(
+            and(
+              eq(questionCategories.id, questionTopics.categoryId),
+              eq(questionCategories.type, type),
+            ),
+          ),
+      ),
+    );
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [items, totalRows] = await Promise.all([
     db

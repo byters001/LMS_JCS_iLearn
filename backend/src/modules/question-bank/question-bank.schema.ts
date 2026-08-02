@@ -63,6 +63,15 @@ export const questionCategoryIdParamsSchema = z
 export const listQuestionTopicsQuerySchema = z
   .object({
     categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    // Topics have no type column of their own — only their parent category
+    // does (question_categories.type). This filters via the topic's own
+    // categoryId pointing at a category of this type, same EXISTS shape
+    // question-bank.repository.ts's buildQuestionsWhere uses for topicId.
+    // Lets a pool-criteria topic picker scope to the pool's own type (mcq/
+    // coding/psychometric) without requiring a categoryId to already be
+    // chosen first — pool criteria have no category-selection step, unlike
+    // CreateQuestionPage's category-then-topic flow.
+    type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
     ...paginationFields,
   })
   .strict();
