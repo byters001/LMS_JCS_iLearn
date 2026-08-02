@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { spreadsheetFileToRows, csvTextToXlsxBlob, triggerBlobDownload } from '@/lib/spreadsheet'
-import { fetchAllQuestionsForDuplicateCheck, useCategories, useTopics } from '../api'
-import type { QuestionCategory, QuestionDifficulty, QuestionTopic } from '../types'
+import { fetchAllQuestionsForDuplicateCheck, useCategories, useCreateQuestion, useTopics } from '../api'
+import type { CreateQuestionInput, QuestionCategory, QuestionDifficulty, QuestionTopic } from '../types'
 
 const PICKER_PAGE_SIZE = 100
 
@@ -142,13 +143,23 @@ async function downloadExcelTemplate(type: ImportType) {
 
 // --- Parsing ---------------------------------------------------------------
 
+type ImportStatus = 'idle' | 'importing' | 'success' | 'error'
+
 interface ParsedRow {
   rowNumber: number
   fields: Record<string, string>
   errors: string[]
+  // Resolved once at parse time (not re-resolved at import time) — what
+  // you previewed is exactly what gets sent on import, via the same
+  // category/topic snapshot the preview validated against.
+  categoryId: string | undefined
+  topicId: string | undefined
   isDuplicate: boolean
   duplicateMatchText: string | null
   includeDespiteDuplicate: boolean
+  importStatus: ImportStatus
+  importError: string | null
+  createdQuestionId: string | null
 }
 
 function findHeaderIndex(headerRow: string[], column: ColumnDef): number {
@@ -161,6 +172,11 @@ interface LookupData {
   topics: QuestionTopic[]
 }
 
+type BaseParsedRow = Pick<
+  ParsedRow,
+  'rowNumber' | 'fields' | 'errors' | 'categoryId' | 'topicId'
+>
+
 // Returns either the parsed rows, or a page-level error if a REQUIRED
 // column's header couldn't be found at all (nothing to validate row-by-row
 // in that case — the sheet doesn't match this type's template).
@@ -168,7 +184,7 @@ function parseSheet(
   sheetRows: string[][],
   type: ImportType,
   lookup: LookupData,
-): { rows: Omit<ParsedRow, 'isDuplicate' | 'duplicateMatchText' | 'includeDespiteDuplicate'>[] } | { headerError: string } {
+): { rows: BaseParsedRow[] } | { headerError: string } {
   const columns = columnsFor(type)
   if (sheetRows.length === 0) return { headerError: 'The file has no rows.' }
 
@@ -184,7 +200,7 @@ function parseSheet(
     indexByKey.set(column.key, index)
   }
 
-  const rows: Omit<ParsedRow, 'isDuplicate' | 'duplicateMatchText' | 'includeDespiteDuplicate'>[] = []
+  const rows: BaseParsedRow[] = []
   for (let i = 1; i < sheetRows.length; i++) {
     const sheetRow = sheetRows[i] ?? []
     if (sheetRow.every((cell) => !cell || !cell.toString().trim())) continue // blank row
@@ -195,7 +211,8 @@ function parseSheet(
       fields[column.key] = index === -1 ? '' : (sheetRow[index] ?? '').toString().trim()
     }
 
-    rows.push({ rowNumber: i + 1, fields, errors: validateRow(type, fields, lookup) })
+    const { errors, categoryId, topicId } = validateRow(type, fields, lookup)
+    rows.push({ rowNumber: i + 1, fields, errors, categoryId, topicId })
   }
   return { rows }
 }
@@ -208,11 +225,19 @@ function findByName<T extends { name: string }>(items: T[], name: string): T | u
   return items.find((item) => item.name.trim().toLowerCase() === target)
 }
 
+interface RowValidationResult {
+  errors: string[]
+  categoryId: string | undefined
+  topicId: string | undefined
+}
+
 // Shared across both types — category/topic/difficulty/questionText/marks
 // are identical fields with identical rules regardless of type. `lookup`
 // carries the real, already-fetched (type-scoped) categories/topics this
-// row's category/topic names get resolved against.
-function validateBaseFields(fields: Record<string, string>, lookup: LookupData): string[] {
+// row's category/topic names get resolved against. Returns the resolved
+// ids alongside errors — buildCreateQuestionInput (below) uses these
+// directly at import time rather than re-resolving names a second time.
+function validateBaseFields(fields: Record<string, string>, lookup: LookupData): RowValidationResult {
   const errors: string[] = []
 
   let category: QuestionCategory | undefined
@@ -222,11 +247,14 @@ function validateBaseFields(fields: Record<string, string>, lookup: LookupData):
     if (!category) errors.push(`Category "${fields.category}" not found`)
   }
 
+  let topicId: string | undefined
   if (fields.topic) {
     const topic = findByName(lookup.topics, fields.topic)
     if (!topic) errors.push(`Topic "${fields.topic}" not found`)
     else if (category && topic.categoryId !== category.id) {
       errors.push(`Topic "${fields.topic}" does not belong to category "${fields.category}"`)
+    } else {
+      topicId = topic.id
     }
   }
 
@@ -242,7 +270,7 @@ function validateBaseFields(fields: Record<string, string>, lookup: LookupData):
     errors.push('Marks must be a positive number')
   }
 
-  return errors
+  return { errors, categoryId: category?.id, topicId }
 }
 
 // Mirrors QuestionContentFields.tsx's applyQuestionContentRefinements
@@ -251,41 +279,125 @@ function validateBaseFields(fields: Record<string, string>, lookup: LookupData):
 // on top of the backend's genuinely permissive schema, applied identically
 // here so a bulk-imported MCQ can't end up in a state the single-question
 // form would never have allowed.
-function validateMcqRow(fields: Record<string, string>, lookup: LookupData): string[] {
-  const errors = validateBaseFields(fields, lookup)
+function validateMcqRow(fields: Record<string, string>, lookup: LookupData): RowValidationResult {
+  const result = validateBaseFields(fields, lookup)
   const options = [fields.option1, fields.option2, fields.option3, fields.option4]
   const filledCount = options.filter((o) => o.trim().length > 0).length
-  if (filledCount < 2) errors.push('At least 2 options are required')
+  if (filledCount < 2) result.errors.push('At least 2 options are required')
 
   if (!fields.correctOption) {
-    errors.push('Correct option is required')
+    result.errors.push('Correct option is required')
   } else {
     const correctIndex = Number.parseInt(fields.correctOption, 10)
     if (!Number.isInteger(correctIndex) || correctIndex < 1 || correctIndex > 4) {
-      errors.push('Correct option must be 1-4')
+      result.errors.push('Correct option must be 1-4')
     } else if (!options[correctIndex - 1]?.trim()) {
-      errors.push(`Correct option ${correctIndex} refers to an empty option`)
+      result.errors.push(`Correct option ${correctIndex} refers to an empty option`)
     }
   }
-  return errors
+  return result
 }
 
 // scaleType/traitCategory are both optional — see this file's own comment
 // on PSYCHOMETRIC_COLUMNS for why there's no options requirement here.
-function validatePsychometricRow(fields: Record<string, string>, lookup: LookupData): string[] {
-  const errors = validateBaseFields(fields, lookup)
+function validatePsychometricRow(
+  fields: Record<string, string>,
+  lookup: LookupData,
+): RowValidationResult {
+  const result = validateBaseFields(fields, lookup)
   if (fields.scaleType && !SCALE_TYPE_VALUES.includes(fields.scaleType.toLowerCase())) {
-    errors.push('Scale type must be likert or scenario')
+    result.errors.push('Scale type must be likert or scenario')
   }
-  return errors
+  return result
 }
 
-function validateRow(type: ImportType, fields: Record<string, string>, lookup: LookupData): string[] {
+function validateRow(
+  type: ImportType,
+  fields: Record<string, string>,
+  lookup: LookupData,
+): RowValidationResult {
   return type === 'mcq' ? validateMcqRow(fields, lookup) : validatePsychometricRow(fields, lookup)
 }
 
 function normalizeQuestionText(text: string): string {
   return text.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+// --- Import (Phase 4b) ------------------------------------------------
+//
+// Failure model: N individual POST /questions calls (reusing
+// useCreateQuestion/createQuestionSchema exactly as CreateQuestionPage.tsx
+// does), not a new bulk-create endpoint — and NOT atomic. A real bulk
+// endpoint would mean either one new schema/service/route to duplicate
+// what createQuestion already does per-row, or an all-or-nothing
+// transaction wrapping N inserts — and all-or-nothing is the wrong model
+// for THIS operation specifically: if row 47 of 50 fails (e.g. its
+// category was deleted in the gap between preview and import — a real,
+// not hypothetical, race this app allows since category delete has no
+// dependency check today), a trainer bulk-importing 50 questions wants the
+// other 49 saved, not an entire re-submission. Partial success, reported
+// per row, is the correct failure model for a bulk import, not a
+// limitation to work around.
+//
+// Concurrency is bounded, not Promise.all-everything-at-once:
+// db/client.ts's own comment documents this Supabase project's pooler
+// running in SESSION mode with a hard 15-connection cap project-wide, and
+// each createQuestion call itself opens a db.transaction() (question +
+// version, atomically) — firing dozens of these simultaneously from one
+// browser tab would needlessly compete for that same limited pool
+// alongside the dev server and anything else connected. 3 concurrent
+// requests is a deliberately conservative default given that cap.
+const IMPORT_CONCURRENCY = 3
+
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let nextIndex = 0
+  async function runNext(): Promise<void> {
+    const currentIndex = nextIndex++
+    if (currentIndex >= items.length) return
+    await worker(items[currentIndex]!)
+    return runNext()
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => runNext()))
+}
+
+// Builds the exact same CreateQuestionInput shape CreateQuestionPage.tsx's
+// own onSubmit builds — categoryId/topicId already resolved at parse time
+// (see validateBaseFields), not re-resolved here.
+function buildCreateQuestionInput(type: ImportType, row: ParsedRow): CreateQuestionInput {
+  const base = {
+    categoryId: row.categoryId,
+    difficulty: row.fields.difficulty.toLowerCase() as QuestionDifficulty,
+    questionText: row.fields.questionText,
+    marks: row.fields.marks ? Number.parseFloat(row.fields.marks) : undefined,
+    topicIds: row.topicId ? [row.topicId] : undefined,
+  }
+
+  if (type === 'mcq') {
+    const correctIndex = Number.parseInt(row.fields.correctOption, 10)
+    const options = [row.fields.option1, row.fields.option2, row.fields.option3, row.fields.option4]
+      .map((optionText, index) => ({ optionText, index }))
+      .filter(({ optionText }) => optionText.trim().length > 0)
+      .map(({ optionText, index }) => ({
+        optionText,
+        isCorrect: index === correctIndex - 1,
+        sortOrder: index,
+      }))
+    return { ...base, type: 'mcq', options }
+  }
+
+  const traitCategory = row.fields.traitCategory || undefined
+  const scaleType = row.fields.scaleType
+    ? (row.fields.scaleType.toLowerCase() as 'likert' | 'scenario')
+    : undefined
+  return {
+    ...base,
+    type: 'psychometric',
+    psychometricDetails: traitCategory || scaleType ? { traitCategory, scaleType } : undefined,
+  }
 }
 
 // --- Component ---------------------------------------------------------
@@ -297,9 +409,12 @@ export default function BulkImportPage() {
   const [headerError, setHeaderError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingError, setProcessingError] = useState<string | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importSummary, setImportSummary] = useState<{ created: number; failed: number } | null>(null)
 
   const categories = useCategories({ type: importType, page: 1, pageSize: PICKER_PAGE_SIZE })
   const topics = useTopics({ type: importType, page: 1, pageSize: PICKER_PAGE_SIZE })
+  const createQuestion = useCreateQuestion()
 
   const columns = columnsFor(importType)
 
@@ -308,6 +423,8 @@ export default function BulkImportPage() {
     setRows([])
     setHeaderError(null)
     setProcessingError(null)
+    setIsImporting(false)
+    setImportSummary(null)
   }
 
   function handleTypeChange(type: ImportType) {
@@ -361,6 +478,9 @@ export default function BulkImportPage() {
           // Safer default — flagged duplicates start EXCLUDED, importer
           // has to actively opt back in per row.
           includeDespiteDuplicate: false,
+          importStatus: 'idle',
+          importError: null,
+          createdQuestionId: null,
         }
       })
 
@@ -387,6 +507,55 @@ export default function BulkImportPage() {
   const includedRows = validRows.filter((row) => !row.isDuplicate || row.includeDespiteDuplicate)
   const excludedDuplicateCount = validRows.length - includedRows.length
 
+  // Each row is its own POST /questions call (see this file's own "Import
+  // (Phase 4b)" comment for the full failure-model reasoning) — bounded
+  // concurrency, partial success, per-row result reported individually. A
+  // row can still fail here even though it passed preview validation (its
+  // category could have been deleted in the gap between preview and
+  // import, for instance) — that failure is shown on the row itself, not
+  // swallowed into a generic page-level error.
+  async function handleImport() {
+    setIsImporting(true)
+    setImportSummary(null)
+
+    const rowNumbersToImport = new Set(includedRows.map((row) => row.rowNumber))
+    setRows((current) =>
+      current.map((row) =>
+        rowNumbersToImport.has(row.rowNumber) ? { ...row, importStatus: 'importing' } : row,
+      ),
+    )
+
+    let created = 0
+    let failed = 0
+
+    await runWithConcurrency(includedRows, IMPORT_CONCURRENCY, async (row) => {
+      try {
+        const payload = buildCreateQuestionInput(importType, row)
+        const result = await createQuestion.mutateAsync(payload)
+        created += 1
+        setRows((current) =>
+          current.map((r) =>
+            r.rowNumber === row.rowNumber
+              ? { ...r, importStatus: 'success', createdQuestionId: result.id }
+              : r,
+          ),
+        )
+      } catch (error) {
+        failed += 1
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to create this question.'
+        setRows((current) =>
+          current.map((r) =>
+            r.rowNumber === row.rowNumber ? { ...r, importStatus: 'error', importError: message } : r,
+          ),
+        )
+      }
+    })
+
+    setImportSummary({ created, failed })
+    setIsImporting(false)
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-6">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
@@ -398,8 +567,7 @@ export default function BulkImportPage() {
           Bulk Import Questions
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Download a template, fill it in, upload it back here to preview and validate. This step
-          only previews — nothing is saved to the question bank yet.
+          Download a template, fill it in, upload it back here to preview, validate, and import.
         </p>
 
         <div className="mt-6 space-y-1.5">
@@ -408,7 +576,8 @@ export default function BulkImportPage() {
           </label>
           <select
             id="importType"
-            className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            disabled={isImporting}
+            className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent disabled:opacity-50"
             value={importType}
             onChange={(event) => handleTypeChange(event.target.value as ImportType)}
           >
@@ -445,7 +614,7 @@ export default function BulkImportPage() {
           />
           <Button
             type="button"
-            disabled={isProcessing || categories.isPending || topics.isPending}
+            disabled={isProcessing || isImporting || categories.isPending || topics.isPending}
             onClick={() => document.getElementById('bulkImportFile')?.click()}
           >
             {isProcessing ? 'Reading file…' : 'Choose CSV or Excel file…'}
@@ -506,12 +675,31 @@ export default function BulkImportPage() {
                           </td>
                         ))}
                         <td className="px-3 py-2">
-                          {row.errors.length > 0 ? (
+                          {row.importStatus === 'importing' ? (
+                            <span className="text-xs text-muted-foreground">Importing…</span>
+                          ) : row.importStatus === 'success' ? (
+                            <span className="flex items-center gap-2 text-xs text-brand-accent">
+                              Created
+                              {row.createdQuestionId && (
+                                <Link
+                                  to={`../${row.createdQuestionId}`}
+                                  className="underline hover:no-underline"
+                                >
+                                  View
+                                </Link>
+                              )}
+                            </span>
+                          ) : row.importStatus === 'error' ? (
+                            <span className="text-xs text-destructive">
+                              Import failed: {row.importError}
+                            </span>
+                          ) : row.errors.length > 0 ? (
                             <span className="text-xs text-destructive">{row.errors.join('; ')}</span>
                           ) : row.isDuplicate ? (
                             <label className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
                               <input
                                 type="checkbox"
+                                disabled={isImporting || importSummary !== null}
                                 checked={row.includeDespiteDuplicate}
                                 onChange={() => toggleIncludeDuplicate(row.rowNumber)}
                               />
@@ -536,16 +724,36 @@ export default function BulkImportPage() {
           )}
 
           <div className="mt-4 flex items-center gap-3 border-t border-border pt-4">
-            <Button
-              type="button"
-              disabled
-              title="Phase 4b will wire this up — nothing is saved to the database in this phase."
-            >
-              Import {includedRows.length} Question{includedRows.length === 1 ? '' : 's'}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              Not wired up yet — preview and validation only (Phase 4a).
-            </span>
+            {importSummary ? (
+              <>
+                <p className="text-sm text-brand-primary">
+                  {importSummary.created} question{importSummary.created === 1 ? '' : 's'} created
+                  {importSummary.failed > 0 && (
+                    <span className="text-destructive">
+                      {' '}
+                      · {importSummary.failed} failed — see the flagged row
+                      {importSummary.failed === 1 ? '' : 's'} above for why.
+                    </span>
+                  )}
+                </p>
+                <Link to=".." className="text-sm text-brand-accent hover:underline">
+                  View in question bank
+                </Link>
+                <Button type="button" variant="outline" size="sm" onClick={reset}>
+                  Start Over
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                disabled={includedRows.length === 0 || isImporting || Boolean(headerError)}
+                onClick={() => void handleImport()}
+              >
+                {isImporting
+                  ? 'Importing…'
+                  : `Import ${includedRows.length} Question${includedRows.length === 1 ? '' : 's'}`}
+              </Button>
+            )}
           </div>
         </div>
       )}
