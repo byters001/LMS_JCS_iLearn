@@ -37,6 +37,7 @@ export interface ListQuestionsParams {
   page?: number
   pageSize?: number
   categoryId?: string
+  topicId?: string
   type?: QuestionType
   difficulty?: QuestionDifficulty
   collegeId?: string

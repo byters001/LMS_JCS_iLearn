@@ -280,6 +280,7 @@ async function listQuestions(
 
   const { items, total } = await questionBankRepository.listQuestions({
     categoryId: query.categoryId,
+    topicId: query.topicId,
     type: query.type,
     difficulty: query.difficulty,
     collegeId: query.collegeId,

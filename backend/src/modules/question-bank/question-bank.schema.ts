@@ -206,6 +206,11 @@ const psychometricOptionInputSchema = z
 export const listQuestionsQuerySchema = z
   .object({
     categoryId: z.string().uuid('categoryId must be a valid UUID').optional(),
+    // Filters via question_topic_map (question-level, not version-level —
+    // see question-bank.repository.ts's buildQuestionsWhere for the EXISTS
+    // this maps to, same join shape resolvePoolCriterion's own topicId
+    // filter already established).
+    topicId: z.string().uuid('topicId must be a valid UUID').optional(),
     type: z.enum(['mcq', 'coding', 'psychometric']).optional(),
     difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
     collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),

@@ -284,6 +284,7 @@ async function deleteQuestionTag(id: string): Promise<boolean> {
 
 export interface ListQuestionsParams {
   categoryId?: string;
+  topicId?: string;
   type?: 'mcq' | 'coding' | 'psychometric';
   difficulty?: 'easy' | 'medium' | 'hard';
   collegeId?: string;
@@ -331,6 +332,24 @@ const QUESTIONS_COLUMNS = {
 function buildQuestionsWhere(params: Omit<ListQuestionsParams, 'page' | 'pageSize'>) {
   const conditions = [isNull(questions.deletedAt)];
   if (params.categoryId) conditions.push(eq(questions.categoryId, params.categoryId));
+  // Same EXISTS-against-question_topic_map shape as this file's own
+  // resolvePoolCriterion topicId filter (question_topic_map is question-
+  // level, not version-level — see question-bank.schema.ts's own comment).
+  if (params.topicId) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(questionTopicMap)
+          .where(
+            and(
+              eq(questionTopicMap.questionId, questions.id),
+              eq(questionTopicMap.topicId, params.topicId),
+            ),
+          ),
+      ),
+    );
+  }
   if (params.type) conditions.push(eq(questions.type, params.type));
   if (params.difficulty) conditions.push(eq(questions.difficulty, params.difficulty));
   if (params.collegeId) conditions.push(eq(questions.collegeId, params.collegeId));
