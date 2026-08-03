@@ -4,6 +4,7 @@ import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { analyticsService } from './analytics.service';
 import type {
   BatchIdParams,
+  CollegeIdQuery,
   ExportBatchPerformanceQuery,
   GetBatchPerformanceQuery,
 } from './analytics.schema';
@@ -81,9 +82,44 @@ async function exportBatchSummaryCsv(
     .send(csv);
 }
 
+// --- Super Admin platform analytics ---
+
+async function getPlatformOverview(
+  request: FastifyRequest<{ Querystring: CollegeIdQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getPlatformOverview(request.query.collegeId, userId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function getCollegePerformance(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getCollegePerformance(userId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function getCategoryImprovement(
+  request: FastifyRequest<{ Querystring: CollegeIdQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getCategoryImprovement(request.query.collegeId, userId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const analyticsController = {
   getBatchPerformance,
   getBatchAssessmentParticipation,
   exportBatchPerformanceCsv,
   exportBatchSummaryCsv,
+  getPlatformOverview,
+  getCollegePerformance,
+  getCategoryImprovement,
 };

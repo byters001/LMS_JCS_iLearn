@@ -1,21 +1,23 @@
-import { Building2 } from 'lucide-react'
+import { BookOpen, Building2, ChevronDown, MoreVertical, Users } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError } from '@/api'
+import { getInitials } from '@/components/UserAvatarMenu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useColleges } from '../api'
+import { cn } from '@/lib/utils'
+import { useStudentCountsByCollege } from '@/features/students/api'
+import { useBatchCountsByCollege, useColleges } from '../api'
 import { CollegeFormDialog } from '../components/CollegeFormDialog'
 import { DeleteCollegeDialog } from '../components/DeleteCollegeDialog'
 import { TrainingProgramFormDialog } from '../components/TrainingProgramFormDialog'
@@ -36,7 +38,128 @@ const STATUS_STYLES: Record<CollegeStatus, string> = {
 }
 
 function StatusBadge({ status }: { status: CollegeStatus }) {
-  return <Badge className={STATUS_STYLES[status]}>{status}</Badge>
+  return <Badge className={cn('shrink-0', STATUS_STYLES[status])}>{status}</Badge>
+}
+
+// Card-based replacement for the old table row — same data, same three
+// mutations (Edit/New Program/Delete), just laid out like BatchCard.tsx's
+// grid card (avatar-initial badge, stat pair, ChevronDown expand + kebab
+// menu) rather than a table row, since that's the one "card with actions"
+// shape already proven out in this codebase rather than inventing a second
+// one. New Program/Delete move into the kebab menu (BatchCard's own
+// menuItems precedent) so the two buttons that stay on the card face —
+// View/Edit — are the two a reader reaches for most.
+function CollegeCard({
+  college,
+  studentCount,
+  batchCount,
+  isExpanded,
+  onToggleExpand,
+  onEdit,
+  onNewProgram,
+  onDelete,
+}: {
+  college: College
+  studentCount: number | undefined
+  batchCount: number | undefined
+  isExpanded: boolean
+  onToggleExpand: () => void
+  onEdit: () => void
+  onNewProgram: () => void
+  onDelete: () => void
+}) {
+  return (
+    <Card className="gap-3 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-white">
+            {getInitials(college.name)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-heading font-medium text-brand-primary">{college.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{college.code}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <StatusBadge status={college.status} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`More actions for ${college.name}`}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-brand-primary"
+              >
+                <MoreVertical className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onNewProgram}>New Program</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-2.5">
+        <div className="flex items-center gap-2">
+          <Users className="size-4 shrink-0 text-brand-primary" />
+          <div className="min-w-0">
+            <p className="font-heading text-sm leading-tight font-semibold text-foreground">
+              {studentCount === undefined ? (
+                <span className="inline-block h-4 w-6 animate-pulse rounded bg-muted align-middle" />
+              ) : (
+                studentCount
+              )}
+            </p>
+            <p className="text-[11px] leading-tight text-muted-foreground">students</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <BookOpen className="size-4 shrink-0 text-brand-accent" />
+          <div className="min-w-0">
+            <p className="font-heading text-sm leading-tight font-semibold text-foreground">
+              {batchCount === undefined ? (
+                <span className="inline-block h-4 w-6 animate-pulse rounded bg-muted align-middle" />
+              ) : (
+                batchCount
+              )}
+            </p>
+            <p className="text-[11px] leading-tight text-muted-foreground">batches</p>
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+          <p className="truncate">
+            Contact: {college.contactEmail ?? '—'}
+            {college.contactPhone ? ` · ${college.contactPhone}` : ''}
+          </p>
+          <p className="truncate">Address: {college.address ?? '—'}</p>
+          <p>
+            Contract: {college.contractStartDate ?? '—'} &rarr; {college.contractEndDate ?? '—'}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-auto flex gap-2 border-t border-border pt-3">
+        <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onToggleExpand}>
+          <ChevronDown className={cn('size-4 transition-transform', isExpanded && 'rotate-180')} />
+          View
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+          onClick={onEdit}
+        >
+          Edit
+        </Button>
+      </div>
+    </Card>
+  )
 }
 
 // Item 10 tier 1 — Colleges/Departments had ZERO frontend surface before
@@ -54,8 +177,12 @@ export default function CollegeListPage() {
   const [formCollege, setFormCollege] = useState<College | null | undefined>(undefined)
   const [deleteCollege, setDeleteCollege] = useState<College | null>(null)
   const [programCollege, setProgramCollege] = useState<College | null>(null)
+  const [expandedCollegeId, setExpandedCollegeId] = useState<string | null>(null)
 
   const colleges = useColleges({ page, pageSize: PAGE_SIZE })
+  const collegeItems = colleges.data?.items ?? []
+  const { countsByCollegeId } = useStudentCountsByCollege(collegeItems.map((college) => college.id))
+  const { batchCountsByCollegeId } = useBatchCountsByCollege(collegeItems.map((college) => college.id))
 
   const totalPages = colleges.data
     ? Math.max(1, Math.ceil(colleges.data.total / colleges.data.pageSize))
@@ -98,9 +225,13 @@ export default function CollegeListPage() {
           </div>
 
           {colleges.isPending && (
-            <div className="space-y-2" role="status" aria-label="Loading colleges">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
+            <div
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              role="status"
+              aria-label="Loading colleges"
+            >
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />
               ))}
             </div>
           )}
@@ -113,72 +244,31 @@ export default function CollegeListPage() {
             </div>
           )}
 
-          {colleges.data && (
-            <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead className="pl-4">Name</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="pr-4 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {colleges.data.items.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="p-4">
-                        <EmptyState icon={Building2} message="No colleges found yet." />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    colleges.data.items.map((college) => (
-                      <TableRow key={college.id} className="hover:bg-muted/30">
-                        <TableCell className="pl-4 font-medium text-brand-primary">
-                          {college.name}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{college.code}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {college.contactEmail ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={college.status} />
-                        </TableCell>
-                        <TableCell className="pr-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-                              onClick={() => setProgramCollege(college)}
-                            >
-                              New Program
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setFormCollege(college)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-destructive text-destructive hover:bg-destructive/5"
-                              onClick={() => setDeleteCollege(college)}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+          {colleges.data && collegeItems.length === 0 && (
+            <EmptyState icon={Building2} message="No colleges found yet." />
+          )}
 
-              <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+          {colleges.data && collegeItems.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {collegeItems.map((college) => (
+                  <CollegeCard
+                    key={college.id}
+                    college={college}
+                    studentCount={countsByCollegeId.get(college.id)}
+                    batchCount={batchCountsByCollegeId.get(college.id)}
+                    isExpanded={expandedCollegeId === college.id}
+                    onToggleExpand={() =>
+                      setExpandedCollegeId((current) => (current === college.id ? null : college.id))
+                    }
+                    onEdit={() => setFormCollege(college)}
+                    onNewProgram={() => setProgramCollege(college)}
+                    onDelete={() => setDeleteCollege(college)}
+                  />
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
                 <p className="text-sm text-muted-foreground">
                   Page {colleges.data.page} of {totalPages} &middot; {colleges.data.total} college
                   {colleges.data.total === 1 ? '' : 's'}
@@ -205,7 +295,7 @@ export default function CollegeListPage() {
                   </Button>
                 </div>
               </div>
-            </div>
+            </>
           )}
         </TabsContent>
 

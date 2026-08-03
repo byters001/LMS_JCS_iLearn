@@ -176,3 +176,60 @@ export interface FailedStudentsResult {
   batches: FailedStudentsBatchGroup[];
   totalFailedStudents: number;
 }
+
+// --- Super Admin platform analytics ---
+//
+// Three genuinely new cross-college aggregates (nothing platform-wide or
+// per-college existed anywhere before this) — see analytics.service.ts's
+// getPlatformOverview/getCollegePerformance/getCategoryImprovement for the
+// full reasoning behind each field. All three are Super-Admin-only
+// (requireSuperAdmin), unlike every other function in this file, which is
+// reachable by Faculty too within their own batch scope.
+
+// activeAssessments/averageScorePercent/completionRate are null/0 rather
+// than fabricated whenever the underlying scope has no qualifying data —
+// see getPlatformOverview's own comment for exactly when each goes null.
+export interface PlatformOverview {
+  totalStudents: number;
+  activeAssessments: number;
+  // Average of PER-ATTEMPT scorePercent (reuses getScorePercentagesForAttempts,
+  // never a raw SQL avg() — same "don't mix incompatible scales" reasoning
+  // getBatchPerformance's own module comment already states) across every
+  // 'submitted' attempt in scope. Null when there are zero such attempts.
+  averageScorePercent: number | null;
+  // DISTINCT students with >=1 'submitted' attempt in scope, divided by
+  // totalStudents — the same counting convention
+  // getBatchAssessmentParticipation's own participationRate already uses
+  // (distinct-student, not attempt-row, so retakes don't skew this number).
+  // Null when totalStudents is 0.
+  completionRate: number | null;
+}
+
+// One row per college, ALWAYS — a college with zero 'submitted' attempts
+// still appears with averageScorePercent: null, attemptCount: 0, rather
+// than being silently omitted from the comparison.
+export interface CollegePerformanceRow {
+  collegeId: string;
+  collegeName: string;
+  averageScorePercent: number | null;
+  attemptCount: number;
+}
+
+// First-vs-most-recent 'submitted' attempt comparison, per question
+// category — scoped to type: 'mcq' categories only (coding responses are
+// never scored in this codebase yet; psychometric responses have no
+// correctness concept at all — see analytics.service.ts's
+// getCategoryImprovement for the full caveat). Only students with >=2
+// distinct qualifying attempts in a category are averaged in, so a
+// single-attempt student can never masquerade as "improvement" —
+// studentsWithBothAttempts reports exactly how many students that average
+// is built from, so the UI can show "based on N students" rather than a
+// bare, context-free percentage.
+export interface CategoryImprovementRow {
+  categoryId: string;
+  categoryName: string;
+  type: 'mcq';
+  studentsWithBothAttempts: number;
+  firstAttemptAvgPercent: number | null;
+  latestAttemptAvgPercent: number | null;
+}

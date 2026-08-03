@@ -8,7 +8,12 @@ import type { LucideIcon } from 'lucide-react'
 // identical after the move.
 interface StatCardProps {
   label: string
-  value: number | undefined
+  // undefined = still loading (pulse placeholder, unchanged). null = loaded,
+  // but genuinely no data to show (e.g. zero submitted attempts backing an
+  // average-score card) — the Super Admin Analytics page's overview cards
+  // are the first caller needing this distinction; every existing caller
+  // only ever passes a number or undefined, so this is purely additive.
+  value: number | null | undefined
   icon: LucideIcon
   iconClassName: string
   // Optional — StudentListPage's "Total students" card uses this to show
@@ -38,6 +43,8 @@ export function StatCard({ label, value, icon: Icon, iconClassName, progress, cl
           <p className="font-heading text-2xl font-semibold text-foreground">
             {value === undefined ? (
               <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
+            ) : value === null ? (
+              <span className="text-muted-foreground">—</span>
             ) : (
               value
             )}

@@ -8,7 +8,10 @@ import { useAuthStore } from '@/store/authStore'
 import type {
   BatchAssessmentParticipationResult,
   BatchPerformanceSummary,
+  CategoryImprovementRow,
+  CollegePerformanceRow,
   GetBatchPerformanceParams,
+  PlatformOverview,
 } from './types'
 
 function getBatchPerformance(
@@ -105,4 +108,49 @@ export function downloadBatchPerformanceExport(
 
 export function downloadBatchSummaryExport(batchId: string): Promise<void> {
   return downloadCsv(`/analytics/batches/${batchId}/summary-export`, 'batch-summary.csv')
+}
+
+// --- Super Admin platform analytics ---
+// Super-Admin-only on the backend (requireSuperAdmin, layered on top of
+// this module's existing analytics.view gate — see analytics.service.ts's
+// own comment) — these three are only ever called from SuperAdminAnalyticsPage,
+// itself only reachable under /admin (RequireRole roles={['super_admin']}
+// in routes/index.tsx), so no separate `enabled` gate is needed here the
+// way BatchPerformancePage's Super-Admin-only college picker needs one.
+
+function getPlatformOverview(collegeId: string | undefined): Promise<PlatformOverview> {
+  return api.get<PlatformOverview>('/analytics/overview', { params: { collegeId } })
+}
+
+export function useAnalyticsOverview(collegeId: string | undefined) {
+  return useQuery({
+    queryKey: ['analytics', 'overview', collegeId],
+    queryFn: () => getPlatformOverview(collegeId),
+    placeholderData: keepPreviousData,
+  })
+}
+
+function getCollegePerformance(): Promise<CollegePerformanceRow[]> {
+  return api.get<CollegePerformanceRow[]>('/analytics/college-performance')
+}
+
+export function useCollegePerformance() {
+  return useQuery({
+    queryKey: ['analytics', 'college-performance'],
+    queryFn: getCollegePerformance,
+  })
+}
+
+function getCategoryImprovement(collegeId: string | undefined): Promise<CategoryImprovementRow[]> {
+  return api.get<CategoryImprovementRow[]>('/analytics/category-improvement', {
+    params: { collegeId },
+  })
+}
+
+export function useCategoryImprovement(collegeId: string | undefined) {
+  return useQuery({
+    queryKey: ['analytics', 'category-improvement', collegeId],
+    queryFn: () => getCategoryImprovement(collegeId),
+    placeholderData: keepPreviousData,
+  })
 }

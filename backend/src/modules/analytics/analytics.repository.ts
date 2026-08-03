@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { assessmentBatches, assessments, assessmentSections } from '../../db/schema/assessments.schema';
-import { assessmentAttempts, attemptQuestionSelections } from '../../db/schema/attempts.schema';
+import { assessmentAttempts, attemptQuestionSelections, attemptResponses } from '../../db/schema/attempts.schema';
 import { users } from '../../db/schema/identity.schema';
-import { colleges, departments, trainingPrograms } from '../../db/schema/organization.schema';
-import { questionVersions } from '../../db/schema/question-bank.schema';
+import { batches, colleges, departments, trainingPrograms } from '../../db/schema/organization.schema';
+import { questionCategories, questions, questionVersions } from '../../db/schema/question-bank.schema';
 import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
 import { trainingSessions } from '../../db/schema/trainers.schema';
 import type { Assessment, AssessmentAttempt } from '../../db/types';
@@ -354,6 +354,135 @@ async function listTrainingSessionsOnDate(
     .orderBy(asc(trainingSessions.sessionDate));
 }
 
+// --- Super Admin platform analytics ---
+//
+// Everything below is genuinely new — no existing function in this file
+// (or anywhere else) aggregates across colleges. See analytics.service.ts's
+// getPlatformOverview/getCollegePerformance/getCategoryImprovement for the
+// design reasoning; this file only holds the raw queries, matching this
+// module's own routes->controller->service->repository split (ALL Drizzle
+// queries live here, per CLAUDE.md, no aggregation math in this file).
+
+// Assessments have no direct college FK (only reachable via
+// assessment_batches -> batches -> training_programs) — this is the new
+// join that path requires. COUNT DISTINCT because the same assessment can
+// be assigned to more than one batch under the same college.
+async function countActiveAssessmentsForCollege(collegeId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(distinct ${assessments.id})` })
+    .from(assessmentBatches)
+    .innerJoin(
+      assessments,
+      and(eq(assessments.id, assessmentBatches.assessmentId), isNull(assessments.deletedAt)),
+    )
+    .innerJoin(batches, eq(batches.id, assessmentBatches.batchId))
+    .innerJoin(trainingPrograms, eq(trainingPrograms.id, batches.trainingProgramId))
+    .where(and(eq(trainingPrograms.collegeId, collegeId), eq(assessments.status, 'live')));
+  return Number(row?.count ?? 0);
+}
+
+export interface AllCollegesRow {
+  id: string;
+  name: string;
+}
+
+// Every non-deleted college — used by getCollegePerformance so a college
+// with ZERO submitted attempts still appears in the comparison (rather
+// than being silently absent because it never matched a join).
+async function listAllColleges(): Promise<AllCollegesRow[]> {
+  return db
+    .select({ id: colleges.id, name: colleges.name })
+    .from(colleges)
+    .where(isNull(colleges.deletedAt));
+}
+
+export interface SubmittedAttemptScopeRow {
+  attemptId: string;
+  studentId: string;
+  collegeId: string;
+  collegeName: string;
+  // Nullable in the schema (assessment_attempts.total_score has no
+  // NOT NULL) — a 'submitted' row is expected to have this set, but this
+  // isn't assumed; analytics.service.ts filters null before computing a
+  // percentage, same defensive treatment sumPossibleMarksForAttempts'
+  // own callers already apply.
+  totalScore: string | null;
+}
+
+// Backs BOTH getPlatformOverview (collegeId given, narrows to one
+// college's students) and getCollegePerformance (collegeId omitted,
+// platform-wide, then grouped per college in JS) — one query, two
+// call shapes, same "don't duplicate the join" reasoning every other
+// reuse in this file already follows (e.g. sumPossibleMarksForAttempts
+// backing both getBatchPerformance and getScorePercentagesForAttempts).
+async function listSubmittedAttempts(collegeId?: string): Promise<SubmittedAttemptScopeRow[]> {
+  const conditions = [eq(assessmentAttempts.status, 'submitted')];
+  if (collegeId) conditions.push(eq(studentProfiles.collegeId, collegeId));
+
+  return db
+    .select({
+      attemptId: assessmentAttempts.id,
+      studentId: assessmentAttempts.studentId,
+      collegeId: studentProfiles.collegeId,
+      collegeName: colleges.name,
+      totalScore: assessmentAttempts.totalScore,
+    })
+    .from(assessmentAttempts)
+    .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
+    .innerJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
+    .where(and(...conditions));
+}
+
+export interface CategoryResponseRow {
+  studentId: string;
+  attemptId: string;
+  attemptCreatedAt: Date;
+  categoryId: string;
+  categoryName: string;
+  // Null for an unanswered-but-frozen question or a not-yet-graded one —
+  // see attempt_responses.schema's own comment (populated for MCQ only at
+  // submit-response time). getCategoryImprovement treats null as 0
+  // obtained, same coalesce-to-0 convention sumPossibleMarksForAttempts'
+  // COALESCE(sum(...), 0) already applies at the SQL level.
+  marksObtained: string | null;
+  questionMarks: string;
+}
+
+// The 3-hop join nothing in this codebase performs anywhere else:
+// attempt_responses -> question_versions -> questions.category_id ->
+// question_categories, joined back to assessment_attempts (for
+// studentId/createdAt/status) and student_profiles (for the optional
+// collegeId scope). INNER JOIN questionCategories deliberately EXCLUDES
+// uncategorized questions (questions.category_id IS NULL) — see
+// analytics.types.ts's CategoryImprovementRow comment. Filtered to
+// type='mcq' categories only: coding responses have marksObtained always
+// NULL (grading not wired to this analytics path) and psychometric
+// responses have no correctness concept at all, so neither can produce a
+// real percent score today — see analytics.service.ts's
+// getCategoryImprovement for the full caveat surfaced to the caller.
+async function listMcqCategoryResponses(collegeId?: string): Promise<CategoryResponseRow[]> {
+  const conditions = [eq(assessmentAttempts.status, 'submitted'), eq(questions.type, 'mcq')];
+  if (collegeId) conditions.push(eq(studentProfiles.collegeId, collegeId));
+
+  return db
+    .select({
+      studentId: assessmentAttempts.studentId,
+      attemptId: assessmentAttempts.id,
+      attemptCreatedAt: assessmentAttempts.createdAt,
+      categoryId: questionCategories.id,
+      categoryName: questionCategories.name,
+      marksObtained: attemptResponses.marksObtained,
+      questionMarks: questionVersions.marks,
+    })
+    .from(attemptResponses)
+    .innerJoin(assessmentAttempts, eq(assessmentAttempts.id, attemptResponses.attemptId))
+    .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
+    .innerJoin(questionVersions, eq(questionVersions.id, attemptResponses.questionVersionId))
+    .innerJoin(questions, eq(questions.id, questionVersions.questionId))
+    .innerJoin(questionCategories, eq(questionCategories.id, questions.categoryId))
+    .where(and(...conditions));
+}
+
 export const analyticsRepository = {
   listBatchAttemptsForAssessment,
   findMostRecentAssessmentIdForBatch,
@@ -364,4 +493,8 @@ export const analyticsRepository = {
   listActiveStudentIdsForBatch,
   countAttemptedStudentsByAssessment,
   listTrainingSessionsOnDate,
+  countActiveAssessmentsForCollege,
+  listAllColleges,
+  listSubmittedAttempts,
+  listMcqCategoryResponses,
 };

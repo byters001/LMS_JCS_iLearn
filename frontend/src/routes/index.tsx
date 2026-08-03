@@ -2,6 +2,7 @@
 // scattered per-page (CLAUDE1.md "Boundary rules").
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/features/auth/pages/LoginPage'
+import AdminAnalyticsPage from '@/features/analytics/pages/AdminAnalyticsPage'
 import BatchPerformancePage from '@/features/analytics/pages/BatchPerformancePage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
 import AssessmentEditPage from '@/features/assessments/pages/AssessmentEditPage'
@@ -233,8 +234,15 @@ export function AppRoutes() {
               <Route path="new" element={<CreatePoolPage />} />
               <Route path=":id" element={<PoolDetailPage />} />
             </Route>
+            {/* Super Admin gets a real platform-wide landing page here
+                (AdminAnalyticsPage's "Overview" tab) instead of the plain
+                batch drill-down Faculty's /trainer/analytics still uses —
+                the drill-down itself isn't removed, just moved to a second
+                tab inside the same wrapper (see AdminAnalyticsPage.tsx's
+                own comment for why, and how the return link from
+                attempts/:attemptId below still resolves to it). */}
             <Route path="analytics">
-              <Route index element={<BatchPerformancePage />} />
+              <Route index element={<AdminAnalyticsPage />} />
               <Route path="attempts/:attemptId" element={<StaffAttemptDetailPage />} />
             </Route>
             {/* Super-Admin-only, deliberately not mirrored under /trainer —

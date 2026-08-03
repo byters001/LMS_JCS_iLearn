@@ -5,9 +5,11 @@ import { ValidationError } from '../../shared/errors/app-error';
 import { analyticsController } from './analytics.controller';
 import {
   batchIdParamsSchema,
+  collegeIdQuerySchema,
   exportBatchPerformanceQuerySchema,
   getBatchPerformanceQuerySchema,
   type BatchIdParams,
+  type CollegeIdQuery,
   type ExportBatchPerformanceQuery,
   type GetBatchPerformanceQuery,
 } from './analytics.schema';
@@ -94,6 +96,41 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: [validateParams(batchIdParamsSchema)],
     },
     analyticsController.exportBatchSummaryCsv,
+  );
+
+  // --- Super Admin platform analytics ---
+  // Same ANALYTICS_VIEW gate as every other route in this file, PLUS an
+  // explicit super_admin-only check inside each service function
+  // (requireSuperAdmin) — analytics.view alone is also granted to Faculty,
+  // but these three are cross-college aggregates, not batch-scoped, so
+  // that permission alone isn't a tight enough gate here. See
+  // analytics.service.ts's requireSuperAdmin for the full reasoning.
+
+  fastify.get<{ Querystring: CollegeIdQuery }>(
+    '/analytics/overview',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateQuery(collegeIdQuerySchema)],
+    },
+    analyticsController.getPlatformOverview,
+  );
+
+  // No query schema — this comparison is inherently cross-college, so
+  // there's nothing to scope it by (unlike overview/category-improvement,
+  // which both accept an optional collegeId).
+  fastify.get(
+    '/analytics/college-performance',
+    { preHandler: [fastify.authenticate, ANALYTICS_VIEW] },
+    analyticsController.getCollegePerformance,
+  );
+
+  fastify.get<{ Querystring: CollegeIdQuery }>(
+    '/analytics/category-improvement',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateQuery(collegeIdQuerySchema)],
+    },
+    analyticsController.getCategoryImprovement,
   );
 }
 

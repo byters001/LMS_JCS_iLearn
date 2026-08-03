@@ -84,3 +84,31 @@ export interface BatchAssessmentParticipationResult {
   totalStudents: number
   assessments: BatchAssessmentParticipationRow[]
 }
+
+// --- Super Admin platform analytics ---
+// Matches backend's analytics.types.ts PlatformOverview/CollegePerformanceRow/
+// CategoryImprovementRow exactly. null fields are a real "loaded, but
+// genuinely no qualifying data yet" state (see backend's own comments for
+// exactly when each goes null) — never a fabricated 0/NaN.
+export interface PlatformOverview {
+  totalStudents: number
+  activeAssessments: number
+  averageScorePercent: number | null
+  completionRate: number | null
+}
+
+export interface CollegePerformanceRow {
+  collegeId: string
+  collegeName: string
+  averageScorePercent: number | null
+  attemptCount: number
+}
+
+export interface CategoryImprovementRow {
+  categoryId: string
+  categoryName: string
+  type: 'mcq'
+  studentsWithBothAttempts: number
+  firstAttemptAvgPercent: number | null
+  latestAttemptAvgPercent: number | null
+}

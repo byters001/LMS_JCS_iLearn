@@ -29,6 +29,19 @@ export const exportBatchPerformanceQuerySchema = z
   })
   .strict();
 
+// Super Admin platform-wide analytics (collegeId optional — omitted means
+// platform-wide, matching the "no collegeId = global grant" convention this
+// codebase already uses elsewhere, e.g. getAttendanceByDate). Shared by
+// /analytics/overview and /analytics/category-improvement; /analytics/
+// college-performance takes no query params at all (the comparison is
+// inherently cross-college).
+export const collegeIdQuerySchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+  })
+  .strict();
+
 export type BatchIdParams = z.infer<typeof batchIdParamsSchema>;
 export type GetBatchPerformanceQuery = z.infer<typeof getBatchPerformanceQuerySchema>;
 export type ExportBatchPerformanceQuery = z.infer<typeof exportBatchPerformanceQuerySchema>;
+export type CollegeIdQuery = z.infer<typeof collegeIdQuerySchema>;

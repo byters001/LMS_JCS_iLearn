@@ -1,6 +1,7 @@
 import { MAX_PAGE_SIZE } from '../../config/constants';
 import { assessmentsService } from '../assessments/assessments.service';
 import { organizationService } from '../organization/organization.service';
+import { studentsService } from '../students/students.service';
 import { userHasRole } from '../../rbac/role-assignments';
 import { ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
 import { buildCsv } from '../../shared/utils/csv.util';
@@ -15,11 +16,14 @@ import type {
   BatchAssessmentParticipationResult,
   BatchAssessmentParticipationRow,
   BatchPerformanceSummary,
+  CategoryImprovementRow,
+  CollegePerformanceRow,
   FailedStudentsBatchGroup,
   FailedStudentsResult,
   PassingThresholdInfo,
   PerStudentPerformanceRow,
   PerStudentStatus,
+  PlatformOverview,
   ScoreDistribution,
   TrainerPerformanceTrendPoint,
 } from './analytics.types';
@@ -709,6 +713,207 @@ async function getScorePercentagesForAttempts(
   return results;
 }
 
+// --- Super Admin platform analytics ---
+//
+// analytics.view (this module's existing gate, see analytics.routes.ts) is
+// granted to both super_admin AND faculty — appropriate for every other
+// function in this file, since those are all batch-scoped and
+// assertCanAccessBatch already enforces "your own assigned batches only"
+// for a Faculty caller. These three functions are different: they're
+// cross-college aggregates, not batch-scoped, so analytics.view alone
+// would let a Faculty member (who also holds it) see every OTHER
+// college's data too. Same fix as assertCanAccessBatch already uses for a
+// narrower problem — an explicit userHasRole check layered on top of the
+// permission gate, no new permission/migration needed.
+async function requireSuperAdmin(userId: string): Promise<void> {
+  const isSuperAdmin = await userHasRole(userId, 'super_admin');
+  if (!isSuperAdmin) {
+    throw new ForbiddenError('Only Super Admin can view platform-wide analytics');
+  }
+}
+
+function average(values: number[]): number | null {
+  return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+// totalStudents/activeAssessments reuse other modules' existing SERVICE
+// functions (never their repositories, per CLAUDE.md's boundary rule) —
+// both already compute exactly this number as a pagination `total`
+// side-effect (listStudentProfiles/listAssessments), so pageSize: 1 reads
+// just the count without paying for a real page of rows.
+//
+// averageScorePercent/completionRate are genuinely new (see
+// analytics.types.ts's PlatformOverview for the exact definitions) —
+// completionRate deliberately mirrors getBatchAssessmentParticipation's
+// own participationRate counting convention (distinct students, not
+// attempt rows) rather than inventing a different one, so retakes don't
+// skew it the same way that function was written to avoid.
+async function getPlatformOverview(
+  collegeId: string | undefined,
+  userId: string,
+): Promise<PlatformOverview> {
+  await requireSuperAdmin(userId);
+
+  const studentsResult = await studentsService.listStudentProfiles({
+    collegeId,
+    page: 1,
+    pageSize: 1,
+    includeArchived: false,
+  });
+  const totalStudents = studentsResult.total;
+
+  const activeAssessments = collegeId
+    ? await analyticsRepository.countActiveAssessmentsForCollege(collegeId)
+    : (
+        await assessmentsService.listAssessments(userId, {
+          status: 'live',
+          page: 1,
+          pageSize: 1,
+        })
+      ).total;
+
+  const attemptRows = await analyticsRepository.listSubmittedAttempts(collegeId);
+  const scored = await getScorePercentagesForAttempts(
+    attemptRows
+      .filter((row): row is typeof row & { totalScore: string } => row.totalScore !== null)
+      .map((row) => ({ attemptId: row.attemptId, totalScore: row.totalScore })),
+  );
+  const averageScorePercent = average(scored.map((row) => row.scorePercent));
+
+  const distinctStudentsWithSubmission = new Set(attemptRows.map((row) => row.studentId)).size;
+  const completionRate =
+    totalStudents > 0 ? distinctStudentsWithSubmission / totalStudents : null;
+
+  return { totalStudents, activeAssessments, averageScorePercent, completionRate };
+}
+
+// Cross-college comparison — inherently platform-wide, no collegeId param
+// (a "college-wise comparison scoped to one college" isn't a comparison).
+// Reuses listSubmittedAttempts unscoped (the same query getPlatformOverview
+// calls scoped) and getScorePercentagesForAttempts (same per-attempt
+// calculation, never SQL avg() — see that function's own module comment),
+// grouping/averaging per college in JS. listAllColleges ensures a college
+// with zero submitted attempts still appears in the result, not silently
+// dropped.
+async function getCollegePerformance(userId: string): Promise<CollegePerformanceRow[]> {
+  await requireSuperAdmin(userId);
+
+  const [collegeList, attemptRows] = await Promise.all([
+    analyticsRepository.listAllColleges(),
+    analyticsRepository.listSubmittedAttempts(),
+  ]);
+
+  const scored = await getScorePercentagesForAttempts(
+    attemptRows
+      .filter((row): row is typeof row & { totalScore: string } => row.totalScore !== null)
+      .map((row) => ({ attemptId: row.attemptId, totalScore: row.totalScore })),
+  );
+  const percentByAttempt = new Map(scored.map((row) => [row.attemptId, row.scorePercent]));
+
+  const byCollege = new Map<string, { attemptCount: number; percents: number[] }>();
+  for (const row of attemptRows) {
+    const entry = byCollege.get(row.collegeId) ?? { attemptCount: 0, percents: [] };
+    entry.attemptCount += 1;
+    const percent = percentByAttempt.get(row.attemptId);
+    if (percent !== undefined) entry.percents.push(percent);
+    byCollege.set(row.collegeId, entry);
+  }
+
+  return collegeList.map((college) => {
+    const entry = byCollege.get(college.id);
+    return {
+      collegeId: college.id,
+      collegeName: college.name,
+      averageScorePercent: entry ? average(entry.percents) : null,
+      attemptCount: entry?.attemptCount ?? 0,
+    };
+  });
+}
+
+// Skill-category improvement: first vs. most-recent 'submitted' attempt,
+// per question category — v1 scoped to type='mcq' categories ONLY. Coding
+// responses have marksObtained always NULL (grading not wired into this
+// analytics path yet) and psychometric responses have no correctness
+// concept at all — neither can produce a real percent score today, so
+// they're excluded rather than shown with a fabricated number. See
+// analytics.repository.ts's listMcqCategoryResponses for the full 3-hop
+// join this requires (nothing in the codebase performs it anywhere else).
+//
+// "First"/"most recent" is per (student, category): among that student's
+// submitted attempts containing >=1 response to a question in that
+// category, ordered by the attempt's createdAt. Only students with >=2
+// distinct qualifying attempts are averaged in — a single-attempt student
+// can't produce a meaningful "improvement" — and studentsWithBothAttempts
+// reports exactly how many students back each category's average.
+async function getCategoryImprovement(
+  collegeId: string | undefined,
+  userId: string,
+): Promise<CategoryImprovementRow[]> {
+  await requireSuperAdmin(userId);
+
+  const rows = await analyticsRepository.listMcqCategoryResponses(collegeId);
+
+  interface AttemptAgg {
+    createdAt: Date;
+    obtained: number;
+    possible: number;
+  }
+  // studentId -> categoryId -> attemptId -> per-attempt-per-category agg
+  const byStudentCategory = new Map<string, Map<string, Map<string, AttemptAgg>>>();
+  const categoryNames = new Map<string, string>();
+
+  for (const row of rows) {
+    categoryNames.set(row.categoryId, row.categoryName);
+    const byCategory = byStudentCategory.get(row.studentId) ?? new Map();
+    byStudentCategory.set(row.studentId, byCategory);
+    const byAttempt = byCategory.get(row.categoryId) ?? new Map();
+    byCategory.set(row.categoryId, byAttempt);
+    const agg: AttemptAgg = byAttempt.get(row.attemptId) ?? {
+      createdAt: row.attemptCreatedAt,
+      obtained: 0,
+      possible: 0,
+    };
+    agg.obtained += row.marksObtained !== null ? Number(row.marksObtained) : 0;
+    agg.possible += Number(row.questionMarks);
+    byAttempt.set(row.attemptId, agg);
+  }
+
+  const perCategory = new Map<
+    string,
+    { firstPercents: number[]; latestPercents: number[]; studentsWithBoth: number }
+  >();
+
+  for (const byCategory of byStudentCategory.values()) {
+    for (const [categoryId, byAttempt] of byCategory) {
+      const qualifyingAttempts = [...byAttempt.values()]
+        .filter((attempt) => attempt.possible > 0)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      if (qualifyingAttempts.length < 2) continue;
+
+      const first = qualifyingAttempts[0];
+      const latest = qualifyingAttempts[qualifyingAttempts.length - 1];
+      const entry = perCategory.get(categoryId) ?? {
+        firstPercents: [],
+        latestPercents: [],
+        studentsWithBoth: 0,
+      };
+      entry.firstPercents.push((first.obtained / first.possible) * 100);
+      entry.latestPercents.push((latest.obtained / latest.possible) * 100);
+      entry.studentsWithBoth += 1;
+      perCategory.set(categoryId, entry);
+    }
+  }
+
+  return [...perCategory.entries()].map(([categoryId, entry]) => ({
+    categoryId,
+    categoryName: categoryNames.get(categoryId) ?? 'Unknown',
+    type: 'mcq' as const,
+    studentsWithBothAttempts: entry.studentsWithBoth,
+    firstAttemptAvgPercent: average(entry.firstPercents),
+    latestAttemptAvgPercent: average(entry.latestPercents),
+  }));
+}
+
 export const analyticsService = {
   getBatchPerformance,
   getBatchAssessmentParticipation,
@@ -718,6 +923,9 @@ export const analyticsService = {
   getScorePercentagesForAttempts,
   exportBatchPerformanceCsv,
   exportBatchSummaryCsv,
+  getPlatformOverview,
+  getCollegePerformance,
+  getCategoryImprovement,
   // Exported (staff attempt-detail phase) so reports.service.ts's
   // getAttemptDetailForStaff can reuse the EXACT SAME batch_trainers-
   // assignment / Super-Admin-unrestricted check getBatchPerformance
