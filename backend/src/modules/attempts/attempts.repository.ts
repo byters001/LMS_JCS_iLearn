@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
-import { assessments, assessmentSections } from '../../db/schema/assessments.schema';
+import { assessmentQuestions, assessments, assessmentSections } from '../../db/schema/assessments.schema';
 import {
   assessmentAttempts,
   assessmentRetakeRequests,
@@ -180,6 +180,16 @@ async function listFrozenQuestions(attemptId: string): Promise<FrozenAttemptQues
       // confused once both exist on the same row.
       sectionTimerMinutes: assessmentSections.timerMinutes,
       assessmentTitle: assessments.title,
+      // Phase 5 — LEFT JOIN, not INNER: a pool-drawn question has no
+      // assessment_questions row at all (pools resolve questions on demand,
+      // never store them — see assessments.schema.ts's own comment on
+      // assessment_section_pools), so this is NULL for those, correctly
+      // falling back to "unrestricted" in buildRenderableQuestion below.
+      // Matched on (assessmentSectionId, questionVersionId) — the same pair
+      // assessment_questions' own UNIQUE constraint is keyed on — since
+      // attempt_question_selections has no direct assessment_questions_id
+      // FK of its own.
+      allowedLanguages: assessmentQuestions.allowedLanguages,
     })
     .from(attemptQuestionSelections)
     .innerJoin(
@@ -191,22 +201,50 @@ async function listFrozenQuestions(attemptId: string): Promise<FrozenAttemptQues
       eq(assessmentSections.id, attemptQuestionSelections.assessmentSectionId),
     )
     .innerJoin(assessments, eq(assessments.id, assessmentSections.assessmentId))
+    .leftJoin(
+      assessmentQuestions,
+      and(
+        eq(assessmentQuestions.assessmentSectionId, attemptQuestionSelections.assessmentSectionId),
+        eq(assessmentQuestions.questionVersionId, attemptQuestionSelections.questionVersionId),
+      ),
+    )
     .where(eq(attemptQuestionSelections.attemptId, attemptId))
     .orderBy(asc(assessmentSections.sectionOrder), asc(attemptQuestionSelections.sortOrder));
 
-  return rows.map(({ sectionOrder: _sectionOrder, ...row }) => row);
+  // allowedLanguages cast the same way attempts.service.ts already casts
+  // coding_question_details.supported_languages — untyped JSONB at the
+  // Drizzle level, same convention, not a schema-level .$type<>().
+  return rows.map(({ sectionOrder: _sectionOrder, allowedLanguages, ...row }) => ({
+    ...row,
+    allowedLanguages: allowedLanguages as string[] | null,
+  }));
 }
 
 // Confirms questionVersionId is actually one of this attempt's frozen
 // selections before a response is allowed to reference it — see
 // attempts.service.ts's submitResponse.
+// allowedLanguages (Phase 5) — same LEFT JOIN shape as listFrozenQuestions
+// above, needed here so submitCode (attempts.service.ts) can re-validate
+// the submitted language server-side against the assessment-effective set,
+// not just the question's own raw full set — a student can't bypass the
+// restriction by calling this endpoint directly with an unlisted language.
 async function findSelection(
   attemptId: string,
   questionVersionId: string,
-): Promise<{ id: string } | undefined> {
+): Promise<{ id: string; allowedLanguages: string[] | null } | undefined> {
   const [row] = await db
-    .select({ id: attemptQuestionSelections.id })
+    .select({
+      id: attemptQuestionSelections.id,
+      allowedLanguages: assessmentQuestions.allowedLanguages,
+    })
     .from(attemptQuestionSelections)
+    .leftJoin(
+      assessmentQuestions,
+      and(
+        eq(assessmentQuestions.assessmentSectionId, attemptQuestionSelections.assessmentSectionId),
+        eq(assessmentQuestions.questionVersionId, attemptQuestionSelections.questionVersionId),
+      ),
+    )
     .where(
       and(
         eq(attemptQuestionSelections.attemptId, attemptId),
@@ -214,7 +252,8 @@ async function findSelection(
       ),
     )
     .limit(1);
-  return row;
+  if (!row) return undefined;
+  return { id: row.id, allowedLanguages: row.allowedLanguages as string[] | null };
 }
 
 // Reads back the caller's own previously-saved responses for this attempt,

@@ -518,6 +518,30 @@ async function createAssessmentQuestion(
   }
   assertMatchesTestCategory(assessment, question.type);
 
+  // Phase 5 — per-assessment coding-language restriction. Only meaningful
+  // for a coding question, and always checked against THIS version's own
+  // coding_question_details.supported_languages — never accepted as a
+  // superset, never accepted for a non-coding question (there is nothing
+  // for it to restrict). assessment_questions.allowed_languages stays NULL
+  // (unrestricted) whenever this isn't provided.
+  if (input.allowedLanguages) {
+    if (question.type !== 'coding') {
+      throw new ValidationError(
+        'allowedLanguages can only be set for a coding question',
+      );
+    }
+    const supportedLanguages = new Set(
+      (version.codingDetails?.supportedLanguages as string[] | undefined) ?? [],
+    );
+    const unsupported = input.allowedLanguages.filter((lang) => !supportedLanguages.has(lang));
+    if (unsupported.length > 0) {
+      throw new ValidationError(
+        `allowedLanguages must be a subset of this question's own supported languages — ` +
+          `not supported: ${unsupported.join(', ')}`,
+      );
+    }
+  }
+
   return assessmentsRepository.createAssessmentQuestion(sectionId, input);
 }
 

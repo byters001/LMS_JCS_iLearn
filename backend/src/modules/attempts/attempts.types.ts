@@ -43,6 +43,14 @@ export interface FrozenAttemptQuestion {
   // today, since nothing has ever read this before), never omitted.
   sectionTimerMinutes: number | null;
   assessmentTitle: string;
+  // Phase 5 — per-assessment coding-language restriction. NULL for a
+  // non-coding question, a pool-drawn question (no assessment_questions
+  // row exists to restrict), or a manually-attached coding question that
+  // was never restricted — all three cases mean the same thing here:
+  // "unrestricted, use the question's own full supported_languages." See
+  // attempts.repository.ts's listFrozenQuestions for the join this comes
+  // from.
+  allowedLanguages: string[] | null;
 }
 
 // MCQ option, sanitized for a test-taker: is_correct is deliberately
@@ -132,7 +140,11 @@ export interface SanitizedSavedResponse {
 // test case points. savedResponse is present only once the student has
 // touched this question at least once (a PUT responses/... or POST
 // submit-code call has happened) — absent, not null, for an untouched one.
-export interface AttemptQuestionContent extends FrozenAttemptQuestion {
+// Omits allowedLanguages from what it inherits — that's an internal-only
+// field buildRenderableQuestion (attempts.service.ts) reads to compute
+// coding.supportedLanguages' effective set, never meant to reach the
+// client as a redundant sibling field. See that function's own comment.
+export interface AttemptQuestionContent extends Omit<FrozenAttemptQuestion, 'allowedLanguages'> {
   type: 'mcq' | 'coding' | 'psychometric';
   images?: SanitizedImage[];
   options?: SanitizedOption[];

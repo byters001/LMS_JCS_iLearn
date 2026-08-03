@@ -558,6 +558,7 @@ async function listAssessmentQuestionsWithContent(
       questionVersionId: assessmentQuestions.questionVersionId,
       marksOverride: assessmentQuestions.marksOverride,
       sortOrder: assessmentQuestions.sortOrder,
+      allowedLanguages: assessmentQuestions.allowedLanguages,
       questionText: questionVersions.questionText,
       versionMarks: questionVersions.marks,
     })
@@ -581,6 +582,7 @@ export interface CreateAssessmentQuestionData {
   questionVersionId: string;
   marksOverride?: number;
   sortOrder?: number;
+  allowedLanguages?: string[];
 }
 
 async function createAssessmentQuestion(
@@ -595,6 +597,7 @@ async function createAssessmentQuestion(
         questionVersionId: data.questionVersionId,
         marksOverride: data.marksOverride !== undefined ? String(data.marksOverride) : undefined,
         sortOrder: data.sortOrder,
+        allowedLanguages: data.allowedLanguages,
       })
       .returning();
     return row;

@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -149,6 +150,17 @@ export const assessmentQuestions = pgTable(
       .references(() => questionVersions.id, { onDelete: 'restrict' }),
     marksOverride: numeric('marks_override', { precision: 6, scale: 2 }),
     sortOrder: integer('sort_order').notNull().default(0),
+    // Phase 5 — per-assessment coding-language restriction. NULL (no
+    // default — genuinely absent, not an empty array) means unrestricted:
+    // the question's own coding_question_details.supported_languages
+    // applies as-is. When set, always a non-empty subset of that same
+    // array, validated at attach time (assessments.service.ts's
+    // createAssessmentQuestion) — never a superset, never used for a
+    // non-coding question. Same JSONB-array-of-JUDGE0_LANGUAGE_ID-keys
+    // shape as coding_question_details.supported_languages, deliberately
+    // NOT NOT-NULL-with-a-default the way that column is — NULL vs. []
+    // needs to stay distinguishable here, unlike there.
+    allowedLanguages: jsonb('allowed_languages'),
   },
   (table) => ({
     sectionIdx: index('idx_assessment_questions_section').on(table.assessmentSectionId),

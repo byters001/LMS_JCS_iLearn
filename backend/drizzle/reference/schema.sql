@@ -554,6 +554,7 @@ CREATE TABLE assessment_questions (
   question_version_id     UUID NOT NULL REFERENCES question_versions(id) ON DELETE RESTRICT,
   marks_override           NUMERIC(6,2),
   sort_order                INTEGER NOT NULL DEFAULT 0,
+  allowed_languages         JSONB,
   UNIQUE (assessment_section_id, question_version_id)
 );
 CREATE INDEX idx_assessment_questions_section ON assessment_questions(assessment_section_id);

@@ -204,6 +204,13 @@
       "when": 1785669443068,
       "tag": "0028_add-question-categories-type",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785730816701,
+      "tag": "0029_add-assessment-questions-allowed-languages",
+      "breakpoints": true
     }
   ]
 }

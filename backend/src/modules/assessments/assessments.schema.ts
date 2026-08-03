@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../../config/constants';
+// Reused directly, not redefined — same precedent modules/coding/
+// coding.schema.ts already set for reusing this exact schema across module
+// boundaries (a plain Zod schema import, not a service/repository call, so
+// this doesn't cross CLAUDE.md's module-boundary rule).
+import { codingLanguageSchema } from '../question-bank/question-bank.schema';
 
 const paginationFields = {
   page: z.coerce.number().int().min(1).default(1),
@@ -168,11 +173,20 @@ export const assessmentSectionIdParamsSchema = z
 
 // --- Assessment questions (manual selection_mode) ---
 
+// Phase 5 — per-assessment coding-language restriction. Only meaningful
+// for a coding-type question, and only ever a SUBSET of that question's own
+// coding_question_details.supported_languages — both checked at the
+// service layer (assessments.service.ts's createAssessmentQuestion), not
+// here, since neither the question's type nor its own language set is
+// knowable from this schema alone. Omitted entirely (not an empty array)
+// means unrestricted — see assessment_questions.allowed_languages' own
+// schema comment for why NULL and [] stay distinguishable.
 export const createAssessmentQuestionSchema = z
   .object({
     questionVersionId: z.string().uuid('questionVersionId must be a valid UUID'),
     marksOverride: z.coerce.number().positive().optional(),
     sortOrder: z.coerce.number().int().optional().default(0),
+    allowedLanguages: z.array(codingLanguageSchema).min(1).optional(),
   })
   .strict();
 

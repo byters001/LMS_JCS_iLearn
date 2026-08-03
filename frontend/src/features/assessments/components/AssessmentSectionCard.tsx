@@ -48,6 +48,13 @@ export function AssessmentSectionCard({
   const questionIdByVersionId = new Map(
     (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.id]),
   )
+  // Phase 5 — lets the attached-questions list show what's currently
+  // restricted without a separate fetch; rawQuestions already carries
+  // allowedLanguages (GET .../questions returns the bare assessment_questions
+  // row, which now includes it).
+  const allowedLanguagesByVersionId = new Map(
+    (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.allowedLanguages]),
+  )
 
   // Attached pools shown as their own list — a pool's resolved questions
   // (in resolvedQuestions below) have no stable per-row identity to remove
@@ -103,6 +110,7 @@ export function AssessmentSectionCard({
           <ul className="space-y-1.5 text-sm">
             {section.resolvedQuestions.map((question) => {
               const assessmentQuestionId = questionIdByVersionId.get(question.questionVersionId)
+              const allowedLanguages = allowedLanguagesByVersionId.get(question.questionVersionId)
               return (
                 <li
                   key={question.questionVersionId}
@@ -110,6 +118,14 @@ export function AssessmentSectionCard({
                 >
                   <span className="truncate">{question.questionText}</span>
                   <span className="flex shrink-0 items-center gap-2">
+                    {allowedLanguages && allowedLanguages.length > 0 && (
+                      <span
+                        className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400"
+                        title="Languages restricted for this assessment"
+                      >
+                        {allowedLanguages.join(', ')}
+                      </span>
+                    )}
                     <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
                       {question.marks} marks
                     </span>

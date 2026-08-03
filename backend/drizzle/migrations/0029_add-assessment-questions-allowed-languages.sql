@@ -1,0 +1,1 @@
+ALTER TABLE "assessment_questions" ADD COLUMN "allowed_languages" jsonb;

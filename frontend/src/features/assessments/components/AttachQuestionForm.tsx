@@ -5,7 +5,13 @@ import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
-import { useCategories, useQuestionsForPicker, useTopics } from '@/features/question-bank/api'
+import {
+  useCategories,
+  useQuestionDetail,
+  useQuestionsForPicker,
+  useTopics,
+} from '@/features/question-bank/api'
+import { CODING_LANGUAGE_LABELS } from '@/features/question-bank/types'
 import { useAttachQuestion } from '../api'
 import type { TestCategory } from '../types'
 
@@ -121,14 +127,54 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
 
   const questionVersionId = watch('questionVersionId')
 
+  // Phase 5 — per-assessment coding-language restriction. The picker only
+  // carries {id, questionVersionId, label} (see useQuestionsForPicker's own
+  // comment on why it's this thin) — the selected question's parent id is
+  // looked up from the already-fetched picker items, then its full detail
+  // (for codingDetails.supportedLanguages specifically) is fetched only once
+  // a question is actually picked, not for every row in the list.
+  const selectedQuestionId = picker.items.find(
+    (item) => item.questionVersionId === questionVersionId,
+  )?.id
+  const selectedQuestionDetail = useQuestionDetail(selectedQuestionId)
+  const questionSupportedLanguages =
+    selectedQuestionDetail.data?.type === 'coding'
+      ? ((selectedQuestionDetail.data.currentVersion?.codingDetails?.supportedLanguages ?? []) as string[])
+      : []
+
+  // Empty = unrestricted (every language the question itself supports) —
+  // staff has to actively narrow this, matching the same "safer default,
+  // opt in to narrow" shape the bulk-import duplicate toggle uses.
+  const [allowedLanguages, setAllowedLanguages] = useState<string[]>([])
+
+  // Switching questions invalidates whatever restriction was set for the
+  // previous one — a restricted subset for question A is meaningless (and
+  // was already validated as a subset of A's own languages) once B is
+  // selected instead.
+  useEffect(() => {
+    setAllowedLanguages([])
+  }, [questionVersionId])
+
+  function toggleLanguage(lang: string) {
+    setAllowedLanguages((current) =>
+      current.includes(lang) ? current.filter((l) => l !== lang) : [...current, lang],
+    )
+  }
+
   const onSubmit = handleSubmit((values) => {
     attachQuestion.mutate(
       {
         sectionId,
         questionVersionId: values.questionVersionId,
         marksOverride: values.marksOverride ? Number.parseFloat(values.marksOverride) : undefined,
+        allowedLanguages: allowedLanguages.length > 0 ? allowedLanguages : undefined,
       },
-      { onSuccess: () => reset({ questionVersionId: '' }) },
+      {
+        onSuccess: () => {
+          reset({ questionVersionId: '' })
+          setAllowedLanguages([])
+        },
+      },
     )
   })
 
@@ -193,35 +239,67 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
         </div>
       </div>
 
-      <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-2">
-        <div className="min-w-64 flex-1 space-y-1">
-          <Combobox
-            id="questionVersionId"
-            options={picker.items.map((item) => ({ value: item.questionVersionId, label: item.label }))}
-            value={questionVersionId || null}
-            onSelect={(value) => setValue('questionVersionId', value, { shouldValidate: true })}
-            placeholder="Search approved questions by text…"
-            isLoading={picker.isLoading}
-            isError={picker.isError}
-            errorMessage="Failed to load questions."
-            emptyMessage={
-              picker.isLoading ? 'Loading…' : 'No matching approved questions for this filter.'
-            }
-          />
-          {errors.questionVersionId && (
-            <p className="text-xs text-destructive">{errors.questionVersionId.message}</p>
-          )}
+      <form onSubmit={onSubmit} noValidate className="space-y-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-64 flex-1 space-y-1">
+            <Combobox
+              id="questionVersionId"
+              options={picker.items.map((item) => ({ value: item.questionVersionId, label: item.label }))}
+              value={questionVersionId || null}
+              onSelect={(value) => setValue('questionVersionId', value, { shouldValidate: true })}
+              placeholder="Search approved questions by text…"
+              isLoading={picker.isLoading}
+              isError={picker.isError}
+              errorMessage="Failed to load questions."
+              emptyMessage={
+                picker.isLoading ? 'Loading…' : 'No matching approved questions for this filter.'
+              }
+            />
+            {errors.questionVersionId && (
+              <p className="text-xs text-destructive">{errors.questionVersionId.message}</p>
+            )}
+          </div>
+          <div className="w-28 space-y-1">
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Marks override"
+              className={inputClassName}
+              {...register('marksOverride')}
+            />
+          </div>
         </div>
-        <div className="w-28 space-y-1">
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder="Marks override"
-            className={inputClassName}
-            {...register('marksOverride')}
-          />
-        </div>
+
+        {/* Phase 5 — only shown once a coding question with a real
+            supportedLanguages set is selected. Unchecked = unrestricted
+            (every language the question itself supports); staff has to
+            actively check specific languages to narrow the set an
+            attempt-taker will be offered for THIS assessment only — the
+            question's own supportedLanguages is never modified. */}
+        {questionVersionId && questionSupportedLanguages.length > 0 && (
+          <div className="space-y-1.5 rounded-md border border-dashed border-input p-3">
+            <p className="text-xs font-medium text-brand-primary">
+              Restrict Languages <span className="text-muted-foreground">(optional)</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Leave all unchecked to allow every language this question supports.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {questionSupportedLanguages.map((lang) => (
+                <label key={lang} className="flex items-center gap-1.5 text-xs text-brand-primary">
+                  <input
+                    type="checkbox"
+                    checked={allowedLanguages.includes(lang)}
+                    onChange={() => toggleLanguage(lang)}
+                  />
+                  {CODING_LANGUAGE_LABELS[lang as keyof typeof CODING_LANGUAGE_LABELS] ?? lang}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Button type="submit" size="sm" disabled={attachQuestion.isPending}>
           {attachQuestion.isPending ? 'Attaching…' : 'Attach Question'}
         </Button>

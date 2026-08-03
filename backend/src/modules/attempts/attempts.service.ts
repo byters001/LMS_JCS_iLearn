@@ -379,7 +379,13 @@ async function buildRenderableQuestion(
   );
   const question = await questionBankService.findQuestionById(version.questionId);
 
-  const enriched: AttemptQuestionContent = { ...frozen, type: question.type };
+  // Phase 5 — kept out of the spread below (same "strip the internal-only
+  // join field" treatment listFrozenQuestions already gives sectionOrder)
+  // rather than left on `enriched` as a redundant sibling of `coding.
+  // supportedLanguages` below, which is the one place a client actually
+  // needs this value — already merged into the effective set.
+  const { allowedLanguages: assessmentAllowedLanguages, ...frozenForResponse } = frozen;
+  const enriched: AttemptQuestionContent = { ...frozenForResponse, type: question.type };
   if (savedResponse) {
     enriched.savedResponse = savedResponse;
   }
@@ -421,6 +427,16 @@ async function buildRenderableQuestion(
   // error, same graceful-absence treatment as every optional relation
   // elsewhere in this codebase.
   if (version.codingDetails) {
+    // Phase 5 — the assessment-level restriction (if this question was
+    // manually attached with one set) narrows the question's own full set;
+    // otherwise the question's full set applies unchanged. Never a
+    // superset — enforced at attach time (assessments.service.ts's
+    // createAssessmentQuestion), not re-checked here.
+    const fullSupportedLanguages = version.codingDetails.supportedLanguages as string[];
+    const effectiveSupportedLanguages =
+      assessmentAllowedLanguages && assessmentAllowedLanguages.length > 0
+        ? (assessmentAllowedLanguages as string[])
+        : fullSupportedLanguages;
     enriched.coding = {
       problemStatement: version.codingDetails.problemStatement,
       inputFormat: version.codingDetails.inputFormat,
@@ -428,7 +444,7 @@ async function buildRenderableQuestion(
       constraints: version.codingDetails.constraints,
       timeLimitMs: version.codingDetails.timeLimitMs,
       memoryLimitKb: version.codingDetails.memoryLimitKb,
-      supportedLanguages: version.codingDetails.supportedLanguages as string[],
+      supportedLanguages: effectiveSupportedLanguages,
       sampleTestCases: version.testCases
         .filter((testCase) => !testCase.isHidden)
         .map((testCase) => ({
@@ -642,6 +658,23 @@ async function submitCode(
   if (question.type !== 'coding') {
     throw new ValidationError(
       `This endpoint is only valid for "coding" questions (this question is "${question.type}")`,
+    );
+  }
+
+  // Phase 5 — enforced here too, not just at attach time: the frontend's
+  // language dropdown already only offers the effective (possibly
+  // restricted) set, but that's a client-side convenience, not a real
+  // constraint — a direct API call could otherwise submit in a language
+  // this specific assessment intentionally excluded, even though the
+  // question itself supports it.
+  const effectiveLanguages =
+    selection.allowedLanguages && selection.allowedLanguages.length > 0
+      ? selection.allowedLanguages
+      : ((version.codingDetails?.supportedLanguages as string[] | undefined) ?? []);
+  if (!effectiveLanguages.includes(input.language)) {
+    throw new ValidationError(
+      `"${input.language}" is not an allowed language for this question in this assessment — ` +
+        `allowed: ${effectiveLanguages.join(', ')}`,
     );
   }
 

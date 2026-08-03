@@ -266,6 +266,10 @@ export interface AssessmentQuestion {
   questionVersionId: string
   marksOverride: string | null
   sortOrder: number
+  // Phase 5 — per-assessment coding-language restriction. NULL means
+  // unrestricted (this question's own full supportedLanguages applies).
+  // Always undefined/absent for a non-coding question.
+  allowedLanguages: string[] | null
 }
 
 export interface AssessmentSectionPool {
@@ -279,6 +283,11 @@ export interface CreateAssessmentQuestionInput {
   questionVersionId: string
   marksOverride?: number
   sortOrder?: number
+  // Phase 5 — optional subset of the attached question's own
+  // supportedLanguages. Omitted (not an empty array) means unrestricted —
+  // matches assessment_questions.allowed_languages' own NULL-vs-[] distinction
+  // on the backend (createAssessmentQuestionSchema).
+  allowedLanguages?: string[]
 }
 
 export interface CreateAssessmentSectionPoolInput {
