@@ -95,5 +95,12 @@ export const ATTEMPT_BUTTON_LABELS: Record<AttemptButtonState['kind'], string> =
   start: 'Start Test',
   continue: 'Continue Test',
   retake: 'Retake Test',
-  completed: 'Test Completed',
+  // Phase 4 (final) — was 'Test Completed' (a static label, styled to look
+  // clickable but not actually pointing anywhere informative beyond the
+  // bare per-question breakdown). Both real call sites of this map
+  // (StudentAssessmentsPage.tsx's card, AssessmentDetailPage.tsx's button)
+  // now link to the new polished report page instead — this label change
+  // and that retarget travel together, not a redundant second button next
+  // to the old one.
+  completed: 'View Report',
 }

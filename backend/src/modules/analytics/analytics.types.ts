@@ -233,3 +233,34 @@ export interface CategoryImprovementRow {
   firstAttemptAvgPercent: number | null;
   latestAttemptAvgPercent: number | null;
 }
+
+// --- Faculty's own analytics (Phase 3) ---
+//
+// Self-scoped via batch_trainers (organizationService.
+// listBatchAssignmentsForTrainers), never college — see
+// analytics.service.ts's getMyOverview/getMyBatchPerformance/
+// getMyCategoryImprovement. No requireSuperAdmin-equivalent guard: these
+// are inherently limited to the caller's OWN assignments by construction,
+// unlike PlatformOverview/CollegePerformanceRow above.
+
+export interface MyOverview {
+  // Always the caller's FULL assigned-batch count, never narrowed by an
+  // optional single-batch filter — see getMyOverview's own comment for why.
+  totalBatches: number;
+  totalStudents: number;
+  activeAssessments: number;
+  averageScorePercent: number | null;
+  completionRate: number | null;
+}
+
+// One row per batch the caller is assigned to, ALWAYS — same "zero-attempt
+// entities still appear" rule as CollegePerformanceRow above, just grouped
+// by batch instead of college. Never narrowed by a single-batch filter
+// either (the comparison IS the point — same reasoning
+// CollegePerformanceRow's own module comment states for colleges).
+export interface MyBatchPerformanceRow {
+  batchId: string;
+  batchName: string;
+  averageScorePercent: number | null;
+  attemptCount: number;
+}

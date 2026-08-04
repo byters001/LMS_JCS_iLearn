@@ -4,6 +4,7 @@ import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { analyticsService } from './analytics.service';
 import type {
   BatchIdParams,
+  BatchIdQuery,
   CollegeIdQuery,
   ExportBatchPerformanceQuery,
   GetBatchPerformanceQuery,
@@ -114,6 +115,35 @@ async function getCategoryImprovement(
   reply.status(200).send(response);
 }
 
+// --- Faculty's own analytics (Phase 3) ---
+
+async function getMyOverview(
+  request: FastifyRequest<{ Querystring: BatchIdQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getMyOverview(userId, request.query.batchId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function getMyBatchPerformance(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getMyBatchPerformance(userId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
+async function getMyCategoryImprovement(
+  request: FastifyRequest<{ Querystring: BatchIdQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getMyCategoryImprovement(userId, request.query.batchId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const analyticsController = {
   getBatchPerformance,
   getBatchAssessmentParticipation,
@@ -122,4 +152,7 @@ export const analyticsController = {
   getPlatformOverview,
   getCollegePerformance,
   getCategoryImprovement,
+  getMyOverview,
+  getMyBatchPerformance,
+  getMyCategoryImprovement,
 };

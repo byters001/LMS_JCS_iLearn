@@ -44,7 +44,11 @@ const TIER_CONFIG: Record<
   },
 }
 
-function TierBadge({ tier }: { tier: LeaderboardTier }) {
+// Exported (Phase 4 report page) — AttemptReportPage.tsx reuses this exact
+// badge for the student's own tier next to their batch rank, rather than a
+// second hand-rolled tier-badge implementation that could drift out of
+// sync with this one (icon/color/label per tier).
+export function TierBadge({ tier }: { tier: LeaderboardTier }) {
   const { label, icon: Icon, className } = TIER_CONFIG[tier]
   return (
     <Badge className={className}>

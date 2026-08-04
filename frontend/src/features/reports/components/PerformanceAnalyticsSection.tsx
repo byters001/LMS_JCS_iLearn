@@ -24,6 +24,11 @@ const FETCH_SIZE = 50
 const MAX_CHART_POINTS = 20
 
 const SCORE_LINE_COLOR = '#4A44C4' // brand-accent, tailwind.config.js
+// Phase 4 (AttemptReportPage.tsx's highlightAttemptId dot) — same green
+// this codebase already uses for "this is the positive/highlighted one"
+// elsewhere (BatchPerformancePage.tsx's PASS_COLOR, the Super Admin/Faculty
+// analytics pages' own IMPROVEMENT_COLOR) — no new hue introduced.
+const IMPROVEMENT_DOT_COLOR = '#16a34a'
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' })
 
@@ -31,6 +36,7 @@ interface ChartPoint {
   label: string
   assessmentTitle: string
   score: number
+  attemptId: string
 }
 
 function toNumber(totalScore: string | null): number | null {
@@ -89,14 +95,29 @@ function DeltaCallout({ diff }: { diff: number }) {
   )
 }
 
-export default function PerformanceAnalyticsSection() {
+interface PerformanceAnalyticsSectionProps {
+  // Phase 4 (AttemptReportPage.tsx) — when given, the delta callout and the
+  // "first attempt" special case anchor to THIS specific attempt instead of
+  // always the caller's most recent one, and its point on the chart (if
+  // within the rendered window) gets a distinct highlighted dot. Omitted
+  // everywhere else (PerformancePage.tsx's dashboard usage), which keeps
+  // its existing "always the latest attempt" behavior byte-for-byte.
+  highlightAttemptId?: string
+  // Phase 4 — lets AttemptReportPage.tsx use report-appropriate copy
+  // ("Your Score Trend") instead of the dashboard's generic heading,
+  // without forking a second copy of this component for one string.
+  heading?: string
+}
+
+export default function PerformanceAnalyticsSection({
+  highlightAttemptId,
+  heading = 'Performance Analytics',
+}: PerformanceAnalyticsSectionProps = {}) {
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   const sectionShell = (children: ReactNode) => (
     <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
-      <h2 className="font-heading text-lg font-semibold text-brand-primary">
-        Performance Analytics
-      </h2>
+      <h2 className="font-heading text-lg font-semibold text-brand-primary">{heading}</h2>
       {children}
     </div>
   )
@@ -119,15 +140,16 @@ export default function PerformanceAnalyticsSection() {
 
   // Oldest -> newest by submissionTime (see attemptTimestamp) — NOT simply
   // reversing the list endpoint's desc(createdAt) order, since createdAt and
-  // submissionTime aren't guaranteed to agree. Capped to the most recent
-  // MAX_CHART_POINTS completed attempts within the FETCH_SIZE window, not
-  // the student's entire history — this is a dashboard glance, not the full
-  // attempt log (that's Attempt History, /student/attempts).
-  const completed = toCompletedAttempts(data?.items ?? [])
-    .sort((a, b) => attemptTimestamp(a.attempt) - attemptTimestamp(b.attempt))
-    .slice(-MAX_CHART_POINTS)
+  // submissionTime aren't guaranteed to agree. This is the caller's FULL
+  // completed history within the FETCH_SIZE window — chartCompleted below
+  // is the further-capped MAX_CHART_POINTS slice actually rendered; kept
+  // separate so a highlightAttemptId's delta is still computed correctly
+  // even in the rare case it falls just outside the chart's own window.
+  const allCompleted = toCompletedAttempts(data?.items ?? []).sort(
+    (a, b) => attemptTimestamp(a.attempt) - attemptTimestamp(b.attempt),
+  )
 
-  if (completed.length === 0) {
+  if (allCompleted.length === 0) {
     return sectionShell(
       <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
         You haven&apos;t completed any assessments yet — your performance trend will appear here
@@ -136,36 +158,60 @@ export default function PerformanceAnalyticsSection() {
     )
   }
 
-  const latest = completed[completed.length - 1]
-
-  if (completed.length === 1) {
+  if (allCompleted.length === 1) {
+    const only = allCompleted[0]
     return sectionShell(
       <div className="mt-3 flex items-center justify-between rounded-lg border border-border p-4">
         <div>
           <p className="truncate text-sm font-medium text-brand-primary">
-            {latest.attempt.assessmentTitle}
+            {only.attempt.assessmentTitle}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">First attempt</p>
         </div>
-        <p className="text-2xl font-semibold text-brand-primary">{formatScore(latest.score)}</p>
+        <p className="text-2xl font-semibold text-brand-primary">{formatScore(only.score)}</p>
       </div>,
     )
   }
 
-  const previous = completed[completed.length - 2]
-  const diff = latest.score - previous.score
+  const targetIndex = highlightAttemptId
+    ? allCompleted.findIndex((row) => row.attempt.id === highlightAttemptId)
+    : allCompleted.length - 1
 
-  const chartData: ChartPoint[] = completed.map(({ attempt, score }) => ({
+  // Only reachable if a caller passes a highlightAttemptId this student has
+  // no matching 'submitted' row for within the FETCH_SIZE=50 window — e.g.
+  // a genuinely prolific test-taker viewing a report for an attempt older
+  // than their last 50. Rather than silently fall back to a DIFFERENT
+  // attempt's delta/score (misleading on a page reporting on one specific
+  // attempt), this says so plainly.
+  if (targetIndex === -1) {
+    return sectionShell(
+      <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        This attempt is outside your recent attempt history — the trend chart isn&apos;t available
+        for it.
+      </p>,
+    )
+  }
+
+  const target = allCompleted[targetIndex]
+  const previous = targetIndex > 0 ? allCompleted[targetIndex - 1] : undefined
+
+  const chartCompleted = allCompleted.slice(-MAX_CHART_POINTS)
+  const chartData: ChartPoint[] = chartCompleted.map(({ attempt, score }) => ({
     label: DATE_FORMATTER.format(new Date(attemptTimestamp(attempt))),
     assessmentTitle: attempt.assessmentTitle,
     score,
+    attemptId: attempt.id,
   }))
 
   return sectionShell(
     <>
       <div className="mt-1 flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">Points scored across your completed attempts</p>
-        <DeltaCallout diff={diff} />
+        {previous ? (
+          <DeltaCallout diff={target.score - previous.score} />
+        ) : (
+          <p className="text-sm font-medium text-muted-foreground">First attempt</p>
+        )}
       </div>
 
       <div className="mt-3">
@@ -192,7 +238,21 @@ export default function PerformanceAnalyticsSection() {
               stroke={SCORE_LINE_COLOR}
               strokeWidth={2}
               fill="url(#performanceScoreFill)"
-              dot={{ r: 4, fill: SCORE_LINE_COLOR }}
+              dot={(dotProps) => {
+                const point = dotProps.payload as ChartPoint
+                const isHighlighted = highlightAttemptId !== undefined && point.attemptId === highlightAttemptId
+                return (
+                  <circle
+                    key={point.attemptId}
+                    cx={dotProps.cx}
+                    cy={dotProps.cy}
+                    r={isHighlighted ? 7 : 4}
+                    fill={isHighlighted ? IMPROVEMENT_DOT_COLOR : SCORE_LINE_COLOR}
+                    stroke={isHighlighted ? 'var(--card)' : 'none'}
+                    strokeWidth={isHighlighted ? 2 : 0}
+                  />
+                )
+              }}
               activeDot={{ r: 6 }}
             />
           </AreaChart>

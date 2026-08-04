@@ -50,7 +50,8 @@ function formatStartDate(startAt: string | null): string | null {
 // AssessmentDetailPage.tsx button also uses, so the two surfaces can never
 // disagree about whether a given assessment is Start/Continue/Retake/
 // Completed. A completed (locked, no retake left) assessment's card links
-// straight to the results page instead of the detail page — there's
+// straight to the polished report page (Phase 4, final — was the bare
+// per-question results page before) instead of the detail page — there's
 // nothing left to "view details" toward starting.
 function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   const durationLabel = assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'
@@ -100,7 +101,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
 
   const linkTo =
     buttonState.kind === 'completed'
-      ? `/student/attempts/${buttonState.resultsAttemptId}/submitted`
+      ? `/student/attempts/${buttonState.resultsAttemptId}/report`
       : `/student/assessments/${assessment.id}`
 
   return (

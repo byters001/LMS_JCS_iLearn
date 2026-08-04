@@ -8,6 +8,7 @@ import { buildCsv } from '../../shared/utils/csv.util';
 import {
   analyticsRepository,
   type BatchAttemptRow,
+  type CategoryResponseRow,
 } from './analytics.repository';
 import type { GetBatchPerformanceQuery } from './analytics.schema';
 import type {
@@ -20,6 +21,8 @@ import type {
   CollegePerformanceRow,
   FailedStudentsBatchGroup,
   FailedStudentsResult,
+  MyBatchPerformanceRow,
+  MyOverview,
   PassingThresholdInfo,
   PerStudentPerformanceRow,
   PerStudentStatus,
@@ -772,7 +775,7 @@ async function getPlatformOverview(
         })
       ).total;
 
-  const attemptRows = await analyticsRepository.listSubmittedAttempts(collegeId);
+  const attemptRows = await analyticsRepository.listSubmittedAttempts({ collegeId });
   const scored = await getScorePercentagesForAttempts(
     attemptRows
       .filter((row): row is typeof row & { totalScore: string } => row.totalScore !== null)
@@ -800,7 +803,7 @@ async function getCollegePerformance(userId: string): Promise<CollegePerformance
 
   const [collegeList, attemptRows] = await Promise.all([
     analyticsRepository.listAllColleges(),
-    analyticsRepository.listSubmittedAttempts(),
+    analyticsRepository.listSubmittedAttempts({}),
   ]);
 
   const scored = await getScorePercentagesForAttempts(
@@ -845,14 +848,13 @@ async function getCollegePerformance(userId: string): Promise<CollegePerformance
 // distinct qualifying attempts are averaged in — a single-attempt student
 // can't produce a meaningful "improvement" — and studentsWithBothAttempts
 // reports exactly how many students back each category's average.
-async function getCategoryImprovement(
-  collegeId: string | undefined,
-  userId: string,
-): Promise<CategoryImprovementRow[]> {
-  await requireSuperAdmin(userId);
-
-  const rows = await analyticsRepository.listMcqCategoryResponses(collegeId);
-
+// Pure pivot/aggregation — extracted (Phase 3) so getCategoryImprovement
+// (Super Admin, collegeId-scoped) and getMyCategoryImprovement (Faculty,
+// batchIds-scoped) share the exact same math instead of two copies. Only
+// the INPUT rows differ per caller (analyticsRepository.
+// listMcqCategoryResponses' collegeId vs. batchIds scope) — this function
+// has no idea which scope produced them.
+function computeCategoryImprovement(rows: CategoryResponseRow[]): CategoryImprovementRow[] {
   interface AttemptAgg {
     createdAt: Date;
     obtained: number;
@@ -914,6 +916,168 @@ async function getCategoryImprovement(
   }));
 }
 
+async function getCategoryImprovement(
+  collegeId: string | undefined,
+  userId: string,
+): Promise<CategoryImprovementRow[]> {
+  await requireSuperAdmin(userId);
+  const rows = await analyticsRepository.listMcqCategoryResponses({ collegeId });
+  return computeCategoryImprovement(rows);
+}
+
+// --- Faculty's own analytics (Phase 3) ---
+//
+// Self-scoped by construction — every function below derives its scope
+// from the caller's OWN batch_trainers rows (organizationService.
+// listBatchAssignmentsForTrainers([userId]), already exported, already
+// used the identical way by assessments.service.ts's
+// resolveAssessmentListBatchScope), never from a caller-supplied college
+// or a caller-supplied batch list. No requireSuperAdmin-equivalent gate is
+// needed here — unlike Phase 2's cross-college functions above, there is
+// no "supplied scope wider than what you're allowed to see" problem to
+// close, since the scope IS the caller's own identity. The existing
+// analytics.view permission (analytics.routes.ts) is the only gate.
+async function resolveMyBatchIds(userId: string): Promise<string[]> {
+  const assignments = await organizationService.listBatchAssignmentsForTrainers([userId]);
+  return [...new Set(assignments.map((assignment) => assignment.batchId))];
+}
+
+// totalBatches is always the caller's FULL assignment count, never
+// narrowed by `batchId` — narrowing to one already-picked batch and then
+// showing "1" back would be a trivially uninteresting number (see the
+// Phase 3 differentiation proposal). activeAssessments/averageScorePercent/
+// completionRate ARE narrowed when `batchId` is given.
+//
+// activeAssessments reuses TWO already-existing pieces rather than a new
+// query: unscoped, assessmentsService.listAssessments' OWN Faculty batch-
+// scoping (resolveAssessmentListBatchScope, pre-dates this phase) already
+// resolves to exactly this caller's batches; narrowed to one batch,
+// analyticsRepository.listAssessmentsAssignedToBatch (already backs
+// getBatchAssessmentParticipation) is filtered to status==='live' in JS —
+// no new "count assessments" repository code needed either way.
+async function getMyOverview(
+  userId: string,
+  batchId: string | undefined,
+): Promise<MyOverview> {
+  const myBatchIds = await resolveMyBatchIds(userId);
+
+  let scopeBatchIds = myBatchIds;
+  if (batchId) {
+    await assertCanAccessBatch(batchId, userId);
+    scopeBatchIds = [batchId];
+  }
+
+  const totalStudents = await analyticsRepository.countActiveStudentsForBatches(scopeBatchIds);
+
+  const activeAssessments = batchId
+    ? (await analyticsRepository.listAssessmentsAssignedToBatch(batchId)).filter(
+        (row) => row.status === 'live',
+      ).length
+    : (
+        await assessmentsService.listAssessments(userId, {
+          status: 'live',
+          page: 1,
+          pageSize: 1,
+        })
+      ).total;
+
+  const rawAttemptRows = await analyticsRepository.listSubmittedAttempts({
+    batchIds: scopeBatchIds,
+  });
+  // Deduped by attemptId: listSubmittedAttempts' batchIds branch selects
+  // batchId as part of the row (so getMyBatchPerformance below can group
+  // per batch), which means a student genuinely active in more than one
+  // of the scope batches at once would otherwise have this ONE attempt
+  // counted twice in the average/completion math below — this function
+  // doesn't care which batch, only "did this attempt happen," so it
+  // collapses back to one row per attempt first.
+  const attemptRows = [...new Map(rawAttemptRows.map((row) => [row.attemptId, row])).values()];
+
+  const scored = await getScorePercentagesForAttempts(
+    attemptRows
+      .filter((row): row is typeof row & { totalScore: string } => row.totalScore !== null)
+      .map((row) => ({ attemptId: row.attemptId, totalScore: row.totalScore })),
+  );
+  const averageScorePercent = average(scored.map((row) => row.scorePercent));
+
+  const distinctStudentsWithSubmission = new Set(attemptRows.map((row) => row.studentId)).size;
+  const completionRate =
+    totalStudents > 0 ? distinctStudentsWithSubmission / totalStudents : null;
+
+  return {
+    totalBatches: myBatchIds.length,
+    totalStudents,
+    activeAssessments,
+    averageScorePercent,
+    completionRate,
+  };
+}
+
+// The Chart-1 replacement (batch-comparison ranked list, not a college bar
+// chart) — always compares every batch the caller is assigned to, same
+// "the comparison is inherently cross-X" reasoning getCollegePerformance
+// itself uses for never accepting a collegeId. listBatchAssignmentsForTrainers
+// doubles as the "every batch, even zero-attempt ones, with a real name"
+// source — the same role listAllColleges plays for getCollegePerformance,
+// with no new repository function needed (unlike that one).
+async function getMyBatchPerformance(userId: string): Promise<MyBatchPerformanceRow[]> {
+  const assignments = await organizationService.listBatchAssignmentsForTrainers([userId]);
+  const batchNamesById = new Map(assignments.map((a) => [a.batchId, a.batchName]));
+  const myBatchIds = [...batchNamesById.keys()];
+
+  const attemptRows = await analyticsRepository.listSubmittedAttempts({ batchIds: myBatchIds });
+  const scored = await getScorePercentagesForAttempts(
+    attemptRows
+      .filter((row): row is typeof row & { totalScore: string } => row.totalScore !== null)
+      .map((row) => ({ attemptId: row.attemptId, totalScore: row.totalScore })),
+  );
+  const percentByAttempt = new Map(scored.map((row) => [row.attemptId, row.scorePercent]));
+
+  const byBatch = new Map<string, { attemptCount: number; percents: number[] }>();
+  for (const row of attemptRows) {
+    // Always present in this branch (listSubmittedAttempts only omits
+    // batchId in its collegeId-scoped branch, never reached here).
+    const batchId = row.batchId as string;
+    const entry = byBatch.get(batchId) ?? { attemptCount: 0, percents: [] };
+    entry.attemptCount += 1;
+    const percent = percentByAttempt.get(row.attemptId);
+    if (percent !== undefined) entry.percents.push(percent);
+    byBatch.set(batchId, entry);
+  }
+
+  return myBatchIds.map((batchId) => {
+    const entry = byBatch.get(batchId);
+    return {
+      batchId,
+      batchName: batchNamesById.get(batchId) ?? 'Unknown',
+      averageScorePercent: entry ? average(entry.percents) : null,
+      attemptCount: entry?.attemptCount ?? 0,
+    };
+  });
+}
+
+// The Chart-2 replacement's data source (rendered as a radar chart on the
+// frontend, not a grouped bar chart) — reuses computeCategoryImprovement
+// verbatim, the exact same pivot Super Admin's getCategoryImprovement
+// uses, over batch-scoped rows instead of college-scoped ones.
+async function getMyCategoryImprovement(
+  userId: string,
+  batchId: string | undefined,
+): Promise<CategoryImprovementRow[]> {
+  const myBatchIds = await resolveMyBatchIds(userId);
+
+  let scopeBatchIds = myBatchIds;
+  if (batchId) {
+    await assertCanAccessBatch(batchId, userId);
+    scopeBatchIds = [batchId];
+  }
+
+  const rows: CategoryResponseRow[] = await analyticsRepository.listMcqCategoryResponses({
+    batchIds: scopeBatchIds,
+  });
+  return computeCategoryImprovement(rows);
+}
+
 export const analyticsService = {
   getBatchPerformance,
   getBatchAssessmentParticipation,
@@ -926,6 +1090,9 @@ export const analyticsService = {
   getPlatformOverview,
   getCollegePerformance,
   getCategoryImprovement,
+  getMyOverview,
+  getMyBatchPerformance,
+  getMyCategoryImprovement,
   // Exported (staff attempt-detail phase) so reports.service.ts's
   // getAttemptDetailForStaff can reuse the EXACT SAME batch_trainers-
   // assignment / Super-Admin-unrestricted check getBatchPerformance

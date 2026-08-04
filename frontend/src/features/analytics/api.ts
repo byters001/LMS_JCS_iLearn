@@ -11,6 +11,8 @@ import type {
   CategoryImprovementRow,
   CollegePerformanceRow,
   GetBatchPerformanceParams,
+  MyBatchPerformanceRow,
+  MyOverview,
   PlatformOverview,
 } from './types'
 
@@ -151,6 +153,50 @@ export function useCategoryImprovement(collegeId: string | undefined) {
   return useQuery({
     queryKey: ['analytics', 'category-improvement', collegeId],
     queryFn: () => getCategoryImprovement(collegeId),
+    placeholderData: keepPreviousData,
+  })
+}
+
+// --- Faculty's own analytics (Phase 3) ---
+// Self-scoped on the backend via batch_trainers (no requireSuperAdmin-
+// equivalent gate there — see analytics.service.ts's own comment) — these
+// three are only ever called from FacultyAnalyticsPage, itself only
+// reachable under /trainer (RequireRole roles={['faculty']} in
+// routes/index.tsx).
+
+function getMyOverview(batchId: string | undefined): Promise<MyOverview> {
+  return api.get<MyOverview>('/analytics/my-overview', { params: { batchId } })
+}
+
+export function useMyAnalyticsOverview(batchId: string | undefined) {
+  return useQuery({
+    queryKey: ['analytics', 'my-overview', batchId],
+    queryFn: () => getMyOverview(batchId),
+    placeholderData: keepPreviousData,
+  })
+}
+
+function getMyBatchPerformance(): Promise<MyBatchPerformanceRow[]> {
+  return api.get<MyBatchPerformanceRow[]>('/analytics/my-batch-performance')
+}
+
+export function useMyBatchPerformance() {
+  return useQuery({
+    queryKey: ['analytics', 'my-batch-performance'],
+    queryFn: getMyBatchPerformance,
+  })
+}
+
+function getMyCategoryImprovement(batchId: string | undefined): Promise<CategoryImprovementRow[]> {
+  return api.get<CategoryImprovementRow[]>('/analytics/my-category-improvement', {
+    params: { batchId },
+  })
+}
+
+export function useMyCategoryImprovement(batchId: string | undefined) {
+  return useQuery({
+    queryKey: ['analytics', 'my-category-improvement', batchId],
+    queryFn: () => getMyCategoryImprovement(batchId),
     placeholderData: keepPreviousData,
   })
 }

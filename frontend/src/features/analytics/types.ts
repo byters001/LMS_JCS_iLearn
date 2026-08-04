@@ -112,3 +112,22 @@ export interface CategoryImprovementRow {
   firstAttemptAvgPercent: number | null
   latestAttemptAvgPercent: number | null
 }
+
+// --- Faculty's own analytics (Phase 3) ---
+// Matches backend's analytics.types.ts MyOverview/MyBatchPerformanceRow
+// exactly. Self-scoped via batch_trainers, never college — no collegeId
+// anywhere in this section.
+export interface MyOverview {
+  totalBatches: number
+  totalStudents: number
+  activeAssessments: number
+  averageScorePercent: number | null
+  completionRate: number | null
+}
+
+export interface MyBatchPerformanceRow {
+  batchId: string
+  batchName: string
+  averageScorePercent: number | null
+  attemptCount: number
+}

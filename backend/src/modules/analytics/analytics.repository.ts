@@ -407,26 +407,86 @@ export interface SubmittedAttemptScopeRow {
   // percentage, same defensive treatment sumPossibleMarksForAttempts'
   // own callers already apply.
   totalScore: string | null;
+  // Only populated in the batchIds-scoped branch (getMyBatchPerformance's
+  // per-batch grouping needs it) — undefined in the collegeId-scoped
+  // branch, where trainingProgramStudents isn't joined at all. If a
+  // student is genuinely active in more than one of the caller's batches
+  // at once, this attempt legitimately appears once per matching batch —
+  // not a duplicate to dedupe, unlike the collegeId branch's own
+  // selectDistinct guard (a student has exactly one college, so any
+  // repeat there really would be a join artifact).
+  batchId?: string;
 }
 
-// Backs BOTH getPlatformOverview (collegeId given, narrows to one
-// college's students) and getCollegePerformance (collegeId omitted,
-// platform-wide, then grouped per college in JS) — one query, two
-// call shapes, same "don't duplicate the join" reasoning every other
-// reuse in this file already follows (e.g. sumPossibleMarksForAttempts
-// backing both getBatchPerformance and getScorePercentagesForAttempts).
-async function listSubmittedAttempts(collegeId?: string): Promise<SubmittedAttemptScopeRow[]> {
+// Mutually exclusive scope — collegeId for Super Admin's platform analytics
+// (Phase 2), batchIds for Faculty's own analytics (Phase 3, self-scoped via
+// batch_trainers). Both omitted = platform-wide/unscoped (only ever reached
+// by Super Admin callers, enforced in analytics.service.ts, not here).
+export interface AttemptScope {
+  collegeId?: string;
+  batchIds?: string[];
+}
+
+const SUBMITTED_ATTEMPT_SCOPE_COLUMNS = {
+  attemptId: assessmentAttempts.id,
+  studentId: assessmentAttempts.studentId,
+  collegeId: studentProfiles.collegeId,
+  collegeName: colleges.name,
+  totalScore: assessmentAttempts.totalScore,
+} as const;
+
+// Backs getPlatformOverview/getCollegePerformance (collegeId, or omitted
+// for platform-wide) AND getMyOverview/getMyBatchPerformance (batchIds,
+// Phase 3) — one shared column/base-join shape, two call shapes, same
+// "don't duplicate the join" reasoning every other reuse in this file
+// already follows (e.g. sumPossibleMarksForAttempts backing both
+// getBatchPerformance and getScorePercentagesForAttempts). The batchIds
+// branch adds the same trainingProgramStudents join
+// listBatchAttemptsForAssessment already uses for ONE batch, widened to
+// inArray for several — status = 'active' so a student since moved off
+// the batch doesn't count. Two separate query builds (not one dynamically
+// assembled one), matching assessments.repository.ts's own listAssessments
+// precedent for this exact "different join depending on scope" shape.
+async function listSubmittedAttempts(scope: AttemptScope = {}): Promise<SubmittedAttemptScopeRow[]> {
+  if (scope.batchIds) {
+    if (scope.batchIds.length === 0) {
+      return [];
+    }
+    // selectDistinct here is NOT a dedup-of-artifacts guard the way the
+    // collegeId branch below would need one — batchId is part of the
+    // selected columns, so a student genuinely active in two of the
+    // caller's batches at once correctly yields one row per (attempt,
+    // batch) pair, which is exactly what getMyBatchPerformance's
+    // per-batch grouping needs. selectDistinct only collapses true
+    // byte-identical duplicates (e.g. a defensive no-op if a future
+    // schema change ever allowed two active rows for the very same
+    // student+batch pair).
+    return db
+      .selectDistinct({
+        ...SUBMITTED_ATTEMPT_SCOPE_COLUMNS,
+        batchId: trainingProgramStudents.batchId,
+      })
+      .from(assessmentAttempts)
+      .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
+      .innerJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
+      .innerJoin(
+        trainingProgramStudents,
+        eq(trainingProgramStudents.studentId, studentProfiles.id),
+      )
+      .where(
+        and(
+          eq(assessmentAttempts.status, 'submitted'),
+          inArray(trainingProgramStudents.batchId, scope.batchIds),
+          eq(trainingProgramStudents.status, 'active'),
+        ),
+      );
+  }
+
   const conditions = [eq(assessmentAttempts.status, 'submitted')];
-  if (collegeId) conditions.push(eq(studentProfiles.collegeId, collegeId));
+  if (scope.collegeId) conditions.push(eq(studentProfiles.collegeId, scope.collegeId));
 
   return db
-    .select({
-      attemptId: assessmentAttempts.id,
-      studentId: assessmentAttempts.studentId,
-      collegeId: studentProfiles.collegeId,
-      collegeName: colleges.name,
-      totalScore: assessmentAttempts.totalScore,
-    })
+    .select(SUBMITTED_ATTEMPT_SCOPE_COLUMNS)
     .from(assessmentAttempts)
     .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
     .innerJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
@@ -460,20 +520,52 @@ export interface CategoryResponseRow {
 // responses have no correctness concept at all, so neither can produce a
 // real percent score today — see analytics.service.ts's
 // getCategoryImprovement for the full caveat surfaced to the caller.
-async function listMcqCategoryResponses(collegeId?: string): Promise<CategoryResponseRow[]> {
+const CATEGORY_RESPONSE_COLUMNS = {
+  studentId: assessmentAttempts.studentId,
+  attemptId: assessmentAttempts.id,
+  attemptCreatedAt: assessmentAttempts.createdAt,
+  categoryId: questionCategories.id,
+  categoryName: questionCategories.name,
+  marksObtained: attemptResponses.marksObtained,
+  questionMarks: questionVersions.marks,
+} as const;
+
+// Same AttemptScope shape/reasoning as listSubmittedAttempts above — Phase
+// 3 addition. selectDistinct on the batchIds branch for the identical
+// join-fan-out reason (a student active in >1 of the caller's batches
+// would otherwise duplicate every one of their response rows).
+async function listMcqCategoryResponses(scope: AttemptScope = {}): Promise<CategoryResponseRow[]> {
+  if (scope.batchIds) {
+    if (scope.batchIds.length === 0) {
+      return [];
+    }
+    return db
+      .selectDistinct(CATEGORY_RESPONSE_COLUMNS)
+      .from(attemptResponses)
+      .innerJoin(assessmentAttempts, eq(assessmentAttempts.id, attemptResponses.attemptId))
+      .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
+      .innerJoin(questionVersions, eq(questionVersions.id, attemptResponses.questionVersionId))
+      .innerJoin(questions, eq(questions.id, questionVersions.questionId))
+      .innerJoin(questionCategories, eq(questionCategories.id, questions.categoryId))
+      .innerJoin(
+        trainingProgramStudents,
+        eq(trainingProgramStudents.studentId, studentProfiles.id),
+      )
+      .where(
+        and(
+          eq(assessmentAttempts.status, 'submitted'),
+          eq(questions.type, 'mcq'),
+          inArray(trainingProgramStudents.batchId, scope.batchIds),
+          eq(trainingProgramStudents.status, 'active'),
+        ),
+      );
+  }
+
   const conditions = [eq(assessmentAttempts.status, 'submitted'), eq(questions.type, 'mcq')];
-  if (collegeId) conditions.push(eq(studentProfiles.collegeId, collegeId));
+  if (scope.collegeId) conditions.push(eq(studentProfiles.collegeId, scope.collegeId));
 
   return db
-    .select({
-      studentId: assessmentAttempts.studentId,
-      attemptId: assessmentAttempts.id,
-      attemptCreatedAt: assessmentAttempts.createdAt,
-      categoryId: questionCategories.id,
-      categoryName: questionCategories.name,
-      marksObtained: attemptResponses.marksObtained,
-      questionMarks: questionVersions.marks,
-    })
+    .select(CATEGORY_RESPONSE_COLUMNS)
     .from(attemptResponses)
     .innerJoin(assessmentAttempts, eq(assessmentAttempts.id, attemptResponses.attemptId))
     .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
@@ -481,6 +573,39 @@ async function listMcqCategoryResponses(collegeId?: string): Promise<CategoryRes
     .innerJoin(questions, eq(questions.id, questionVersions.questionId))
     .innerJoin(questionCategories, eq(questionCategories.id, questions.categoryId))
     .where(and(...conditions));
+}
+
+// --- Faculty's own analytics (Phase 3) ---
+//
+// Only ONE genuinely new query needed beyond the widened
+// listSubmittedAttempts/listMcqCategoryResponses above — everything else
+// Faculty's overview needs is already reachable via existing cross-module
+// SERVICE calls (organizationService.listBatchAssignmentsForTrainers for
+// "which batches, with names," assessmentsService.listAssessments'
+// existing Faculty batch-scoping for "active assessments") — see
+// analytics.service.ts's getMyOverview for exactly how those compose.
+//
+// studentsService.listStudentProfiles only accepts a single batchId
+// (students.repository.ts), not an array, so it can't answer "distinct
+// students across several of my batches" without either N calls (and a
+// real risk of double-counting a student active in more than one) or this
+// one small query — same trainingProgramStudents join
+// listActiveStudentIdsForBatch already uses for one batch, widened to
+// inArray + COUNT(DISTINCT ...) for several.
+async function countActiveStudentsForBatches(batchIds: string[]): Promise<number> {
+  if (batchIds.length === 0) {
+    return 0;
+  }
+  const [row] = await db
+    .select({ count: sql<number>`count(distinct ${trainingProgramStudents.studentId})` })
+    .from(trainingProgramStudents)
+    .where(
+      and(
+        inArray(trainingProgramStudents.batchId, batchIds),
+        eq(trainingProgramStudents.status, 'active'),
+      ),
+    );
+  return Number(row?.count ?? 0);
 }
 
 export const analyticsRepository = {
@@ -497,4 +622,5 @@ export const analyticsRepository = {
   listAllColleges,
   listSubmittedAttempts,
   listMcqCategoryResponses,
+  countActiveStudentsForBatches,
 };

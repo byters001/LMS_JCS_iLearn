@@ -41,7 +41,24 @@ export const collegeIdQuerySchema = z
   })
   .strict();
 
+// Faculty's own analytics (Phase 3) — batchId optional (omitted means
+// "aggregate across every batch this caller is assigned to via
+// batch_trainers", resolved server-side by analytics.service.ts's
+// getMyOverview/getMyCategoryImprovement). Narrowing to one batch is
+// authorized against the caller's OWN assignments there (assertCanAccessBatch,
+// reused as-is) — this schema only validates shape, not ownership. Shared
+// by /analytics/my-overview and /analytics/my-category-improvement;
+// /analytics/my-batch-performance takes no query params, same
+// "the comparison is inherently cross-batch" reasoning as
+// collegeIdQuerySchema's own college-performance sibling.
+export const batchIdQuerySchema = z
+  .object({
+    batchId: z.string().uuid('batchId must be a valid UUID').optional(),
+  })
+  .strict();
+
 export type BatchIdParams = z.infer<typeof batchIdParamsSchema>;
 export type GetBatchPerformanceQuery = z.infer<typeof getBatchPerformanceQuerySchema>;
 export type ExportBatchPerformanceQuery = z.infer<typeof exportBatchPerformanceQuerySchema>;
 export type CollegeIdQuery = z.infer<typeof collegeIdQuerySchema>;
+export type BatchIdQuery = z.infer<typeof batchIdQuerySchema>;

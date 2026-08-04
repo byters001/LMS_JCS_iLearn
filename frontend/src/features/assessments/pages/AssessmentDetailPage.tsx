@@ -107,18 +107,23 @@ export default function AssessmentDetailPage() {
               : 'Not open yet'}
           </div>
         ) : buttonState.kind === 'completed' ? (
-          // Completed (no retake left) links straight to the results page —
-          // there's nothing left here to start. Item 1 fix — same
-          // distinct muted/outline treatment as the card, not the solid
-          // brand-accent blue every clickable action state uses.
+          // Completed (no retake left) links straight to the polished
+          // report page (Phase 4, final — was the bare results page
+          // before; StudentAssessmentsPage.tsx's card was repointed the
+          // same way, same reasoning) — there's nothing left here to
+          // start. Item 1 fix — same distinct muted/outline treatment as
+          // the card, not the solid brand-accent blue every clickable
+          // action state uses. Label now reads from the shared
+          // ATTEMPT_BUTTON_LABELS map (previously hardcoded text here,
+          // out of step with every other branch already reading from it).
           <Link
-            to={`/student/attempts/${buttonState.resultsAttemptId}/submitted`}
+            to={`/student/attempts/${buttonState.resultsAttemptId}/report`}
             className={cn(
               buttonVariants({ variant: 'outline' }),
               'mt-4 w-full border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
-            Test Completed
+            {ATTEMPT_BUTTON_LABELS.completed}
           </Link>
         ) : (
           // Every other state uses the same instructions-flow navigation as

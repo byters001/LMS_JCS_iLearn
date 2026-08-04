@@ -3,7 +3,7 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/features/auth/pages/LoginPage'
 import AdminAnalyticsPage from '@/features/analytics/pages/AdminAnalyticsPage'
-import BatchPerformancePage from '@/features/analytics/pages/BatchPerformancePage'
+import TrainerAnalyticsPage from '@/features/analytics/pages/TrainerAnalyticsPage'
 import AssessmentDetailPage from '@/features/assessments/pages/AssessmentDetailPage'
 import AssessmentEditPage from '@/features/assessments/pages/AssessmentEditPage'
 import AssessmentInstructionsPage from '@/features/assessments/pages/AssessmentInstructionsPage'
@@ -20,6 +20,7 @@ import PoolDetailPage from '@/features/question-bank/pages/PoolDetailPage'
 import PoolListPage from '@/features/question-bank/pages/PoolListPage'
 import QuestionDetailPage from '@/features/question-bank/pages/QuestionDetailPage'
 import QuestionListPage from '@/features/question-bank/pages/QuestionListPage'
+import AttemptReportPage from '@/features/reports/pages/AttemptReportPage'
 import AttemptResultPage from '@/features/reports/pages/AttemptResultPage'
 import BatchListPage from '@/features/organization/pages/BatchListPage'
 import CollegeListPage from '@/features/organization/pages/CollegeListPage'
@@ -111,6 +112,14 @@ export function AppRoutes() {
                 distraction-free for, so the results page keeps the normal
                 StudentLayout shell (nav back to Your Assessments, etc.). */}
             <Route path="attempts/:attemptId/submitted" element={<AttemptResultPage />} />
+            {/* Phase 4 (final) — the polished report a completed assessment
+                card's "View Report" action now links to (see
+                StudentAssessmentsPage.tsx's own comment). AttemptResultPage
+                above (the per-question breakdown) stays reachable from
+                Attempt History and from a link on this new page — nothing
+                is orphaned, this just isn't the card's own destination
+                anymore. */}
+            <Route path="attempts/:attemptId/report" element={<AttemptReportPage />} />
             {/* 4-page nav phase — LeaderboardSection/PerformanceAnalyticsSection
                 moved here from StudentAssessmentsPage.tsx (see those two
                 pages' own comments) onto their own routes, matching
@@ -180,8 +189,13 @@ export function AppRoutes() {
               <Route path="new" element={<CreatePoolPage />} />
               <Route path=":id" element={<PoolDetailPage />} />
             </Route>
+            {/* Faculty gets a real batch_trainers-scoped landing page here
+                (TrainerAnalyticsPage's "Overview" tab) instead of the plain
+                batch drill-down — the drill-down itself isn't removed, just
+                moved to a second tab (see TrainerAnalyticsPage.tsx's own
+                comment, the Faculty-side sibling of AdminAnalyticsPage.tsx). */}
             <Route path="analytics">
-              <Route index element={<BatchPerformancePage />} />
+              <Route index element={<TrainerAnalyticsPage />} />
               <Route path="attempts/:attemptId" element={<StaffAttemptDetailPage />} />
             </Route>
           </Route>

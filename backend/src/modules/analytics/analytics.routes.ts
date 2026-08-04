@@ -5,10 +5,12 @@ import { ValidationError } from '../../shared/errors/app-error';
 import { analyticsController } from './analytics.controller';
 import {
   batchIdParamsSchema,
+  batchIdQuerySchema,
   collegeIdQuerySchema,
   exportBatchPerformanceQuerySchema,
   getBatchPerformanceQuerySchema,
   type BatchIdParams,
+  type BatchIdQuery,
   type CollegeIdQuery,
   type ExportBatchPerformanceQuery,
   type GetBatchPerformanceQuery,
@@ -131,6 +133,40 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: [validateQuery(collegeIdQuerySchema)],
     },
     analyticsController.getCategoryImprovement,
+  );
+
+  // --- Faculty's own analytics (Phase 3) ---
+  // Same ANALYTICS_VIEW gate, no extra role check needed at the route (or
+  // service) level beyond it — these three are self-scoped by construction
+  // (derived from the caller's own batch_trainers rows), a fundamentally
+  // different security shape from the cross-college routes above. See
+  // analytics.service.ts's own comment on getMyOverview/
+  // getMyBatchPerformance/getMyCategoryImprovement.
+
+  fastify.get<{ Querystring: BatchIdQuery }>(
+    '/analytics/my-overview',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateQuery(batchIdQuerySchema)],
+    },
+    analyticsController.getMyOverview,
+  );
+
+  // No query schema — inherently cross-batch, same reasoning as
+  // college-performance above.
+  fastify.get(
+    '/analytics/my-batch-performance',
+    { preHandler: [fastify.authenticate, ANALYTICS_VIEW] },
+    analyticsController.getMyBatchPerformance,
+  );
+
+  fastify.get<{ Querystring: BatchIdQuery }>(
+    '/analytics/my-category-improvement',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateQuery(batchIdQuerySchema)],
+    },
+    analyticsController.getMyCategoryImprovement,
   );
 }
 
