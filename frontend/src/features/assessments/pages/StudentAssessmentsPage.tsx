@@ -137,14 +137,20 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
           instead of the same solid brand-accent blue every clickable action
           state uses, so it reads at a glance as "done", not "here's another
           thing to click." Still a real link to the results page — only the
-          styling branches, not the behavior. */}
+          styling branches, not the behavior.
+          Visual-consistency pass — the non-completed branch previously
+          relied on buttonVariants' default variant (bg-primary, this app's
+          navy #211d8c), NOT the brand-accent blue this comment already
+          claimed it used — a real drift from AssessmentDetailPage.tsx's own
+          button for the identical Start/Continue/Retake action, which
+          already overrides to brand-accent explicitly. Fixed to match. */}
       <span
         className={cn(
           buttonVariants({ variant: buttonState.kind === 'completed' ? 'outline' : 'default' }),
           'mt-1 h-9 w-full',
           buttonState.kind === 'completed'
             ? 'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground'
-            : 'group-hover:bg-primary/90',
+            : 'bg-brand-accent text-white group-hover:bg-brand-accent/90',
         )}
       >
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}

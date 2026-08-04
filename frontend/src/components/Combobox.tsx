@@ -129,7 +129,15 @@ export function Combobox({
                 }}
                 className={cn(
                   'block w-full truncate px-3 py-2 text-left text-sm hover:bg-muted',
-                  option.value === value && 'bg-muted font-medium text-brand-primary',
+                  // Visual-consistency pass — was `bg-muted text-brand-primary`
+                  // (navy, no accent), inconsistent with every other "this is
+                  // the selected one" treatment elsewhere in the app (Sidebar's
+                  // nav active state, StudentListPage's selected college card,
+                  // LeaderboardSection's isSelf row — all brand-accent). This
+                  // is a shared component reused by every college/batch/
+                  // assessment picker across all three roles, so fixing it
+                  // here fixes it everywhere at once.
+                  option.value === value && 'bg-brand-accent/10 font-medium text-brand-accent',
                 )}
               >
                 {option.label}

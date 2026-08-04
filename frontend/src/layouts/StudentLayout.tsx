@@ -38,7 +38,9 @@ function StudentLayout() {
             Trainer's header means the notification bell + account avatar
             still land at the right edge instead of drifting to justify-end's
             single-child left-start behavior. */}
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
+        {/* print:hidden — Report page "Download PDF" phase; this header has
+            no reason to appear in a printed page. */}
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80 print:hidden">
           {/* No global search shell here — the confirmed search scope
               (Students/Assessments/Questions/Pools list endpoints) is
               entirely staff-facing; a student has no reason to search other

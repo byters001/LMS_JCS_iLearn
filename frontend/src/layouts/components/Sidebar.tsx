@@ -59,7 +59,11 @@ export function Sidebar({ navItems }: SidebarProps) {
       onMouseEnter={() => setCollapsed(false)}
       onMouseLeave={() => setCollapsed(true)}
       className={cn(
-        'sticky top-0 flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200',
+        // print:hidden — nav chrome has no reason to appear in a printed
+        // page (student report "Download PDF" phase); this is the one
+        // Sidebar shared by all three role layouts, so it's covered
+        // everywhere at once rather than needing a per-layout override.
+        'sticky top-0 flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 print:hidden',
         collapsed ? 'w-16' : 'w-60',
       )}
     >
