@@ -24,7 +24,11 @@ import { batches } from '../../db/schema/organization.schema';
 // (that rule is about calling another module's repository FUNCTIONS, not
 // importing its Drizzle table definition for a read-only join).
 import { assessmentAttempts } from '../../db/schema/attempts.schema';
-import { questionVersions } from '../../db/schema/question-bank.schema';
+import { questionPoolCriteria, questionVersions } from '../../db/schema/question-bank.schema';
+// Card-grid phase (Faculty/Admin AssessmentListPage) — same read-only
+// cross-module import precedent as `batches` above, one hop further:
+// training_program_students is the students module's own table.
+import { trainingProgramStudents } from '../../db/schema/students.schema';
 import type {
   Assessment,
   AssessmentApprovalHistory,
@@ -60,7 +64,7 @@ export interface ListAssessmentsParams {
 }
 
 // AssessmentListPage batches column — one row per (assessment, batch) pair,
-// grouped in application code by attachBatchNames below (same "one extra
+// grouped in application code by attachListMetadata below (same "one extra
 // bounded query, group in JS" shape as this module's own
 // listAssessmentBatches/getBatchAssessmentParticipation-style callers
 // elsewhere in this codebase, rather than a correlated subquery per row).
@@ -80,7 +84,7 @@ export interface ListAssessmentsResult {
 // each assessment row per linked batch, breaking pagination counts. Instead:
 // fetch the page of assessments first (unchanged shape/count), then this
 // one extra IN(...) query for just those rows' batch names, grouped back on
-// in application code by attachBatchNames. Bounded by one page's worth of
+// in application code by attachListMetadata. Bounded by one page's worth of
 // assessment ids (<= pageSize), same cost class as every other list
 // endpoint's page size.
 async function listBatchNamesForAssessments(
@@ -98,10 +102,123 @@ async function listBatchNamesForAssessments(
     .where(inArray(assessmentBatches.assessmentId, assessmentIds));
 }
 
-function attachBatchNames(
-  items: Assessment[],
-  batchNameRows: AssessmentBatchNameRow[],
-): AssessmentListItem[] {
+// --- Student/question count columns (Faculty/Admin card-grid phase) ---
+//
+// Neither existed anywhere before this — confirmed by reading
+// AssessmentListItem directly. Both follow the exact same "second bounded
+// query (<= one page's worth of assessment ids), group in JS" shape
+// listBatchNamesForAssessments above already established, not a join on the
+// paginated query itself (same pagination-multiplication risk that
+// function's own comment already explains).
+
+export interface AssessmentStudentCountRow {
+  assessmentId: string;
+  studentCount: number;
+}
+
+// Distinct ACTIVE students across every batch this assessment is assigned
+// to — assessment_batches -> training_program_students, the students
+// module's own table (read-only cross-module import, see this file's top
+// comment on `batches`). COUNT DISTINCT so a student active in more than
+// one of an assessment's assigned batches is counted once, not once per
+// batch (same reasoning analytics.repository.ts's own
+// countActiveStudentsForBatches already documents for the identical shape).
+async function countStudentsForAssessments(
+  assessmentIds: string[],
+): Promise<AssessmentStudentCountRow[]> {
+  if (assessmentIds.length === 0) return [];
+  return db
+    .select({
+      assessmentId: assessmentBatches.assessmentId,
+      studentCount: sql<number>`count(distinct ${trainingProgramStudents.studentId})`,
+    })
+    .from(assessmentBatches)
+    .innerJoin(
+      trainingProgramStudents,
+      and(
+        eq(trainingProgramStudents.batchId, assessmentBatches.batchId),
+        eq(trainingProgramStudents.status, 'active'),
+      ),
+    )
+    .where(inArray(assessmentBatches.assessmentId, assessmentIds))
+    .groupBy(assessmentBatches.assessmentId);
+}
+
+export interface AssessmentQuestionCountRow {
+  assessmentId: string;
+  questionCount: number;
+}
+
+// Manual-section questions (direct assessment_questions rows) PLUS pool-
+// section questions (each attached pool's own countRequired, summed across
+// its criteria — question_pool_criteria, question-bank module's own table,
+// same read-only cross-module import precedent) — deliberately NOT a bare
+// COUNT(assessment_questions), which would silently undercount (0) for any
+// assessment using pool-based sections: a pool section's questions are
+// resolved at attempt-time, never stored as literal assessment_questions
+// rows (see this module's own resolveSectionQuestions for the identical
+// manual/pool distinction).
+async function countQuestionsForAssessments(
+  assessmentIds: string[],
+): Promise<AssessmentQuestionCountRow[]> {
+  if (assessmentIds.length === 0) return [];
+
+  const [manualCounts, poolCounts] = await Promise.all([
+    db
+      .select({
+        assessmentId: assessmentSections.assessmentId,
+        count: sql<number>`count(${assessmentQuestions.id})`,
+      })
+      .from(assessmentQuestions)
+      .innerJoin(
+        assessmentSections,
+        eq(assessmentSections.id, assessmentQuestions.assessmentSectionId),
+      )
+      .where(inArray(assessmentSections.assessmentId, assessmentIds))
+      .groupBy(assessmentSections.assessmentId),
+    db
+      .select({
+        assessmentId: assessmentSections.assessmentId,
+        count: sql<number>`coalesce(sum(${questionPoolCriteria.countRequired}), 0)`,
+      })
+      .from(assessmentSectionPools)
+      .innerJoin(
+        assessmentSections,
+        eq(assessmentSections.id, assessmentSectionPools.assessmentSectionId),
+      )
+      .innerJoin(
+        questionPoolCriteria,
+        eq(questionPoolCriteria.questionPoolId, assessmentSectionPools.questionPoolId),
+      )
+      .where(inArray(assessmentSections.assessmentId, assessmentIds))
+      .groupBy(assessmentSections.assessmentId),
+  ]);
+
+  const totals = new Map<string, number>();
+  for (const row of manualCounts) {
+    totals.set(row.assessmentId, (totals.get(row.assessmentId) ?? 0) + Number(row.count));
+  }
+  for (const row of poolCounts) {
+    totals.set(row.assessmentId, (totals.get(row.assessmentId) ?? 0) + Number(row.count));
+  }
+
+  return [...totals.entries()].map(([assessmentId, questionCount]) => ({
+    assessmentId,
+    questionCount,
+  }));
+}
+
+// Combines all three "second bounded query" side-fetches into the final
+// AssessmentListItem[] shape — one merge point instead of each list-page
+// caller re-doing its own Map-building per field.
+async function attachListMetadata(items: Assessment[]): Promise<AssessmentListItem[]> {
+  const assessmentIds = items.map((item) => item.id);
+  const [batchNameRows, studentCountRows, questionCountRows] = await Promise.all([
+    listBatchNamesForAssessments(assessmentIds),
+    countStudentsForAssessments(assessmentIds),
+    countQuestionsForAssessments(assessmentIds),
+  ]);
+
   const batchesByAssessmentId = new Map<string, { id: string; name: string }[]>();
   for (const row of batchNameRows) {
     const existing = batchesByAssessmentId.get(row.assessmentId);
@@ -112,7 +229,19 @@ function attachBatchNames(
       batchesByAssessmentId.set(row.assessmentId, [entry]);
     }
   }
-  return items.map((item) => ({ ...item, batches: batchesByAssessmentId.get(item.id) ?? [] }));
+  const studentCountByAssessmentId = new Map(
+    studentCountRows.map((row) => [row.assessmentId, Number(row.studentCount)]),
+  );
+  const questionCountByAssessmentId = new Map(
+    questionCountRows.map((row) => [row.assessmentId, row.questionCount]),
+  );
+
+  return items.map((item) => ({
+    ...item,
+    batches: batchesByAssessmentId.get(item.id) ?? [],
+    studentCount: studentCountByAssessmentId.get(item.id) ?? 0,
+    questionCount: questionCountByAssessmentId.get(item.id) ?? 0,
+  }));
 }
 
 function buildAssessmentsWhere(
@@ -162,9 +291,8 @@ async function listAssessments(params: ListAssessmentsParams): Promise<ListAsses
     ]);
 
     const bareItems = items.map((row) => row.assessment);
-    const batchNameRows = await listBatchNamesForAssessments(bareItems.map((item) => item.id));
     return {
-      items: attachBatchNames(bareItems, batchNameRows),
+      items: await attachListMetadata(bareItems),
       total: Number(totalRows[0]?.count ?? 0),
     };
   }
@@ -181,8 +309,7 @@ async function listAssessments(params: ListAssessmentsParams): Promise<ListAsses
     db.select({ count: sql<number>`count(*)` }).from(assessments).where(where),
   ]);
 
-  const batchNameRows = await listBatchNamesForAssessments(items.map((item) => item.id));
-  return { items: attachBatchNames(items, batchNameRows), total: Number(totalRows[0]?.count ?? 0) };
+  return { items: await attachListMetadata(items), total: Number(totalRows[0]?.count ?? 0) };
 }
 
 export interface ListAvailableAssessmentsParams {

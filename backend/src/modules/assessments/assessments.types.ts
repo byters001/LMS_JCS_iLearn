@@ -8,12 +8,18 @@ import type {
 } from '../../db/types';
 import type { ResolvedQuestionPool } from '../question-bank/question-bank.types';
 
-// AssessmentListPage batches column — see assessments.repository.ts's
-// attachBatchNames for how `batches` is populated (a second, grouped-in-JS
-// query keyed off the page of assessment ids already fetched, not a join on
-// the paginated query itself).
+// AssessmentListPage batches/studentCount/questionCount columns — see
+// assessments.repository.ts's attachListMetadata for how all three are
+// populated (bounded, grouped-in-JS side queries keyed off the page of
+// assessment ids already fetched, not a join on the paginated query
+// itself). studentCount/questionCount are card-grid-phase additions —
+// see attachListMetadata's own comment for exactly what each counts
+// (distinct active students across the assessment's assigned batches;
+// manual + pool-resolved questions across every section).
 export interface AssessmentListItem extends Assessment {
   batches: { id: string; name: string }[];
+  studentCount: number;
+  questionCount: number;
 }
 
 export interface ListAssessmentsResult {

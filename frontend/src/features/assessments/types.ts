@@ -106,8 +106,15 @@ export interface ListAssessmentsParams {
 // `Assessment` type above — GET /assessments/available (the student-facing
 // endpoint) does not carry this field, so widening the shared base type
 // would be a lie for that caller.
+// studentCount/questionCount — card-grid phase: matches backend's now-
+// widened AssessmentListItem (assessments.types.ts). questionCount sums
+// BOTH manual assessment_questions rows and pool-based sections'
+// countRequired (pool questions have no literal stored rows), so it's
+// never a naive per-section row count.
 export interface AssessmentListItem extends Assessment {
   batches: { id: string; name: string }[]
+  studentCount: number
+  questionCount: number
 }
 
 export interface ListAssessmentsResult {

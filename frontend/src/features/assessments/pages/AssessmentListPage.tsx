@@ -1,18 +1,14 @@
+import { HelpCircle, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { getInitials } from '@/components/UserAvatarMenu'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { AssessmentStatusBadge } from '../components/AssessmentStatusBadge'
 import { useAssessments } from '../api'
-import type { TestCategory } from '../types'
+import type { AssessmentListItem, TestCategory } from '../types'
 
 const PAGE_SIZE = 20
 
@@ -23,42 +19,88 @@ const TEST_CATEGORY_LABELS: Record<TestCategory, string> = {
   mixed: 'Mixed',
 }
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-}
+// Card-grid phase — same visual/structural template as
+// CollegeListPage.tsx's CollegeCard (avatar-initial badge, status badge,
+// 2-column stat grid, bottom button row), applied here for the Trainer/
+// Admin assessment list. Average score deliberately NOT shown per this
+// phase's own scope (removed, not just omitted by oversight).
+//
+// Edit button visibility — the REAL backend rule (assertAssessmentEditable,
+// assessments.service.ts): assessment CONTENT (sections/questions) can only
+// be modified while status === 'draft'; every later status 409s on any
+// content-mutating call. Batch assignment has its own, wider rule
+// (assertBatchesEditable — editable through 'scheduled', locked only at
+// live/completed/archived), but this card's "Edit" button opens the SAME
+// AssessmentEditPage route as "View" (that page already self-adapts via its
+// own isContentEditable check), so it's gated on the narrower content rule
+// to avoid ever presenting an "Edit" affordance that opens a page with
+// nothing actually editable on it.
+function AssessmentCard({ assessment }: { assessment: AssessmentListItem }) {
+  const isContentEditable = assessment.status === 'draft'
 
-// Batches column — truncate to the first 2 names inline, "+N more" for the
-// rest (my call, per the task's own "your call, state which"). Full list is
-// still available via the native `title` attribute (a real tooltip
-// component doesn't exist anywhere in components/ui yet, and building one
-// is out of this phase's scope for a single column) rather than silently
-// dropping the overflow.
-const BATCH_NAMES_INLINE_LIMIT = 2
+  return (
+    <Card className="gap-3 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-white">
+            {getInitials(assessment.title)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-heading font-medium text-brand-primary">{assessment.title}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {TEST_CATEGORY_LABELS[assessment.testCategory]}
+            </p>
+          </div>
+        </div>
+        <AssessmentStatusBadge status={assessment.status} />
+      </div>
 
-function formatBatchNames(assessmentBatches: { id: string; name: string }[]): {
-  display: string
-  title: string
-} {
-  if (assessmentBatches.length === 0) {
-    return { display: '—', title: 'Not assigned to any batch yet' }
-  }
-  const names = assessmentBatches.map((batch) => batch.name)
-  const shown = names.slice(0, BATCH_NAMES_INLINE_LIMIT)
-  const remaining = names.length - shown.length
-  return {
-    display: remaining > 0 ? `${shown.join(', ')} +${remaining} more` : shown.join(', '),
-    title: names.join(', '),
-  }
+      <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-2.5">
+        <div className="flex items-center gap-2">
+          <Users className="size-4 shrink-0 text-brand-primary" />
+          <div className="min-w-0">
+            <p className="font-heading text-sm leading-tight font-semibold text-foreground">
+              {assessment.studentCount}
+            </p>
+            <p className="text-[11px] leading-tight text-muted-foreground">students</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <HelpCircle className="size-4 shrink-0 text-brand-accent" />
+          <div className="min-w-0">
+            <p className="font-heading text-sm leading-tight font-semibold text-foreground">
+              {assessment.questionCount}
+            </p>
+            <p className="text-[11px] leading-tight text-muted-foreground">questions</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-auto flex gap-2 border-t border-border pt-3">
+        <Button asChild variant="outline" size="sm" className="flex-1">
+          <Link to={`${assessment.id}/edit`}>View</Link>
+        </Button>
+        {isContentEditable && (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="flex-1 border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+          >
+            <Link to={`${assessment.id}/edit`}>Edit</Link>
+          </Button>
+        )}
+      </div>
+    </Card>
+  )
 }
 
 // Staff-facing assessment list at /trainer/assessments and
-// /admin/assessments — mirrors StudentListPage.tsx's exact pattern (api.ts
-// hook -> paginated table -> brand styling). No filter controls
-// (status/testCategory/trainingSessionId are supported by the backend and
-// already typed in ListAssessmentsParams, just not exposed as UI yet) —
-// same minimalism the students list already established. Each title links
-// to AssessmentEditPage — the only way to reach an existing assessment's
-// edit view once it's no longer the one you just created.
+// /admin/assessments — card-grid phase, replacing the previous table (same
+// data source, same useAssessments hook, same pagination). No filter
+// controls (status/testCategory/trainingSessionId are supported by the
+// backend and already typed in ListAssessmentsParams, just not exposed as
+// UI yet) — same minimalism the previous table version already established.
 export default function AssessmentListPage() {
   const [page, setPage] = useState(1)
   const { data, isPending, isError, error, isFetching } = useAssessments({
@@ -83,9 +125,13 @@ export default function AssessmentListPage() {
       </div>
 
       {isPending && (
-        <div className="space-y-2" role="status" aria-label="Loading assessments">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
+        <div
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          role="status"
+          aria-label="Loading assessments"
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
       )}
@@ -98,60 +144,17 @@ export default function AssessmentListPage() {
         </div>
       )}
 
-      {data && (
-        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="pl-4">Title</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Timer</TableHead>
-                <TableHead>Batches</TableHead>
-                <TableHead className="pr-4">Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    No assessments found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.items.map((assessment) => {
-                  const batchNames = formatBatchNames(assessment.batches)
-                  return (
-                    <TableRow key={assessment.id} className="hover:bg-muted/30">
-                      <TableCell className="pl-4 font-medium">
-                        <Link
-                          to={`${assessment.id}/edit`}
-                          className="text-brand-primary hover:underline"
-                        >
-                          {assessment.title}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{TEST_CATEGORY_LABELS[assessment.testCategory]}</TableCell>
-                      <TableCell>
-                        <AssessmentStatusBadge status={assessment.status} />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground" title={batchNames.title}>
-                        {batchNames.display}
-                      </TableCell>
-                      <TableCell className="pr-4 text-muted-foreground">
-                        {formatDate(assessment.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
+      {data && data.items.length === 0 && <EmptyState message="No assessments found." />}
 
-          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+      {data && data.items.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {data.items.map((assessment) => (
+              <AssessmentCard key={assessment.id} assessment={assessment} />
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
             <p className="text-sm text-muted-foreground">
               Page {data.page} of {totalPages} &middot; {data.total} assessment
               {data.total === 1 ? '' : 's'}
@@ -178,7 +181,7 @@ export default function AssessmentListPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

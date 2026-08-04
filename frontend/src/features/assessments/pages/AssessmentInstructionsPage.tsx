@@ -70,7 +70,7 @@ export default function AssessmentInstructionsPage() {
       <div className="p-6">
         <p className="text-sm text-muted-foreground">
           Couldn&apos;t load this assessment&apos;s details directly.{' '}
-          <Link to="/student" className="text-brand-accent underline">
+          <Link to="/student/assessments" className="text-brand-accent underline">
             Go back to your assessments
           </Link>
           .

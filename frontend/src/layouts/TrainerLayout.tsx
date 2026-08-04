@@ -37,11 +37,17 @@ import { useAuthStore } from '@/store/authStore'
 // batches they're actually assigned to, so student browsing now lives as a
 // per-batch drill-down on My Batches (see MyBatchesPage.tsx) instead of a
 // separate nav item.
+// Dashboard first (was "Analytics", last) — a trainer's own aggregate
+// overview is the natural landing point, same "dashboard-first" convention
+// the new student /student index now also follows. The underlying page/
+// route is unchanged (still FacultyAnalyticsPage via TrainerAnalyticsPage's
+// Overview tab, still /trainer/analytics) — this is a label + ordering
+// change only.
 const NAV_ITEMS: SidebarNavItem[] = [
+  { type: 'link', to: '/trainer/analytics', label: 'Dashboard', end: true, icon: BarChart3 },
   { type: 'link', to: '/trainer/batches', label: 'My Batches', end: true, icon: Layers },
   { type: 'link', to: '/trainer/questions', label: 'Questions', end: true, icon: HelpCircle },
   { type: 'link', to: '/trainer/assessments', label: 'Assessments', end: true, icon: ClipboardList },
-  { type: 'link', to: '/trainer/analytics', label: 'Analytics', end: true, icon: BarChart3 },
 ]
 
 function TrainerLayout() {

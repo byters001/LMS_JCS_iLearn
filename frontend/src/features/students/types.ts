@@ -5,6 +5,18 @@
 // (StudentProfileWithNames there) — ids are kept here too since some future
 // action may still need them, they're just no longer the primary display
 // value (see StudentListPage.tsx).
+// GET /students/me — self-service, matches backend's students.types.ts
+// MyDashboardProfile exactly. Every field is nullable except fullName
+// (colleges/departments/current-batch-enrollment are all real optional
+// relationships — see backend's findMyDashboardProfile for exactly why
+// each can be null).
+export interface MyDashboardProfile {
+  fullName: string | null
+  collegeName: string | null
+  departmentName: string | null
+  batchName: string | null
+}
+
 export type StudentStatus = 'active' | 'archived'
 
 export interface StudentProfile {

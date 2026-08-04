@@ -45,7 +45,7 @@ export default function AssessmentDetailPage() {
       <div className="p-6">
         <p className="text-sm text-muted-foreground">
           Couldn&apos;t load this assessment&apos;s details directly.{' '}
-          <Link to="/student" className="text-brand-accent underline">
+          <Link to="/student/assessments" className="text-brand-accent underline">
             Go back to your assessments
           </Link>
           .
@@ -62,7 +62,7 @@ export default function AssessmentDetailPage() {
 
   return (
     <div className="p-6">
-      <Link to="/student" className="text-sm text-brand-accent hover:underline">
+      <Link to="/student/assessments" className="text-sm text-brand-accent hover:underline">
         &larr; Back to assessments
       </Link>
 

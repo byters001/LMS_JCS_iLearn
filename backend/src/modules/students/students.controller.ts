@@ -32,6 +32,13 @@ function requireActiveCollegeId(request: FastifyRequest): string | null {
   return request.user.activeCollegeId ?? null;
 }
 
+async function getMyProfile(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await studentsService.getMyProfile(userId);
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 async function listStudentProfiles(
   request: FastifyRequest<{ Querystring: ListStudentProfilesQuery }>,
   reply: FastifyReply,
@@ -133,6 +140,7 @@ async function exportStudentsCsv(
 }
 
 export const studentsController = {
+  getMyProfile,
   listStudentProfiles,
   getStudentProfileById,
   createStudentProfile,

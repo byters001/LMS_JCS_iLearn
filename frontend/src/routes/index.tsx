@@ -10,6 +10,7 @@ import AssessmentInstructionsPage from '@/features/assessments/pages/AssessmentI
 import AssessmentListPage from '@/features/assessments/pages/AssessmentListPage'
 import CreateAssessmentPage from '@/features/assessments/pages/CreateAssessmentPage'
 import StudentAssessmentsPage from '@/features/assessments/pages/StudentAssessmentsPage'
+import StudentDashboardPage from '@/features/assessments/pages/StudentDashboardPage'
 import AttemptPage from '@/features/attempts/pages/AttemptPage'
 import ChatbotAuditLogPage from '@/features/chatbot/pages/ChatbotAuditLogPage'
 import BulkImportPage from '@/features/question-bank/pages/BulkImportPage'
@@ -96,7 +97,13 @@ export function AppRoutes() {
 
         <Route element={<RequireRole roles={['student']} />}>
           <Route path="/student" element={<StudentLayout />}>
-            <Route index element={<StudentAssessmentsPage />} />
+            {/* Student Dashboard phase — the assessments grid moved to its
+                own route/nav item ("Your Assessments" below); this is the
+                new landing page. See StudentDashboardPage.tsx's own
+                comment for what it shows and where each real number comes
+                from. */}
+            <Route index element={<StudentDashboardPage />} />
+            <Route path="assessments" element={<StudentAssessmentsPage />} />
             <Route path="assessments/:id" element={<AssessmentDetailPage />} />
             {/* Lockdown item 1 — the sole path into starting an attempt now
                 goes through here first (AssessmentDetailPage's "Start

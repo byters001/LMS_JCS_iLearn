@@ -11,7 +11,7 @@ import type {
   ListStudentProfilesQuery,
   UpdateStudentProfileInput,
 } from './students.schema';
-import type { ListStudentProfilesResult } from './students.types';
+import type { ListStudentProfilesResult, MyDashboardProfile } from './students.types';
 
 async function listStudentProfiles(
   query: ListStudentProfilesQuery,
@@ -328,10 +328,31 @@ async function exportStudentsCsv(
   return buildCsv(STUDENT_EXPORT_CSV_HEADER, rows.map(studentExportRowToCsvRow));
 }
 
+// --- Student dashboard ---
+//
+// Self-scoped, no permission key — same "resolve via findStudentProfileByUserId,
+// ForbiddenError for a non-student caller" model reports.service.ts's own
+// requireStudentProfileId already established (this module's own
+// createStudentsInBatch/exportStudentsCsv are the staff-permission-gated
+// side of this module; this is the self-service side, matching reports'
+// precedent instead).
+async function getMyProfile(userId: string): Promise<MyDashboardProfile> {
+  const studentProfile = await studentsRepository.findStudentProfileByUserId(userId);
+  if (!studentProfile) {
+    throw new ForbiddenError('Only students have a dashboard profile to view here');
+  }
+  const profile = await studentsRepository.findMyDashboardProfile(studentProfile.id);
+  if (!profile) {
+    throw new NotFoundError('Student profile not found');
+  }
+  return profile;
+}
+
 export const studentsService = {
   listStudentProfiles,
   findStudentProfileById,
   findStudentProfileByUserId,
+  getMyProfile,
   listActiveBatchIdsForStudent,
   createStudentProfile,
   updateStudentProfile,

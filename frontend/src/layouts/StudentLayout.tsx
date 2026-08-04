@@ -1,4 +1,4 @@
-import { ClipboardList, History, LineChart, Trophy } from 'lucide-react'
+import { ClipboardList, History, LayoutDashboard, LineChart, Trophy } from 'lucide-react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { UserAvatarMenu } from '@/components/UserAvatarMenu'
 import { useLogout } from '@/features/auth/api'
@@ -6,13 +6,21 @@ import { NotificationBell } from '@/features/notifications/components/Notificati
 import { Sidebar, type SidebarNavItem } from '@/layouts/components/Sidebar'
 import { useAuthStore } from '@/store/authStore'
 
-// 4-page nav phase — Leaderboard/Performance added below Attempt History,
-// in that order (was 2 links, now 4). Both were previously embedded as
-// sections on "Your Assessments" (StudentAssessmentsPage.tsx) rather than
-// having their own nav entry/route — see LeaderboardPage.tsx/
-// PerformancePage.tsx's own comments for exactly where they moved from.
+// Student Dashboard phase — Dashboard is now the /student index (was
+// StudentAssessmentsPage directly); "Your Assessments" moved to its own
+// /student/assessments route/nav item, same functionality, unchanged
+// internals, just no longer the landing page. Dashboard-first ordering
+// mirrors TrainerLayout's own nav reorder (Analytics -> Dashboard, moved
+// first).
+//
+// 4-page nav phase (earlier) — Leaderboard/Performance added below Attempt
+// History, in that order. Both were previously embedded as sections on
+// "Your Assessments" (StudentAssessmentsPage.tsx) rather than having their
+// own nav entry/route — see LeaderboardPage.tsx/PerformancePage.tsx's own
+// comments for exactly where they moved from.
 const NAV_ITEMS: SidebarNavItem[] = [
-  { type: 'link', to: '/student', label: 'Your Assessments', end: true, icon: ClipboardList },
+  { type: 'link', to: '/student', label: 'Dashboard', end: true, icon: LayoutDashboard },
+  { type: 'link', to: '/student/assessments', label: 'Your Assessments', end: true, icon: ClipboardList },
   { type: 'link', to: '/student/attempts', label: 'Attempt History', end: true, icon: History },
   { type: 'link', to: '/student/leaderboard', label: 'Leaderboard', end: true, icon: Trophy },
   { type: 'link', to: '/student/performance', label: 'Performance', end: true, icon: LineChart },

@@ -11,9 +11,27 @@ import type {
   ExportStudentsParams,
   ListStudentProfilesParams,
   ListStudentProfilesResponse,
+  MyDashboardProfile,
   StudentProfile,
   UpdateStudentProfileInput,
 } from './types'
+
+// Self-service (student Dashboard phase) — GET /students/me, authenticate-
+// only on the backend (no permission key, self-scoped via the caller's own
+// JWT). See backend's students.repository.ts findMyDashboardProfile for why
+// this is a genuinely new endpoint (no existing route ever gave a student
+// their own college/department/batch NAME, only activeCollegeId — an id,
+// not a name — on the authStore User).
+function getMyDashboardProfile(): Promise<MyDashboardProfile> {
+  return api.get<MyDashboardProfile>('/students/me')
+}
+
+export function useMyDashboardProfile() {
+  return useQuery({
+    queryKey: ['students', 'me'],
+    queryFn: getMyDashboardProfile,
+  })
+}
 
 function listStudentProfiles(
   params: ListStudentProfilesParams,

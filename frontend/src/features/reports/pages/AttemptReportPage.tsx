@@ -71,7 +71,7 @@ export default function AttemptReportPage() {
     <div className="mx-auto max-w-3xl space-y-4 p-6 print:max-w-none print:p-0">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link to="/student" className="text-sm text-brand-accent hover:underline print:hidden">
+          <Link to="/student/assessments" className="text-sm text-brand-accent hover:underline print:hidden">
             &larr; Back to Your Assessments
           </Link>
           <h1 className="mt-2 font-heading text-2xl font-semibold text-brand-primary">

@@ -66,6 +66,13 @@ function validateBody(schema: ZodTypeAny) {
 // DELETE. The HTTP semantics ("remove from active use") are the same
 // either way.
 export async function studentsRoutes(fastify: FastifyInstance): Promise<void> {
+  // Self-service, no requirePermission() — authenticate-only, authorization
+  // is self-ownership via getMyProfile's own findStudentProfileByUserId
+  // check, same "self-service routes carry no permission key" model
+  // reports.routes.ts already established for GET /reports/my-attempts et
+  // al. No query/params schema — entirely self-scoped from the caller's JWT.
+  fastify.get('/students/me', { preHandler: [fastify.authenticate] }, studentsController.getMyProfile);
+
   fastify.get<{ Querystring: ListStudentProfilesQuery }>(
     '/student-profiles',
     {

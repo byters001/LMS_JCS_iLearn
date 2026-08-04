@@ -1,7 +1,13 @@
-import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { users } from '../../db/schema/identity.schema';
-import { colleges, departments } from '../../db/schema/organization.schema';
+// batches: read-only cross-module table import for the dashboard's current-
+// batch-name join below, same precedent assessments.repository.ts's own
+// module comment already establishes for its own `batches` import (a
+// Drizzle table import for a read-only join is not a call into another
+// module's repository/service, so it doesn't cross CLAUDE.md's actual
+// module-boundary rule).
+import { batches, colleges, departments } from '../../db/schema/organization.schema';
 import { studentProfiles, trainingProgramStudents } from '../../db/schema/students.schema';
 import type { StudentProfile } from '../../db/types';
 
@@ -199,6 +205,66 @@ async function findStudentProfileByUserId(userId: string): Promise<StudentProfil
   return studentProfile;
 }
 
+// --- Student dashboard (Phase — student Dashboard becomes /student index) ---
+//
+// No existing route ever gave a student their OWN college/department/batch
+// NAME — GET /student-profiles/:id is staff-only ('students.view', Super
+// Admin + Faculty per schema.sql's seed), and the JWT/authStore User only
+// carries activeCollegeId (an id, not a name; see auth store's own type).
+// This is the one genuinely new small backend piece the Dashboard needs —
+// everything else it shows (score/rank/tier/upcoming assessments) already
+// has a real endpoint. Same LEFT JOIN shape STUDENT_PROFILE_WITH_NAMES_COLUMNS
+// above already uses for college/department names (colleges/departments FKs
+// are NOT NULL/nullable exactly as documented there), plus one more join for
+// the student's current batch — student_profiles has no batch_id column
+// itself (same fact listActiveBatchIdsForStudent's own comment already
+// documents), so that's a second query via training_program_students,
+// mirroring listActiveBatchIdsForStudent's exact status='active' filter.
+// LIMIT 1 ordered by most-recently-enrolled: a student can rarely be active
+// in more than one batch at once (the same schema-permits-it edge case
+// documented elsewhere in this codebase, e.g. reports.service.ts's
+// getLeaderboard) — the dashboard shows one representative current batch,
+// not an exhaustive list.
+export interface MyDashboardProfileRow {
+  fullName: string | null;
+  collegeName: string | null;
+  departmentName: string | null;
+  batchName: string | null;
+}
+
+async function findMyDashboardProfile(
+  studentId: string,
+): Promise<MyDashboardProfileRow | undefined> {
+  const [row] = await db
+    .select({
+      fullName: users.fullName,
+      collegeName: colleges.name,
+      departmentName: departments.name,
+    })
+    .from(studentProfiles)
+    .innerJoin(users, eq(users.id, studentProfiles.userId))
+    .leftJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
+    .leftJoin(departments, eq(departments.id, studentProfiles.departmentId))
+    .where(eq(studentProfiles.id, studentId))
+    .limit(1);
+  if (!row) return undefined;
+
+  const [batchRow] = await db
+    .select({ batchName: batches.name })
+    .from(trainingProgramStudents)
+    .innerJoin(batches, eq(batches.id, trainingProgramStudents.batchId))
+    .where(
+      and(
+        eq(trainingProgramStudents.studentId, studentId),
+        eq(trainingProgramStudents.status, 'active'),
+      ),
+    )
+    .orderBy(desc(trainingProgramStudents.createdAt))
+    .limit(1);
+
+  return { ...row, batchName: batchRow?.batchName ?? null };
+}
+
 // Added for the attempts module (Part 1 fix) — student_profiles has no
 // batch_id column of its own (confirmed directly against schema.sql); a
 // student's batch membership only exists via training_program_students
@@ -364,6 +430,7 @@ export const studentsRepository = {
   listStudentProfiles,
   findStudentProfileById,
   findStudentProfileByUserId,
+  findMyDashboardProfile,
   listActiveBatchIdsForStudent,
   createStudentProfile,
   updateStudentProfile,
