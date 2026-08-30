@@ -1,5 +1,7 @@
 import { Minus, Triangle } from 'lucide-react'
 import { ApiError } from '@/api'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import {
   Table,
   TableBody,
@@ -8,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useMyAttempts } from '../api'
 import { attemptTimestamp } from './PerformanceAnalyticsSection'
 import type { MyAttemptSummary } from '../types'
@@ -100,7 +102,7 @@ export default function ScoreHistoryTable() {
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   return (
-    <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
+    <Card className="mb-4 p-4">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Score History</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Every graded attempt, most recent first, with your % change vs. the attempt before it.
@@ -127,10 +129,10 @@ export default function ScoreHistoryTable() {
           const rows = buildRows(data.items)
           if (rows.length === 0) {
             return (
-              <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                You haven&apos;t completed any graded assessments yet — your score history will
-                appear here once one is graded.
-              </p>
+              <EmptyState
+                className="mt-3"
+                message="You haven't completed any graded assessments yet — your score history will appear here once one is graded."
+              />
             )
           }
           return (
@@ -168,6 +170,6 @@ export default function ScoreHistoryTable() {
             </div>
           )
         })()}
-    </div>
+    </Card>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -13,19 +14,12 @@ import { useArchiveStudentProfile, useUpdateStudentProfile } from '../api'
 import { EditStudentDialog } from './EditStudentDialog'
 import type { ListStudentProfilesResponse, StudentProfile } from '../types'
 
+// Semantic status variants (Phase 1 design system) — 'live' (green dot) for
+// active, 'closed' (neutral dot) for archived, matching the same
+// dot-plus-label convention badge.tsx's other semantic variants use, rather
+// than a bespoke span this table used to hand-roll.
 function StatusBadge({ status }: { status: string }) {
-  const isActive = status === 'active'
-  return (
-    <span
-      className={
-        isActive
-          ? 'rounded-full bg-brand-accent/10 px-2 py-0.5 text-xs font-medium text-brand-accent'
-          : 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-      }
-    >
-      {status}
-    </span>
-  )
+  return <Badge variant={status === 'active' ? 'live' : 'closed'}>{status}</Badge>
 }
 
 // Minimal shape both StudentListPage's and MyBatchesPage's own
@@ -133,7 +127,7 @@ export function StudentRosterTable({
       )}
 
       {studentsQuery.data && (
-        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">

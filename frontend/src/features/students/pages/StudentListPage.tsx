@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { Building2, ChevronDown, Search, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
@@ -7,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { useBatchCountsByCollege, useColleges } from '@/features/organization/api'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
 import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useStudentCountsByCollege, useStudentProfiles } from '../api'
 import { StudentRosterTable } from '../components/StudentRosterTable'
@@ -22,6 +25,7 @@ export default function StudentListPage() {
   const [page, setPage] = useState(1)
   const [includeArchived, setIncludeArchived] = useState(false)
   const [collegeSearch, setCollegeSearch] = useState('')
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   // Platform-wide, not scoped to the selected college: this row is meant to
   // orient the user BEFORE they pick a college (and stays stable while
@@ -88,31 +92,45 @@ export default function StudentListPage() {
         title="Students"
         description="Every student profile across your platform, browsable college by college."
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatCard
-            label="Total students"
-            value={totalCount}
-            icon={Users}
-            iconClassName="bg-brand-primary/10 text-brand-primary"
-            progress={
-              activeCount !== undefined && totalCount !== undefined
-                ? { value: activeCount, total: totalCount }
-                : undefined
-            }
-          />
-          <StatCard
-            label="Active"
-            value={activeCount}
-            icon={UserCheck}
-            iconClassName="bg-brand-accent/10 text-brand-accent"
-          />
-          <StatCard
-            label="Archived"
-            value={archivedCount}
-            icon={UserX}
-            iconClassName="bg-muted text-muted-foreground"
-          />
-        </div>
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS}
+          className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+        >
+          <motion.div variants={prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS}>
+            <StatCard
+              label="Total students"
+              value={totalCount}
+              icon={Users}
+              iconClassName="bg-brand-primary/10 text-brand-primary"
+              accent="indigo"
+              progress={
+                activeCount !== undefined && totalCount !== undefined
+                  ? { value: activeCount, total: totalCount }
+                  : undefined
+              }
+            />
+          </motion.div>
+          <motion.div variants={prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS}>
+            <StatCard
+              label="Active"
+              value={activeCount}
+              icon={UserCheck}
+              iconClassName="bg-brand-accent/10 text-brand-accent"
+              accent="teal"
+            />
+          </motion.div>
+          <motion.div variants={prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS}>
+            <StatCard
+              label="Archived"
+              value={archivedCount}
+              icon={UserX}
+              iconClassName="bg-muted text-muted-foreground"
+              accent="coral"
+            />
+          </motion.div>
+        </motion.div>
       </PageHeader>
 
       {/* Ranked list + inline mini-bar (GitHub language-breakdown style),
@@ -213,7 +231,7 @@ export default function StudentListPage() {
                   aria-expanded={isSelected}
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
-                    'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
+                    'rounded-lg border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
                     CARD_GRADIENT,
                     isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
                   )}

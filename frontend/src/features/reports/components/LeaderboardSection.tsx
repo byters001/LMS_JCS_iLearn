@@ -2,6 +2,8 @@ import { Award, Crown, Medal, Trophy } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import {
   Table,
   TableBody,
@@ -10,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useLeaderboard } from '../api'
 import type { LeaderboardEntry, LeaderboardTier } from '../types'
 
@@ -93,7 +95,7 @@ export default function LeaderboardSection() {
   const { data, isPending, isError, error } = useLeaderboard()
 
   return (
-    <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
+    <Card className="mb-4 p-4">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Leaderboard</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Ranked by average score across your batch's completed attempts.
@@ -116,10 +118,10 @@ export default function LeaderboardSection() {
       )}
 
       {data && data.entries.length === 0 && (
-        <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No one in your batch has completed an assessment yet — the leaderboard will appear here
-          once someone finishes one.
-        </p>
+        <EmptyState
+          className="mt-3"
+          message="No one in your batch has completed an assessment yet — the leaderboard will appear here once someone finishes one."
+        />
       )}
 
       {data && data.entries.length > 0 && (
@@ -141,6 +143,6 @@ export default function LeaderboardSection() {
           </Table>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

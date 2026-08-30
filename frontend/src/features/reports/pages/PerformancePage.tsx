@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/ui/PageHeader'
 import PerformanceAnalyticsSection from '../components/PerformanceAnalyticsSection'
 import ScoreHistoryTable from '../components/ScoreHistoryTable'
 
@@ -13,17 +14,22 @@ import ScoreHistoryTable from '../components/ScoreHistoryTable'
 //      recent first, with a %-change-vs-previous column. See that
 //      component's own comment for exactly how "previous" is resolved and
 //      why the first attempt shows "—" rather than a fabricated 0%.
+//
+// Phase 3a — swapped the raw h1/p header block for the shared PageHeader.
+// Neither section below is a StatCard grid (a chart + a delta callout, a
+// table with a %-change column) — no genuine stat row exists on this page,
+// so no entrance animation is added.
 export default function PerformancePage() {
   return (
     <div className="p-5">
-      <div className="mb-4">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Performance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your score trend over time, and a full history of graded attempts.
-        </p>
+      <PageHeader
+        title="Performance"
+        description="Your score trend over time, and a full history of graded attempts."
+      />
+      <div className="mt-4">
+        <PerformanceAnalyticsSection />
+        <ScoreHistoryTable />
       </div>
-      <PerformanceAnalyticsSection />
-      <ScoreHistoryTable />
     </div>
   )
 }

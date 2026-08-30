@@ -2,7 +2,9 @@ import { Triangle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { cn } from '@/lib/utils'
 import { useMyAttempts } from '../api'
 import type { MyAttemptSummary } from '../types'
 
@@ -116,10 +118,10 @@ export default function PerformanceAnalyticsSection({
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   const sectionShell = (children: ReactNode) => (
-    <div className={cn('mb-4 rounded-xl border border-border bg-card p-4 shadow-sm', CARD_GRADIENT)}>
+    <Card className="mb-4 p-4">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">{heading}</h2>
       {children}
-    </div>
+    </Card>
   )
 
   if (isPending) {
@@ -151,10 +153,10 @@ export default function PerformanceAnalyticsSection({
 
   if (allCompleted.length === 0) {
     return sectionShell(
-      <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-        You haven&apos;t completed any assessments yet — your performance trend will appear here
-        once you finish one.
-      </p>,
+      <EmptyState
+        className="mt-3"
+        message="You haven't completed any assessments yet — your performance trend will appear here once you finish one."
+      />,
     )
   }
 
@@ -185,10 +187,10 @@ export default function PerformanceAnalyticsSection({
   // attempt), this says so plainly.
   if (targetIndex === -1) {
     return sectionShell(
-      <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-        This attempt is outside your recent attempt history — the trend chart isn&apos;t available
-        for it.
-      </p>,
+      <EmptyState
+        className="mt-3"
+        message="This attempt is outside your recent attempt history — the trend chart isn't available for it."
+      />,
     )
   }
 

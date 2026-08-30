@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Combobox } from '@/components/Combobox'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
 import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { useAuthStore } from '@/store/authStore'
@@ -62,17 +65,15 @@ export default function BatchListPage() {
 
   return (
     <div className="space-y-4 p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-xl font-semibold text-brand-primary">Batches</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Training cohorts within a college, grouped by training program.
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/admin/batches/new">Create Batch</Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Batches"
+        description="Training cohorts within a college, grouped by training program."
+        actions={
+          <Button asChild>
+            <Link to="/admin/batches/new">Create Batch</Link>
+          </Button>
+        }
+      />
 
       {/* Temporary stand-in for a real top-bar college switcher — explicitly
           deferred from Phase 1 (it depends on this exact scoping work, which
@@ -96,11 +97,7 @@ export default function BatchListPage() {
         />
       </div>
 
-      {collegeId === null && (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Select a college above to view its batches.
-        </p>
-      )}
+      {collegeId === null && <EmptyState message="Select a college above to view its batches." />}
 
       {collegeId !== null && batches.isPending && (
         <div
@@ -123,9 +120,7 @@ export default function BatchListPage() {
       )}
 
       {collegeId !== null && batches.data && batches.data.items.length === 0 && (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No batches found for this college yet.
-        </p>
+        <EmptyState message="No batches found for this college yet." />
       )}
 
       {collegeId !== null && batches.data && batches.data.items.length > 0 && (
@@ -157,7 +152,7 @@ export default function BatchListPage() {
             </p>
           )}
 
-          <div className="flex items-center justify-between">
+          <Card className="flex-row items-center justify-between px-4 py-3">
             <p className="text-sm text-muted-foreground">
               Page {batches.data.page} of {totalPages} &middot; {batches.data.total} batch
               {batches.data.total === 1 ? '' : 'es'}
@@ -183,7 +178,7 @@ export default function BatchListPage() {
                 Next
               </Button>
             </div>
-          </div>
+          </Card>
         </>
       )}
 
