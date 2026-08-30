@@ -22,13 +22,17 @@ export function EmptyState({ icon: Icon, message, action, className }: EmptyStat
   return (
     <div
       className={cn(
-        'rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground',
+        'flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground',
         className,
       )}
     >
-      {Icon && <Icon className="mx-auto mb-2 size-8 text-muted-foreground/50" />}
+      {Icon && (
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <Icon className="size-6" />
+        </div>
+      )}
       <p>{message}</p>
-      {action && <div className="mt-3 flex justify-center">{action}</div>}
+      {action && <div className="flex justify-center">{action}</div>}
     </div>
   )
 }

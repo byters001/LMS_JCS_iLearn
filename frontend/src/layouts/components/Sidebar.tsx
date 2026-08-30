@@ -22,13 +22,14 @@ interface SidebarProps {
 function navLinkClassName(collapsed: boolean) {
   return ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex items-center gap-2.5 rounded-md border-l-4 font-heading text-sm font-medium tracking-tight transition-colors',
+      'flex items-center gap-2.5 rounded-md border-l-2 font-heading text-sm tracking-tight outline-none transition-all duration-200 ease-out',
+      'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
       collapsed ? 'justify-center border-l-0 px-0 py-3' : 'px-3 py-2',
       isActive
         ? collapsed
-          ? 'bg-brand-accent/10 text-brand-accent'
-          : 'border-brand-accent bg-brand-accent/10 text-brand-accent'
-        : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
+          ? 'bg-brand-accent/8 font-bold text-brand-primary'
+          : 'border-primary bg-brand-accent/8 font-bold text-brand-primary'
+        : 'border-transparent font-medium text-muted-foreground hover:bg-muted hover:text-brand-primary',
     )
 }
 
@@ -63,7 +64,7 @@ export function Sidebar({ navItems }: SidebarProps) {
         // page (student report "Download PDF" phase); this is the one
         // Sidebar shared by all three role layouts, so it's covered
         // everywhere at once rather than needing a per-layout override.
-        'sticky top-0 flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 print:hidden',
+        'sticky top-0 flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 ease-out print:hidden',
         collapsed ? 'w-16' : 'w-60',
       )}
     >
@@ -88,7 +89,14 @@ export function Sidebar({ navItems }: SidebarProps) {
         {navItems.map((item) => {
           if (item.type === 'link') {
             return (
-              <NavLink key={item.to} to={item.to} end={item.end} title={collapsed ? item.label : undefined} className={navLinkClassName(collapsed)}>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                title={collapsed ? item.label : undefined}
+                aria-label={collapsed ? item.label : undefined}
+                className={navLinkClassName(collapsed)}
+              >
                 <item.icon className={cn('shrink-0', collapsed ? 'size-6' : 'size-4')} />
                 {!collapsed && item.label}
               </NavLink>
@@ -102,7 +110,7 @@ export function Sidebar({ navItems }: SidebarProps) {
           // Bank group), so nothing is lost, just the grouping chrome.
           if (collapsed) {
             return item.children.map((child) => (
-              <NavLink key={child.to} to={child.to} end={child.end} title={child.label} className={navLinkClassName(true)}>
+              <NavLink key={child.to} to={child.to} end={child.end} title={child.label} aria-label={child.label} className={navLinkClassName(true)}>
                 <child.icon className="size-6 shrink-0" />
               </NavLink>
             ))
@@ -113,10 +121,11 @@ export function Sidebar({ navItems }: SidebarProps) {
             <Collapsible key={item.label} defaultOpen={isChildActive}>
               <CollapsibleTrigger
                 className={cn(
-                  'group flex w-full items-center gap-2.5 rounded-md border-l-4 px-3 py-2 font-heading text-sm font-medium tracking-tight transition-colors',
+                  'group flex w-full items-center gap-2.5 rounded-md border-l-2 border-transparent px-3 py-2 font-heading text-sm font-medium tracking-tight outline-none transition-all duration-200 ease-out',
+                  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
                   isChildActive
-                    ? 'border-transparent text-brand-primary'
-                    : 'border-transparent text-muted-foreground hover:bg-muted hover:text-brand-primary',
+                    ? 'text-brand-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-brand-primary',
                 )}
               >
                 <item.icon className="size-4 shrink-0" />

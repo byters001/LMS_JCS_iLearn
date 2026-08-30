@@ -91,6 +91,30 @@
     --sidebar-accent-foreground: #211d8c;
     --sidebar-border: #e2dff5;
     --sidebar-ring: #4a44c4;
+
+    /* Phase 1 semantic accent ramps — decorative icon-chip colors (StatCard
+       accent prop etc). Indigo reuses the existing primary/accent family
+       rather than inventing a new hue, per spec. All four -fg values verified
+       >= 4.5:1 contrast against their own -bg (WCAG AA, small text). */
+    --accent-indigo-bg: #e7e4fa;
+    --accent-indigo-fg: #211d8c;
+    --accent-teal-bg: #ccfbf1;
+    --accent-teal-fg: #0f766e;
+    --accent-amber-bg: #fef3c7;
+    --accent-amber-fg: #92400e;
+    --accent-coral-bg: #ffe3df;
+    --accent-coral-fg: #b03d0d;
+
+    /* Status tokens — semantic meaning (live/scheduled/closed badges, delta
+       indicators, etc), distinct from the decorative accent ramps above. */
+    --status-success-bg: #dcfce7;
+    --status-success-fg: #15803d;
+    --status-warning-bg: #fef3c7;
+    --status-warning-fg: #92400e;
+    --status-danger-bg: #fee2e2;
+    --status-danger-fg: #b91c1c;
+    --status-neutral-bg: #f1f5f9;
+    --status-neutral-fg: #475569;
 }
 
 .dark {
@@ -125,6 +149,25 @@
     --sidebar-accent-foreground: #fafaf7;
     --sidebar-border: #4a44c44d;
     --sidebar-ring: #8b85d6;
+
+    /* Dark-mode counterparts — same pairs verified >= 4.5:1. */
+    --accent-indigo-bg: #332cad;
+    --accent-indigo-fg: #c7c4ee;
+    --accent-teal-bg: #134e4a;
+    --accent-teal-fg: #5eead4;
+    --accent-amber-bg: #451a03;
+    --accent-amber-fg: #fbbf24;
+    --accent-coral-bg: #4c1d1d;
+    --accent-coral-fg: #ff9b8a;
+
+    --status-success-bg: #052e1c;
+    --status-success-fg: #4ade80;
+    --status-warning-bg: #451a03;
+    --status-warning-fg: #fbbf24;
+    --status-danger-bg: #450a0a;
+    --status-danger-fg: #f87171;
+    --status-neutral-bg: #334155;
+    --status-neutral-fg: #cbd5e1;
 }
 
 @layer base {
