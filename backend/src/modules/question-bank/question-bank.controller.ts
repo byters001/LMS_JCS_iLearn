@@ -1,5 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { STORAGE_BUCKET, STORAGE_BUCKET_CONFIG } from '../../integrations/supabase';
+import {
+  IMAGE_UPLOAD_MAX_SIZE_BYTES,
+  IMAGE_UPLOAD_SIZE_ERROR_MESSAGE,
+  STORAGE_BUCKET,
+  STORAGE_BUCKET_CONFIG,
+} from '../../integrations/supabase';
 import { UnauthorizedError, ValidationError } from '../../shared/errors/app-error';
 import type { ApiSuccessResponse } from '../../shared/types/api-response';
 import { questionBankService } from './question-bank.service';
@@ -248,6 +253,19 @@ async function uploadQuestionImage(request: FastifyRequest, reply: FastifyReply)
   }
 
   const fileBuffer = await multipartFile.toBuffer();
+
+  // Fail fast on size here too, same reasoning users.controller.ts's
+  // uploadAvatar now uses (see its comment): the plugin-level `fileSize`
+  // limit in app.ts is a shared ceiling across every multipart route with
+  // different bucket limits, so it can't express this bucket's tighter 2MB
+  // rule, and its rejection surfaces as a generic error, not this specific
+  // message.
+  if (fileBuffer.length > IMAGE_UPLOAD_MAX_SIZE_BYTES) {
+    throw new ValidationError(IMAGE_UPLOAD_SIZE_ERROR_MESSAGE, {
+      maxFileSizeBytes: IMAGE_UPLOAD_MAX_SIZE_BYTES,
+      actualSizeBytes: fileBuffer.length,
+    });
+  }
 
   const imageUrl = await questionBankService.uploadQuestionImage(
     fileBuffer,

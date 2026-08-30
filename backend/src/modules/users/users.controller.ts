@@ -1,5 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { STORAGE_BUCKET, STORAGE_BUCKET_CONFIG } from '../../integrations/supabase';
+import {
+  IMAGE_UPLOAD_MAX_SIZE_BYTES,
+  IMAGE_UPLOAD_SIZE_ERROR_MESSAGE,
+  STORAGE_BUCKET,
+  STORAGE_BUCKET_CONFIG,
+} from '../../integrations/supabase';
 import { organizationService } from '../organization/organization.service';
 import { permissionCache } from '../../rbac/permission-cache';
 import { ForbiddenError, UnauthorizedError, ValidationError } from '../../shared/errors/app-error';
@@ -127,6 +132,24 @@ async function uploadAvatar(
   }
 
   const fileBuffer = await multipartFile.toBuffer();
+
+  // Fail fast on size here too, same reasoning as the MIME check above —
+  // reject before the user lookup / Supabase call, not after. Fastify's
+  // multipart plugin has its own plugin-level `fileSize` limit (app.ts), but
+  // that's a single shared ceiling across every multipart route in the app
+  // (avatars, question images, student documents, certificates — each with
+  // its own, different bucket limit), so it can't express this bucket's
+  // tighter 2MB rule, and a plugin-level rejection surfaces as a generic
+  // "request could not be processed" error (error-handler.plugin.ts's raw-
+  // Error branch), not this specific, user-facing message. A manual
+  // buffer-length check against the real limit is what produces the clear
+  // error the user actually needs to see.
+  if (fileBuffer.length > IMAGE_UPLOAD_MAX_SIZE_BYTES) {
+    throw new ValidationError(IMAGE_UPLOAD_SIZE_ERROR_MESSAGE, {
+      maxFileSizeBytes: IMAGE_UPLOAD_MAX_SIZE_BYTES,
+      actualSizeBytes: fileBuffer.length,
+    });
+  }
 
   const avatarUrl = await usersService.uploadAvatar(request.params.id, fileBuffer, contentType);
 

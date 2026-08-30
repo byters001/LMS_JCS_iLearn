@@ -35,10 +35,25 @@ export interface StorageBucketConfig {
   allowedMimeTypes: readonly string[];
 }
 
+// 2MB — the enforced limit for user-facing "image" uploads (avatars,
+// question/option images). Single source of truth, reused in three places:
+// STORAGE_BUCKET_CONFIG below (so storage.ts's validateUpload() and
+// createBucket() both enforce it), the upfront buffer-length check each of
+// those two controllers does before calling into their service
+// (users.controller.ts's uploadAvatar, question-bank.controller.ts's
+// uploadQuestionImage — see their comments for why that check is duplicated
+// there instead of relying on validateUpload alone), and
+// ImageUploadField.tsx's client-side pre-check on the frontend. Keeping the
+// message here too means the frontend pre-check and the backend rejection
+// always show the identical wording/number, never two different limits.
+export const IMAGE_UPLOAD_MAX_SIZE_BYTES = 2 * MB;
+export const IMAGE_UPLOAD_SIZE_ERROR_MESSAGE =
+  'Image exceeds the 2MB limit — please upload a smaller file.';
+
 export const STORAGE_BUCKET_CONFIG: Record<StorageBucket, StorageBucketConfig> = {
   [STORAGE_BUCKET.AVATARS]: {
     isPublic: true,
-    maxFileSizeBytes: 5 * MB,
+    maxFileSizeBytes: IMAGE_UPLOAD_MAX_SIZE_BYTES,
     allowedMimeTypes: IMAGE_MIME_TYPES,
   },
   [STORAGE_BUCKET.ORG_BRANDING]: {
@@ -48,7 +63,7 @@ export const STORAGE_BUCKET_CONFIG: Record<StorageBucket, StorageBucketConfig> =
   },
   [STORAGE_BUCKET.QUESTION_IMAGES]: {
     isPublic: true,
-    maxFileSizeBytes: 10 * MB,
+    maxFileSizeBytes: IMAGE_UPLOAD_MAX_SIZE_BYTES,
     allowedMimeTypes: IMAGE_MIME_TYPES,
   },
   [STORAGE_BUCKET.STUDENT_DOCUMENTS]: {
