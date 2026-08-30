@@ -8,6 +8,7 @@ import type {
   CollegeIdQuery,
   ExportBatchPerformanceQuery,
   GetBatchPerformanceQuery,
+  ProctoringActivityQuery,
 } from './analytics.schema';
 
 function requireUserId(request: FastifyRequest): string {
@@ -144,6 +145,20 @@ async function getMyCategoryImprovement(
   reply.status(200).send(response);
 }
 
+async function getProctoringActivity(
+  request: FastifyRequest<{ Querystring: ProctoringActivityQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = requireUserId(request);
+  const result = await analyticsService.getProctoringActivity(
+    request.query.collegeId,
+    request.query.days,
+    userId,
+  );
+  const response: ApiSuccessResponse<typeof result> = { success: true, data: result };
+  reply.status(200).send(response);
+}
+
 export const analyticsController = {
   getBatchPerformance,
   getBatchAssessmentParticipation,
@@ -155,4 +170,5 @@ export const analyticsController = {
   getMyOverview,
   getMyBatchPerformance,
   getMyCategoryImprovement,
+  getProctoringActivity,
 };

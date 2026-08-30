@@ -9,11 +9,13 @@ import {
   collegeIdQuerySchema,
   exportBatchPerformanceQuerySchema,
   getBatchPerformanceQuerySchema,
+  proctoringActivityQuerySchema,
   type BatchIdParams,
   type BatchIdQuery,
   type CollegeIdQuery,
   type ExportBatchPerformanceQuery,
   type GetBatchPerformanceQuery,
+  type ProctoringActivityQuery,
 } from './analytics.schema';
 
 function validateQuery(schema: ZodTypeAny) {
@@ -167,6 +169,19 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       preValidation: [validateQuery(batchIdQuerySchema)],
     },
     analyticsController.getMyCategoryImprovement,
+  );
+
+  // --- Proctoring activity (Phase 2 dashboard correction) ---
+  // Same ANALYTICS_VIEW gate, PLUS requireSuperAdmin inside the service
+  // (cross-college, same shape as /analytics/overview above) — see
+  // analytics.service.ts's getProctoringActivity for the full reasoning.
+  fastify.get<{ Querystring: ProctoringActivityQuery }>(
+    '/analytics/proctoring-activity',
+    {
+      preHandler: [fastify.authenticate, ANALYTICS_VIEW],
+      preValidation: [validateQuery(proctoringActivityQuerySchema)],
+    },
+    analyticsController.getProctoringActivity,
   );
 }
 

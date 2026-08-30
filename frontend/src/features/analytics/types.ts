@@ -131,3 +131,39 @@ export interface MyBatchPerformanceRow {
   averageScorePercent: number | null
   attemptCount: number
 }
+
+// --- Proctoring activity (Phase 2 dashboard correction) ---
+// Matches backend's analytics.types.ts ProctoringEventRow/
+// ProctoringEventTypeCount/ProctoringActivityResult exactly. Replaces the
+// originally-proposed "proctoring flags, pending/reviewed" admin stat — see
+// backend's own comment: proctoring_events has no review-status column
+// anywhere (append-only, no update path exists), so this is a raw,
+// honestly-labeled count instead. No "pending"/"reviewed" field exists here
+// because none exists in the data — do not invent one client-side.
+export interface ProctoringEventTypeCount {
+  eventType: string
+  count: number
+}
+
+export interface ProctoringEventRow {
+  id: string
+  eventType: string
+  occurredAt: string
+  attemptId: string
+  studentId: string
+  studentName: string
+  assessmentId: string
+  assessmentTitle: string
+  collegeId: string
+  collegeName: string
+}
+
+export interface ProctoringActivityResult {
+  since: string
+  windowDays: number
+  collegeId: string | null
+  totalEvents: number
+  distinctFlaggedAttempts: number
+  byType: ProctoringEventTypeCount[]
+  recentEvents: ProctoringEventRow[]
+}

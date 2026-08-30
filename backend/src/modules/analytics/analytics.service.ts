@@ -27,6 +27,7 @@ import type {
   PerStudentPerformanceRow,
   PerStudentStatus,
   PlatformOverview,
+  ProctoringActivityResult,
   ScoreDistribution,
   TrainerPerformanceTrendPoint,
 } from './analytics.types';
@@ -1078,6 +1079,63 @@ async function getMyCategoryImprovement(
   return computeCategoryImprovement(rows);
 }
 
+// --- Proctoring activity (Phase 2 dashboard correction) ---
+//
+// Replaces the originally-proposed "pending/reviewed" admin stat — audited
+// earlier this engagement: proctoring_events has no review-status column
+// anywhere, append-only, no update path exists. This reports a raw count
+// instead, cross-college like getPlatformOverview/getCollegePerformance
+// above, so it gets the same requireSuperAdmin gate on top of the
+// analytics.view permission (Faculty also holds that permission but has no
+// legitimate reason to see other colleges' proctoring activity).
+//
+// Everything (total, per-type breakdown, distinct flagged attempts, the
+// recent-events list) is derived from ONE bounded read
+// (analyticsRepository.listProctoringEventsSince) — same "aggregate in JS
+// over a bounded read" precedent as getPlatformOverview, bounded here by
+// the caller's day window (max 30, see analytics.schema.ts) rather than a
+// college/batch roster size.
+const RECENT_PROCTORING_EVENTS_LIMIT = 20;
+
+async function getProctoringActivity(
+  collegeId: string | undefined,
+  days: number,
+  userId: string,
+): Promise<ProctoringActivityResult> {
+  await requireSuperAdmin(userId);
+
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const rows = await analyticsRepository.listProctoringEventsSince(collegeId, since);
+
+  const byTypeCounts = new Map<string, number>();
+  const distinctAttempts = new Set<string>();
+  for (const row of rows) {
+    byTypeCounts.set(row.eventType, (byTypeCounts.get(row.eventType) ?? 0) + 1);
+    distinctAttempts.add(row.attemptId);
+  }
+
+  return {
+    since: since.toISOString(),
+    windowDays: days,
+    collegeId: collegeId ?? null,
+    totalEvents: rows.length,
+    distinctFlaggedAttempts: distinctAttempts.size,
+    byType: [...byTypeCounts.entries()].map(([eventType, count]) => ({ eventType, count })),
+    recentEvents: rows.slice(0, RECENT_PROCTORING_EVENTS_LIMIT).map((row) => ({
+      id: row.id,
+      eventType: row.eventType,
+      occurredAt: row.occurredAt.toISOString(),
+      attemptId: row.attemptId,
+      studentId: row.studentId,
+      studentName: row.studentName,
+      assessmentId: row.assessmentId,
+      assessmentTitle: row.assessmentTitle,
+      collegeId: row.collegeId,
+      collegeName: row.collegeName,
+    })),
+  };
+}
+
 export const analyticsService = {
   getBatchPerformance,
   getBatchAssessmentParticipation,
@@ -1093,6 +1151,7 @@ export const analyticsService = {
   getMyOverview,
   getMyBatchPerformance,
   getMyCategoryImprovement,
+  getProctoringActivity,
   // Exported (staff attempt-detail phase) so reports.service.ts's
   // getAttemptDetailForStaff can reuse the EXACT SAME batch_trainers-
   // assignment / Super-Admin-unrestricted check getBatchPerformance

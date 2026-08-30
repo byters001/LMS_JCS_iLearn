@@ -1,4 +1,5 @@
-import { BarChart3, CheckCircle2, Layers, PlayCircle, TrendingUp, Users } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { AlertTriangle, BarChart3, CheckCircle2, Layers, TrendingUp, Users } from 'lucide-react'
 import { useState } from 'react'
 import {
   Legend,
@@ -10,14 +11,27 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts'
+import { Link } from 'react-router-dom'
 import { Combobox } from '@/components/Combobox'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useAssessments } from '@/features/assessments/api'
 import { useMyBatches } from '@/features/organization/api'
-import { useMyAnalyticsOverview, useMyBatchPerformance, useMyCategoryImprovement } from '../api'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
+import { useMyAnalyticsOverview, useMyBatchPerformance, useMyCategoryImprovement, useMyNeedsAttention } from '../api'
 
 const PICKER_PAGE_SIZE = 100
+const LIVE_UPCOMING_SHOWN = 6
+const NEEDS_ATTENTION_SHOWN = 6
+// Below this score, a student's most recent classified attempt is treated
+// as "needs attention" — reuses getBatchPerformance's own 'failed'
+// classification (already computed server-side against the assessment's
+// real passing threshold), not a second, different cutoff invented here.
 // Sentinel for "no batchId filter" — mirrors SuperAdminAnalyticsPage's own
 // ALL_COLLEGES_VALUE sentinel, same reasoning (no existing picker in this
 // codebase has a built-in "all" option).
@@ -33,17 +47,28 @@ function formatPercent(value: number | null | undefined): number | null | undefi
   return Math.round(value)
 }
 
-// Faculty's own Analytics overview — Phase 3. Structurally distinct from
-// SuperAdminAnalyticsPage (this same feature's Super Admin counterpart),
-// per the Phase 3 differentiation proposal: no college dropdown (a batch
-// filter instead, only shown once there's actually something to filter),
-// a ranked list instead of an axis bar chart for the batch comparison, and
-// a Radar chart instead of grouped bars for the category-improvement
-// "skill profile." See AdminAnalyticsPage.tsx's sibling, TrainerAnalyticsPage.tsx,
-// for how this is combined with the existing Batch Drill-down tab.
+const ASSESSMENT_STATUS_BADGE: Record<string, 'live' | 'scheduled'> = {
+  live: 'live',
+  scheduled: 'scheduled',
+}
+
+// Faculty's own Analytics overview — Phase 3, restyled Phase 2 (design
+// system) with three additions this pass: a live+upcoming assessments
+// table, a needs-attention list, and a corrected 4-stat row (see the stat
+// row's own comment for what replaced "Active Assessments").
+//
+// Structurally distinct from SuperAdminAnalyticsPage (this same feature's
+// Super Admin counterpart), per the Phase 3 differentiation proposal: no
+// college dropdown (a batch filter instead, only shown once there's
+// actually something to filter), a ranked list instead of an axis bar chart
+// for the batch comparison, and a Radar chart instead of grouped bars for
+// the category-improvement "skill profile." See AdminAnalyticsPage.tsx's
+// sibling, TrainerAnalyticsPage.tsx, for how this is combined with the
+// existing Batch Drill-down tab.
 export default function FacultyAnalyticsPage() {
   const [selectedValue, setSelectedValue] = useState<string>(ALL_BATCHES_VALUE)
   const batchId = selectedValue === ALL_BATCHES_VALUE ? undefined : selectedValue
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   const myBatches = useMyBatches({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const batchOptions = [
@@ -59,6 +84,29 @@ export default function FacultyAnalyticsPage() {
   const batchPerformance = useMyBatchPerformance()
   const categoryImprovement = useMyCategoryImprovement(batchId)
 
+  // Live+upcoming assessments — reuses the SAME staff-facing GET /assessments
+  // AssessmentListPage.tsx already calls, already Faculty-batch-scoped
+  // server-side (resolveAssessmentListBatchScope, pre-dates this phase — see
+  // analytics.service.ts's getMyOverview comment for the same reuse). Always
+  // spans every batch the caller is assigned to, same "the comparison IS the
+  // point" reasoning the batch-performance section below already applies —
+  // the page's own batch picker doesn't narrow this table.
+  const live = useAssessments({ status: 'live', page: 1, pageSize: LIVE_UPCOMING_SHOWN })
+  const scheduled = useAssessments({ status: 'scheduled', page: 1, pageSize: LIVE_UPCOMING_SHOWN })
+  const liveAndUpcoming = [...(live.data?.items ?? []), ...(scheduled.data?.items ?? [])]
+    .sort((a, b) => (a.startAt ?? '').localeCompare(b.startAt ?? ''))
+    .slice(0, LIVE_UPCOMING_SHOWN)
+  const isAssessmentsPending = live.isPending || scheduled.isPending
+  const isAssessmentsError = live.isError || scheduled.isError
+
+  // Needs attention — "if derivable from existing data" per the Phase 2
+  // brief: see api.ts's useMyNeedsAttention for exactly how (fans
+  // getBatchPerformance out across every assigned batch, filters to its
+  // existing 'failed' classification — no new backend endpoint).
+  const { rows: needsAttentionRows, isPending: needsAttentionPending } = useMyNeedsAttention(
+    myBatches.data?.items ?? [],
+  )
+
   const hasBatchScoreData = (batchPerformance.data ?? []).some((row) => row.attemptCount > 0)
   const radarData = (categoryImprovement.data ?? []).map((row) => ({
     subject: row.categoryName,
@@ -69,6 +117,9 @@ export default function FacultyAnalyticsPage() {
     first: row.firstAttemptAvgPercent ?? 0,
     latest: row.latestAttemptAvgPercent ?? 0,
   }))
+
+  const statVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS
+  const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   return (
     <div className="space-y-4 p-5">
@@ -94,53 +145,129 @@ export default function FacultyAnalyticsPage() {
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard
-            label="My Batches"
-            value={overview.data?.totalBatches}
-            icon={Layers}
-            iconClassName="bg-brand-primary/10 text-brand-primary"
-          />
-          <StatCard
-            label="My Students"
-            value={overview.data?.totalStudents}
-            icon={Users}
-            iconClassName="bg-brand-accent/10 text-brand-accent"
-          />
-          <StatCard
-            label="Active Assessments"
-            value={overview.data?.activeAssessments}
-            icon={PlayCircle}
-            iconClassName="bg-brand-primary/10 text-brand-primary"
-          />
-          <StatCard
-            label="Avg Score (%)"
-            value={overview.data ? formatPercent(overview.data.averageScorePercent) : undefined}
-            icon={TrendingUp}
-            iconClassName="bg-brand-accent/10 text-brand-accent"
-          />
-          <StatCard
-            label="Completion Rate (%)"
-            value={
-              overview.data
-                ? formatPercent(
-                    overview.data.completionRate !== null ? overview.data.completionRate * 100 : null,
-                  )
-                : undefined
-            }
-            icon={CheckCircle2}
-            iconClassName="bg-brand-primary/10 text-brand-primary"
-          />
-        </div>
+        {/* 4-stat row (Phase 2 correction) — "Active Assessments" dropped as
+            a stat card: it's the exact same count the Live+Upcoming table
+            below now shows as an actual list, so keeping both would just be
+            the same number twice in two shapes. Completion Rate takes the
+            4th slot instead — real, already-fetched, and a genuinely
+            different signal (are my students finishing what's assigned)
+            than the other three, not shown anywhere else on this page. */}
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={containerVariants}
+          className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <motion.div variants={statVariants}>
+            <StatCard
+              label="My Batches"
+              value={overview.data?.totalBatches}
+              icon={Layers}
+              iconClassName="bg-brand-primary/10 text-brand-primary"
+              accent="indigo"
+            />
+          </motion.div>
+          <motion.div variants={statVariants}>
+            <StatCard
+              label="My Students"
+              value={overview.data?.totalStudents}
+              icon={Users}
+              iconClassName="bg-brand-accent/10 text-brand-accent"
+              accent="teal"
+            />
+          </motion.div>
+          <motion.div variants={statVariants}>
+            <StatCard
+              label="Avg Score (%)"
+              value={overview.data ? formatPercent(overview.data.averageScorePercent) : undefined}
+              icon={TrendingUp}
+              iconClassName="bg-brand-primary/10 text-brand-primary"
+              accent="amber"
+            />
+          </motion.div>
+          <motion.div variants={statVariants}>
+            <StatCard
+              label="Completion Rate (%)"
+              value={
+                overview.data
+                  ? formatPercent(
+                      overview.data.completionRate !== null ? overview.data.completionRate * 100 : null,
+                    )
+                  : undefined
+              }
+              icon={CheckCircle2}
+              iconClassName="bg-brand-accent/10 text-brand-accent"
+              accent="coral"
+            />
+          </motion.div>
+        </motion.div>
       </PageHeader>
 
-      {/* Chart 1 replacement — ranked list with inline proportional bars,
-          same widget shape as StudentListPage.tsx's "Students by college"
-          (name + thin bar + number), not an axis BarChart. Always compares
-          every assigned batch regardless of the picker above — the
-          comparison IS the point, same reasoning SuperAdminAnalyticsPage's
-          own college-comparison chart never takes a collegeId. */}
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
+        <h2 className="font-heading text-lg font-semibold text-brand-primary">Live &amp; Upcoming Assessments</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Across every batch you&apos;re assigned to, soonest first.
+        </p>
+
+        {isAssessmentsPending && (
+          <div className="mt-3 space-y-2" role="status" aria-label="Loading assessments">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        )}
+
+        {isAssessmentsError && (
+          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            Failed to load assessments.
+          </div>
+        )}
+
+        {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length === 0 && (
+          <EmptyState className="mt-3" message="Nothing live or scheduled right now." />
+        )}
+
+        {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length > 0 && (
+          <Table className="mt-3">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Assessment</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Starts</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {liveAndUpcoming.map((assessment) => (
+                <TableRow key={assessment.id}>
+                  <TableCell className="max-w-0 font-medium text-brand-primary">
+                    <Link to={`/trainer/assessments/${assessment.id}/edit`} className="block truncate hover:underline">
+                      {assessment.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground capitalize">{assessment.testCategory}</TableCell>
+                  <TableCell>
+                    <Badge variant={ASSESSMENT_STATUS_BADGE[assessment.status] ?? 'neutral'}>
+                      {assessment.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {assessment.startAt ? new Date(assessment.startAt).toLocaleDateString() : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+
+      {/* Batch comparison — ranked list with inline proportional bars, same
+          widget shape as StudentListPage.tsx's "Students by college" (name +
+          thin bar + number), not an axis BarChart. Always compares every
+          assigned batch regardless of the picker above — the comparison IS
+          the point, same reasoning SuperAdminAnalyticsPage's own
+          college-comparison chart never takes a collegeId. */}
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           My Batches — Performance
         </h2>
@@ -190,11 +317,55 @@ export default function FacultyAnalyticsPage() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* Chart 2 replacement — Radar "skill profile" (first vs. latest
-          attempt, one axis per MCQ category), not a grouped bar chart. */}
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
+        <h2 className="font-heading text-lg font-semibold text-brand-primary">Needs Attention</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Students whose best attempt on their batch&apos;s most recent assessment fell below the passing
+          threshold.
+        </p>
+
+        {needsAttentionPending && (
+          <div className="mt-3 space-y-2" role="status" aria-label="Loading">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        )}
+
+        {!needsAttentionPending && needsAttentionRows.length === 0 && (
+          <EmptyState
+            className="mt-3"
+            icon={CheckCircle2}
+            message="No students below the passing threshold on their most recent assessment right now."
+          />
+        )}
+
+        {!needsAttentionPending && needsAttentionRows.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {needsAttentionRows.slice(0, NEEDS_ATTENTION_SHOWN).map((row) => (
+              <div
+                key={`${row.batchId}-${row.studentId}`}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertTriangle className="size-4 shrink-0 text-status-danger-fg" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-brand-primary">{row.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{row.batchName}</p>
+                  </div>
+                </div>
+                <Badge variant="danger">{row.totalScore ?? '—'} pts</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Skill profile — Radar (first vs. latest attempt, one axis per MCQ
+          category), not a grouped bar chart. */}
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Skill-category Improvement
         </h2>
@@ -252,7 +423,7 @@ export default function FacultyAnalyticsPage() {
             </RadarChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

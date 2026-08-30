@@ -57,8 +57,24 @@ export const batchIdQuerySchema = z
   })
   .strict();
 
+// --- Proctoring activity (Phase 2 dashboard correction) ---
+// collegeId optional, same "omitted = platform-wide" convention as
+// collegeIdQuerySchema above (a genuinely different schema, not a reuse,
+// because this one also takes `days`). `days` bounds the lookback window —
+// default 7 (matches the "Proctoring events logged (7d)" stat label),
+// caller-adjustable up to 30 so the admin dashboard's date-range filter has
+// something real to control, capped so this never turns into an unbounded
+// full-table scan.
+export const proctoringActivityQuerySchema = z
+  .object({
+    collegeId: z.string().uuid('collegeId must be a valid UUID').optional(),
+    days: z.coerce.number().int().min(1).max(30).default(7),
+  })
+  .strict();
+
 export type BatchIdParams = z.infer<typeof batchIdParamsSchema>;
 export type GetBatchPerformanceQuery = z.infer<typeof getBatchPerformanceQuerySchema>;
 export type ExportBatchPerformanceQuery = z.infer<typeof exportBatchPerformanceQuerySchema>;
 export type CollegeIdQuery = z.infer<typeof collegeIdQuerySchema>;
 export type BatchIdQuery = z.infer<typeof batchIdQuerySchema>;
+export type ProctoringActivityQuery = z.infer<typeof proctoringActivityQuerySchema>;

@@ -264,3 +264,48 @@ export interface MyBatchPerformanceRow {
   averageScorePercent: number | null;
   attemptCount: number;
 }
+
+// --- Proctoring activity (Phase 2 dashboard correction) ---
+//
+// Replaces the originally-proposed "proctoring flags, pending/reviewed"
+// admin stat — audited earlier this engagement: proctoring_events has no
+// review-status/reviewedBy/reviewedAt column anywhere (append-only, no
+// update path exists in this module), so "pending/reviewed" has no real
+// data to back it. This is a raw, honestly-labeled count of logged events
+// in a recent window instead — see analytics.service.ts's
+// getProctoringActivity for the full reasoning.
+export interface ProctoringEventTypeCount {
+  eventType: string;
+  count: number;
+}
+
+export interface ProctoringEventRow {
+  id: string;
+  eventType: string;
+  occurredAt: string;
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  assessmentId: string;
+  assessmentTitle: string;
+  collegeId: string;
+  collegeName: string;
+}
+
+export interface ProctoringActivityResult {
+  // ISO timestamp the window starts at (now - windowDays) — lets the UI
+  // state the exact window rather than just labeling it "recent."
+  since: string;
+  windowDays: number;
+  collegeId: string | null;
+  totalEvents: number;
+  // Distinct attempts with >=1 event in the window — the "Attempts with
+  // >=1 flag" alternative framing the correction offered, computed from the
+  // same rows so both framings are available to the caller without a
+  // second query.
+  distinctFlaggedAttempts: number;
+  byType: ProctoringEventTypeCount[];
+  // Most recent events first, capped — see analytics.service.ts for the
+  // exact cap.
+  recentEvents: ProctoringEventRow[];
+}

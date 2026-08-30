@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 
 // Animates from 0 up to `target` once `target` becomes a real number (e.g.
 // StatCard's value resolving after a loading placeholder) — that arrival is
@@ -9,11 +8,12 @@ const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 export function useCountUp(target: number | null | undefined, durationMs = 600) {
   const [display, setDisplay] = useState(target ?? 0)
   const frameRef = useRef<number>(undefined)
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
     if (target === null || target === undefined) return
 
-    if (typeof window !== 'undefined' && window.matchMedia?.(REDUCED_MOTION_QUERY).matches) {
+    if (prefersReducedMotion) {
       setDisplay(target)
       return
     }
@@ -33,7 +33,7 @@ export function useCountUp(target: number | null | undefined, durationMs = 600) 
     return () => {
       if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current)
     }
-  }, [target, durationMs])
+  }, [target, durationMs, prefersReducedMotion])
 
   return display
 }

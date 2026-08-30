@@ -1,6 +1,6 @@
 // TanStack Query hooks for the "analytics" feature, calling the shared api/ client.
 // This is the only file in this feature allowed to import from api/.
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
 import { api } from '@/api'
 import { env } from '@/lib/env'
 import { triggerBlobDownload } from '@/lib/spreadsheet'
@@ -13,10 +13,16 @@ import type {
   GetBatchPerformanceParams,
   MyBatchPerformanceRow,
   MyOverview,
+  PerStudentPerformanceRow,
   PlatformOverview,
+  ProctoringActivityResult,
 } from './types'
 
-function getBatchPerformance(
+// Exported (Faculty "needs attention" widget, FacultyAnalyticsPage) so
+// useMyNeedsAttention below can fan this SAME fetcher out across every batch
+// the caller is assigned to via useQueries, rather than duplicating the
+// request-building logic a second time.
+export function getBatchPerformance(
   batchId: string,
   params: GetBatchPerformanceParams,
 ): Promise<BatchPerformanceSummary> {
@@ -197,6 +203,73 @@ export function useMyCategoryImprovement(batchId: string | undefined) {
   return useQuery({
     queryKey: ['analytics', 'my-category-improvement', batchId],
     queryFn: () => getMyCategoryImprovement(batchId),
+    placeholderData: keepPreviousData,
+  })
+}
+
+// --- Faculty "needs attention" (Phase 2 dashboard) ---
+// "if derivable from existing data" per the Phase 2 brief — this is exactly
+// that: fans getBatchPerformance (already used by BatchPerformancePage) out
+// across every batch the caller is assigned to via useQueries, one request
+// per batch (bounded by how many batches one trainer realistically has,
+// same "class-sized cohort, cheap enough" scale reasoning the backend
+// applies to a single batch), rather than a new backend aggregation. A
+// batch with zero attempts on any assessment yet 404s
+// (analytics.service.ts's getBatchPerformance) — surfaced here as
+// `result.data` simply staying undefined for that batch, not a page-level
+// error, since "no data yet" for one batch shouldn't blank the whole widget.
+export interface NeedsAttentionRow extends PerStudentPerformanceRow {
+  batchId: string
+  batchName: string
+}
+
+export function useMyNeedsAttention(batches: { id: string; name: string }[]) {
+  return useQueries({
+    queries: batches.map((batch) => ({
+      queryKey: ['analytics', 'batch-performance', batch.id, { page: 1, pageSize: 100 }],
+      queryFn: () => getBatchPerformance(batch.id, { page: 1, pageSize: 100 }),
+      retry: false,
+    })),
+    combine: (results) => {
+      const rows: NeedsAttentionRow[] = []
+      results.forEach((result, index) => {
+        const batch = batches[index]
+        if (!result.data) return
+        for (const student of result.data.students) {
+          if (student.status === 'failed') {
+            rows.push({ ...student, batchId: batch.id, batchName: batch.name })
+          }
+        }
+      })
+      rows.sort((a, b) => Number(a.totalScore ?? 0) - Number(b.totalScore ?? 0))
+      return {
+        isPending: batches.length > 0 && results.some((result) => result.isPending),
+        rows,
+      }
+    },
+  })
+}
+
+// --- Proctoring activity (Phase 2 dashboard correction) ---
+// Replaces the originally-proposed "pending/reviewed" admin stat — see
+// types.ts's ProctoringActivityResult comment for the audit finding this is
+// built from. Super-Admin-only on the backend (requireSuperAdmin layered on
+// analytics.view, same as overview/college-performance/category-improvement
+// above), only ever called from SuperAdminAnalyticsPage.
+
+function getProctoringActivity(
+  collegeId: string | undefined,
+  days: number,
+): Promise<ProctoringActivityResult> {
+  return api.get<ProctoringActivityResult>('/analytics/proctoring-activity', {
+    params: { collegeId, days },
+  })
+}
+
+export function useProctoringActivity(collegeId: string | undefined, days: number) {
+  return useQuery({
+    queryKey: ['analytics', 'proctoring-activity', collegeId, days],
+    queryFn: () => getProctoringActivity(collegeId, days),
     placeholderData: keepPreviousData,
   })
 }

@@ -1,4 +1,5 @@
-import { BarChart3, Building2, CheckCircle2, Layers, PlayCircle, TrendingUp, Users } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { BarChart3, Building2, Layers, PlayCircle, ShieldAlert, Users } from 'lucide-react'
 import { useState } from 'react'
 import {
   Bar,
@@ -11,11 +12,17 @@ import {
   YAxis,
 } from 'recharts'
 import { Combobox } from '@/components/Combobox'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useBatchCountsByCollege, useColleges } from '@/features/organization/api'
-import { useAnalyticsOverview, useCategoryImprovement, useCollegePerformance } from '../api'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
+import { cn } from '@/lib/utils'
+import { useAnalyticsOverview, useCategoryImprovement, useCollegePerformance, useProctoringActivity } from '../api'
 
 const PICKER_PAGE_SIZE = 100
 // Sentinel for "no collegeId filter" — the college-picker Combobox itself
@@ -34,21 +41,43 @@ const ALL_COLLEGES_VALUE = '__all__'
 const SCORE_COLOR = '#4A44C4'
 const IMPROVEMENT_COLOR = '#16a34a'
 
-function formatPercent(value: number | null | undefined): number | null | undefined {
-  if (value === null || value === undefined) return value
-  return Math.round(value)
+// Date-range half of the filter bar (Phase 2 brief's "filter bar
+// (college/date range)") — scoped honestly to what can actually honor a
+// date range: only the proctoring-activity query below accepts one
+// (analytics.schema.ts's proctoringActivityQuerySchema). The other three
+// stats (colleges/students/active assessments) and both charts have no
+// date-scoping anywhere in the backend today, and adding it there is well
+// beyond "ordinary new query work" for this phase — wiring a decorative
+// control that doesn't actually filter anything would be worse than not
+// having one, so this toggle drives the proctoring card/list only.
+const PROCTORING_WINDOW_OPTIONS = [
+  { days: 1, label: '24h' },
+  { days: 7, label: '7d' },
+  { days: 30, label: '30d' },
+] as const
+
+const PROCTORING_EVENT_LABELS: Record<string, string> = {
+  tab_switch: 'Tab switch',
+  fullscreen_exit: 'Fullscreen exit',
+  camera_flag: 'Camera flag',
+  copy_paste: 'Copy/paste',
+  network_disconnect: 'Network disconnect',
+  window_blur: 'Window blur',
 }
 
-// Platform-wide Super Admin dashboard — college selector + 5 stat cards +
-// 2 cross-college charts. Distinct from BatchPerformancePage (this same
-// feature's other page): that one drills into ONE batch's ONE assessment;
-// this one aggregates across every college/batch/assessment at once. See
-// AdminAnalyticsPage.tsx (routes/index.tsx's /admin/analytics) for how the
-// two are combined into one Tabs page without removing the existing
-// batch-drill-down capability.
+// Platform-wide Super Admin dashboard — college selector + date-range
+// (proctoring only, see above) + 4 stat cards + 2 cross-college charts +
+// an organizations activity table + a recent proctoring events list.
+// Distinct from BatchPerformancePage (this same feature's other page): that
+// one drills into ONE batch's ONE assessment; this one aggregates across
+// every college/batch/assessment at once. See AdminAnalyticsPage.tsx
+// (routes/index.tsx's /admin/analytics) for how the two are combined into
+// one Tabs page without removing the existing batch-drill-down capability.
 export default function SuperAdminAnalyticsPage() {
   const [selectedValue, setSelectedValue] = useState<string>(ALL_COLLEGES_VALUE)
   const collegeId = selectedValue === ALL_COLLEGES_VALUE ? undefined : selectedValue
+  const [proctoringDays, setProctoringDays] = useState<number>(7)
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   const colleges = useColleges({ page: 1, pageSize: PICKER_PAGE_SIZE })
   const collegeOptions = [
@@ -65,8 +94,15 @@ export default function SuperAdminAnalyticsPage() {
 
   const collegePerformance = useCollegePerformance()
   const categoryImprovement = useCategoryImprovement(collegeId)
+  const proctoringActivity = useProctoringActivity(collegeId, proctoringDays)
 
   const hasCollegeScoreData = (collegePerformance.data ?? []).some((row) => row.attemptCount > 0)
+  const collegePerformanceByCollegeId = new Map(
+    (collegePerformance.data ?? []).map((row) => [row.collegeId, row]),
+  )
+
+  const statVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS
+  const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   return (
     <div className="space-y-4 p-5">
@@ -74,72 +110,115 @@ export default function SuperAdminAnalyticsPage() {
         title="Platform Overview"
         description="Aggregate performance across every college, batch, and assessment — pick a college below to narrow the scope."
       >
-        <div className="max-w-sm space-y-1.5">
-          <label className="text-xs font-medium text-brand-primary" htmlFor="analyticsCollegePicker">
-            College
-          </label>
-          <Combobox
-            id="analyticsCollegePicker"
-            options={collegeOptions}
-            value={selectedValue}
-            onSelect={setSelectedValue}
-            placeholder="Select a college…"
-            isLoading={colleges.isPending}
-            isError={colleges.isError}
-            errorMessage="Failed to load colleges."
-          />
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="max-w-sm space-y-1.5">
+            <label className="text-xs font-medium text-brand-primary" htmlFor="analyticsCollegePicker">
+              College
+            </label>
+            <Combobox
+              id="analyticsCollegePicker"
+              options={collegeOptions}
+              value={selectedValue}
+              onSelect={setSelectedValue}
+              placeholder="Select a college…"
+              isLoading={colleges.isPending}
+              isError={colleges.isError}
+              errorMessage="Failed to load colleges."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-brand-primary">
+              Proctoring window
+            </p>
+            {/* Segmented toggle, not a dropdown — same pattern
+                DownloadCsvDialog.tsx's Format control already established
+                for a small, fixed set of mutually-exclusive options. */}
+            <div className="inline-flex rounded-md border border-input p-0.5">
+              {PROCTORING_WINDOW_OPTIONS.map((option) => (
+                <button
+                  key={option.days}
+                  type="button"
+                  onClick={() => setProctoringDays(option.days)}
+                  aria-pressed={proctoringDays === option.days}
+                  className={cn(
+                    'rounded px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    proctoringDays === option.days
+                      ? 'bg-brand-accent text-white'
+                      : 'text-muted-foreground hover:text-brand-primary',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {collegeId ? (
+        {/* 4-stat row (Phase 2 correction) — Avg Score(%) and Completion
+            Rate(%) dropped as stat cards: both are still shown, in richer
+            form, by the College-wise Performance chart below, so losing the
+            headline duplicate isn't a real information loss. The freed slot
+            is the corrected proctoring metric — a raw, honestly-labeled
+            event count (see analytics.types.ts's ProctoringActivityResult
+            comment for the "pending/reviewed" audit finding this replaces),
+            not a fabricated review-workflow status. */}
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={containerVariants}
+          className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <motion.div variants={statVariants}>
+            {collegeId ? (
+              <StatCard
+                label="Total Batches"
+                value={batchCountsByCollegeId.get(collegeId)}
+                icon={Layers}
+                iconClassName="bg-brand-primary/10 text-brand-primary"
+                accent="indigo"
+              />
+            ) : (
+              <StatCard
+                label="Total Colleges"
+                value={colleges.data?.total}
+                icon={Building2}
+                iconClassName="bg-brand-primary/10 text-brand-primary"
+                accent="indigo"
+              />
+            )}
+          </motion.div>
+          <motion.div variants={statVariants}>
             <StatCard
-              label="Total Batches"
-              value={batchCountsByCollegeId.get(collegeId)}
-              icon={Layers}
-              iconClassName="bg-brand-primary/10 text-brand-primary"
+              label="Total Students"
+              value={overview.data?.totalStudents}
+              icon={Users}
+              iconClassName="bg-brand-accent/10 text-brand-accent"
+              accent="teal"
             />
-          ) : (
+          </motion.div>
+          <motion.div variants={statVariants}>
             <StatCard
-              label="Total Colleges"
-              value={colleges.data?.total}
-              icon={Building2}
+              label="Active Assessments"
+              value={overview.data?.activeAssessments}
+              icon={PlayCircle}
               iconClassName="bg-brand-primary/10 text-brand-primary"
+              accent="amber"
             />
-          )}
-          <StatCard
-            label="Total Students"
-            value={overview.data?.totalStudents}
-            icon={Users}
-            iconClassName="bg-brand-accent/10 text-brand-accent"
-          />
-          <StatCard
-            label="Active Assessments"
-            value={overview.data?.activeAssessments}
-            icon={PlayCircle}
-            iconClassName="bg-brand-primary/10 text-brand-primary"
-          />
-          <StatCard
-            label="Avg Score (%)"
-            value={overview.data ? formatPercent(overview.data.averageScorePercent) : undefined}
-            icon={TrendingUp}
-            iconClassName="bg-brand-accent/10 text-brand-accent"
-          />
-          <StatCard
-            label="Completion Rate (%)"
-            value={
-              overview.data
-                ? formatPercent(
-                    overview.data.completionRate !== null ? overview.data.completionRate * 100 : null,
-                  )
-                : undefined
-            }
-            icon={CheckCircle2}
-            iconClassName="bg-brand-primary/10 text-brand-primary"
-          />
-        </div>
+          </motion.div>
+          <motion.div variants={statVariants}>
+            <StatCard
+              label={`Proctoring Events (${proctoringDays === 1 ? '24h' : `${proctoringDays}d`})`}
+              value={proctoringActivity.data?.totalEvents}
+              icon={ShieldAlert}
+              iconClassName="bg-brand-accent/10 text-brand-accent"
+              accent="coral"
+            />
+          </motion.div>
+        </motion.div>
       </PageHeader>
 
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           College-wise Performance
         </h2>
@@ -196,9 +275,9 @@ export default function SuperAdminAnalyticsPage() {
             </BarChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </Card>
 
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Skill-category Improvement
         </h2>
@@ -268,7 +347,135 @@ export default function SuperAdminAnalyticsPage() {
             </BarChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="font-heading text-lg font-semibold text-brand-primary">Organizations</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Every college on the platform, joined with its submitted-attempt activity above.
+        </p>
+
+        {(colleges.isPending || collegePerformance.isPending) && (
+          <div className="mt-3 space-y-2" role="status" aria-label="Loading organizations">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        )}
+
+        {colleges.data && collegePerformance.data && colleges.data.items.length === 0 && (
+          <EmptyState className="mt-3" icon={Building2} message="No colleges on the platform yet." />
+        )}
+
+        {colleges.data && collegePerformance.data && colleges.data.items.length > 0 && (
+          <Table className="mt-3">
+            <TableHeader>
+              <TableRow>
+                <TableHead>College</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Attempts</TableHead>
+                <TableHead>Avg Score</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {colleges.data.items.map((college) => {
+                const performance = collegePerformanceByCollegeId.get(college.id)
+                return (
+                  <TableRow key={college.id}>
+                    <TableCell className="font-medium text-brand-primary">{college.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={college.status === 'active' ? 'live' : 'neutral'}>{college.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{performance?.attemptCount ?? 0}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {performance?.averageScorePercent === null || performance?.averageScorePercent === undefined
+                        ? '—'
+                        : `${Math.round(performance.averageScorePercent)}%`}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="font-heading text-lg font-semibold text-brand-primary">Recent Proctoring Events</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Raw event log for the window above — tab switches, fullscreen exits, and similar
+          integrity signals. There is no review/approval workflow on these yet, so every event
+          shown here is simply "logged," never "pending" or "reviewed."
+        </p>
+
+        {proctoringActivity.isPending && (
+          <div className="mt-3 space-y-2" role="status" aria-label="Loading proctoring events">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        )}
+
+        {proctoringActivity.isError && (
+          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            Failed to load proctoring events.
+          </div>
+        )}
+
+        {proctoringActivity.data && proctoringActivity.data.byType.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {proctoringActivity.data.byType.map((entry) => (
+              <Badge key={entry.eventType} variant="warning">
+                {PROCTORING_EVENT_LABELS[entry.eventType] ?? entry.eventType} · {entry.count}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {proctoringActivity.data && proctoringActivity.data.recentEvents.length === 0 && (
+          <EmptyState
+            className="mt-3"
+            icon={ShieldAlert}
+            message="No proctoring events logged in this window."
+          />
+        )}
+
+        {proctoringActivity.data && proctoringActivity.data.recentEvents.length > 0 && (
+          <Table className="mt-3">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student</TableHead>
+                <TableHead>Assessment</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>College</TableHead>
+                <TableHead>Time</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {proctoringActivity.data.recentEvents.map((event) => (
+                <TableRow key={event.id}>
+                  <TableCell className="font-medium text-brand-primary">{event.studentName}</TableCell>
+                  <TableCell className="max-w-0 text-muted-foreground">
+                    <span className="block truncate">{event.assessmentTitle}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="warning">{PROCTORING_EVENT_LABELS[event.eventType] ?? event.eventType}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{event.collegeName}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(event.occurredAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
     </div>
   )
 }

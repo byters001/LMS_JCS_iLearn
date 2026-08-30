@@ -1,7 +1,12 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client';
 import { assessmentBatches, assessments, assessmentSections } from '../../db/schema/assessments.schema';
-import { assessmentAttempts, attemptQuestionSelections, attemptResponses } from '../../db/schema/attempts.schema';
+import {
+  assessmentAttempts,
+  attemptQuestionSelections,
+  attemptResponses,
+  proctoringEvents,
+} from '../../db/schema/attempts.schema';
 import { users } from '../../db/schema/identity.schema';
 import { batches, colleges, departments, trainingPrograms } from '../../db/schema/organization.schema';
 import { questionCategories, questions, questionVersions } from '../../db/schema/question-bank.schema';
@@ -608,6 +613,63 @@ async function countActiveStudentsForBatches(batchIds: string[]): Promise<number
   return Number(row?.count ?? 0);
 }
 
+// --- Proctoring activity (Phase 2 dashboard correction) ---
+//
+// proctoring_events has NO review-status/reviewedBy/reviewedAt column
+// (confirmed directly against schema.sql and attempts.schema.ts — it's
+// explicitly append-only, no update path exists anywhere) — see this
+// session's earlier audit for the full "pending/reviewed" finding. This is
+// a raw, honestly-labeled count of logged events in a recent window, joined
+// through to the acting student/assessment/college for display, NOT a
+// review-workflow query. One query backs the stat, the type breakdown, AND
+// the recent-events list (analytics.service.ts's getProctoringActivity
+// derives all three from these same rows) — same "aggregate in JS over one
+// bounded read" precedent as getPlatformOverview/getMyOverview above,
+// bounded here by the caller-supplied day window rather than a single
+// batch/college's roster size.
+export interface ProctoringEventScopeRow {
+  id: string;
+  eventType: string;
+  occurredAt: Date;
+  attemptId: string;
+  studentId: string;
+  studentName: string;
+  assessmentId: string;
+  assessmentTitle: string;
+  collegeId: string;
+  collegeName: string;
+}
+
+async function listProctoringEventsSince(
+  collegeId: string | undefined,
+  since: Date,
+): Promise<ProctoringEventScopeRow[]> {
+  const conditions = [gte(proctoringEvents.occurredAt, since)];
+  if (collegeId) conditions.push(eq(studentProfiles.collegeId, collegeId));
+
+  return db
+    .select({
+      id: proctoringEvents.id,
+      eventType: proctoringEvents.eventType,
+      occurredAt: proctoringEvents.occurredAt,
+      attemptId: assessmentAttempts.id,
+      studentId: studentProfiles.id,
+      studentName: users.fullName,
+      assessmentId: assessments.id,
+      assessmentTitle: assessments.title,
+      collegeId: studentProfiles.collegeId,
+      collegeName: colleges.name,
+    })
+    .from(proctoringEvents)
+    .innerJoin(assessmentAttempts, eq(assessmentAttempts.id, proctoringEvents.attemptId))
+    .innerJoin(studentProfiles, eq(studentProfiles.id, assessmentAttempts.studentId))
+    .innerJoin(users, eq(users.id, studentProfiles.userId))
+    .innerJoin(assessments, eq(assessments.id, assessmentAttempts.assessmentId))
+    .innerJoin(colleges, eq(colleges.id, studentProfiles.collegeId))
+    .where(and(...conditions))
+    .orderBy(desc(proctoringEvents.occurredAt));
+}
+
 export const analyticsRepository = {
   listBatchAttemptsForAssessment,
   findMostRecentAssessmentIdForBatch,
@@ -623,4 +685,5 @@ export const analyticsRepository = {
   listSubmittedAttempts,
   listMcqCategoryResponses,
   countActiveStudentsForBatches,
+  listProctoringEventsSince,
 };
