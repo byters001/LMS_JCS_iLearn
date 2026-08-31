@@ -1,5 +1,8 @@
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useMyAttemptDetail } from '../api'
 import type { AttemptStatus } from '../types'
 
@@ -17,26 +20,40 @@ const STATUS_LABELS: Record<AttemptStatus, string> = {
   invalidated: 'Invalidated',
 }
 
+// Phase 3b — styling only, per this page's own sanitization rules (no
+// change to what data is shown/hidden). Loading/error states now match the
+// skeleton-pulse and bordered-destructive-box convention every other data
+// page in this codebase already uses instead of bare text. The two content
+// blocks below become the shared Card (gap-0 override to neutralize Card's
+// own flex gap-4, since this page's internal spacing is already hand-tuned
+// via mt-*/space-y-* on non-flex children — same override technique
+// AssessmentListPage.tsx's AssessmentCard already uses for the same
+// reason). No PageHeader here — this is a single-attempt "receipt" layout
+// with a status/score sub-header, not a page-level title+stat-row; the same
+// class of page (AttemptReportPage.tsx, this attempt's own polished
+// report) already established that PageHeader's title+description+
+// stat-row API doesn't fit a detail view like this one.
 export default function AttemptResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
   const { data, isLoading, isError, error } = useMyAttemptDetail(attemptId)
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <p className="text-sm text-muted-foreground">Loading your results…</p>
+      <div className="mx-auto max-w-2xl space-y-3 p-6" role="status" aria-label="Loading your results">
+        <div className="h-36 animate-pulse rounded-lg bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
     )
   }
 
   if (isError || !data) {
     return (
-      <div className="p-6">
-        <p className="text-sm text-destructive">
+      <div className="mx-auto max-w-2xl p-6">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : "Couldn't load your results. Please try again."}
-        </p>
+        </div>
       </div>
     )
   }
@@ -45,7 +62,7 @@ export default function AttemptResultPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+      <Card className="gap-0 p-6">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">{attempt.assessmentTitle}</h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Attempt #{attempt.attemptNumber}
@@ -85,7 +102,7 @@ export default function AttemptResultPage() {
             questions answered so far.
           </p>
         )}
-      </div>
+      </Card>
 
       <div className="mt-6 space-y-3">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -93,13 +110,10 @@ export default function AttemptResultPage() {
         </h2>
 
         {questions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No questions to show for this attempt.</p>
+          <EmptyState message="No questions to show for this attempt." />
         ) : (
           questions.map((question, index) => (
-            <div
-              key={question.questionVersionId}
-              className="rounded-lg border border-border bg-background p-4"
-            >
+            <Card key={question.questionVersionId} className="gap-0 p-4">
               <div className="flex items-start justify-between gap-4">
                 <p className="text-sm text-brand-primary">
                   {index + 1}. {question.questionText}
@@ -108,15 +122,9 @@ export default function AttemptResultPage() {
                     answer" concept, so isCorrect is null and no badge
                     renders (not "Incorrect" by default). */}
                 {question.isCorrect !== null && (
-                  <span
-                    className={
-                      question.isCorrect
-                        ? 'shrink-0 rounded-full bg-green-600/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400'
-                        : 'shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive'
-                    }
-                  >
+                  <Badge variant={question.isCorrect ? 'success' : 'danger'} className="shrink-0">
                     {question.isCorrect ? 'Correct' : 'Incorrect'}
-                  </span>
+                  </Badge>
                 )}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -129,7 +137,7 @@ export default function AttemptResultPage() {
                   </>
                 )}
               </p>
-            </div>
+            </Card>
           ))
         )}
       </div>

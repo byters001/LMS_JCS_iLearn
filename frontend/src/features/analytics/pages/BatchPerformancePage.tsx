@@ -1,3 +1,6 @@
+import { motion } from 'framer-motion'
+import { BarChart3, CheckCircle2, PieChart as PieChartIcon, Target, Users } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -15,8 +18,13 @@ import {
   YAxis,
 } from 'recharts'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Combobox } from '@/components/Combobox'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
 import {
   Table,
   TableBody,
@@ -27,7 +35,9 @@ import {
 } from '@/components/ui/table'
 import { useAssessments } from '@/features/assessments/api'
 import { useBatches, useColleges, useMyBatches } from '@/features/organization/api'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { downloadBatchPerformanceExport, downloadBatchSummaryExport, useBatchPerformance } from '../api'
 import type { PerStudentStatus } from '../types'
@@ -107,34 +117,70 @@ const STATUS_LABELS: Record<PerStudentStatus, string> = {
   failed: 'Failed',
 }
 
-const STATUS_STYLES: Record<PerStudentStatus, string> = {
-  passed: 'bg-green-600/10 text-green-700 dark:text-green-400',
-  failed: 'bg-destructive/10 text-destructive',
-  pending_evaluation: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  invalidated: 'bg-muted text-muted-foreground/60',
-  in_progress: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  not_attempted: 'bg-muted text-muted-foreground',
+// Outcome, not lifecycle — 'passed'/'failed' reuse the same success/danger
+// semantic tokens StudentDashboardPage's RecentResultRow already uses for a
+// scored result, 'pending_evaluation' reuses the same warning/amber token
+// MyAttemptsListPage.tsx's own status badges use for the identical status
+// value. 'in_progress' and 'not_attempted' have no pass/fail outcome yet,
+// so they stay on the two "nothing to report" tokens (live/neutral) rather
+// than borrowing a red/green that would misleadingly imply one.
+const STATUS_BADGE_VARIANT: Record<PerStudentStatus, 'success' | 'danger' | 'warning' | 'closed' | 'live' | 'neutral'> = {
+  passed: 'success',
+  failed: 'danger',
+  pending_evaluation: 'warning',
+  invalidated: 'closed',
+  in_progress: 'live',
+  not_attempted: 'neutral',
 }
 
 function StatusBadge({ status }: { status: PerStudentStatus }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        STATUS_STYLES[status],
-      )}
-    >
-      {STATUS_LABELS[status]}
-    </span>
-  )
+  return <Badge variant={STATUS_BADGE_VARIANT[status]}>{STATUS_LABELS[status]}</Badge>
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+// Visually matches StatCard's own icon-chip/value/label layout (same
+// size-8 rounded-lg chip, same accent token classes) but accepts a
+// pre-formatted string instead of StatCard's numeric `value` prop — none of
+// this page's four stats (a decimal-string average, a ratio, a
+// min·median·max range) are the single count-up number StatCard expects.
+// Same "match the shape, not the numeric contract" call
+// StudentDashboardPage.tsx's own TierStatCard already made for its
+// categorical Tier badge, including hardcoding the accent-token classes
+// directly rather than importing StatCard's private ACCENT_CHIP_CLASS map.
+const STAT_TILE_ACCENT_CLASS = {
+  indigo: 'bg-accent-indigo-bg text-accent-indigo-fg',
+  teal: 'bg-accent-teal-bg text-accent-teal-fg',
+  amber: 'bg-accent-amber-bg text-accent-amber-fg',
+  coral: 'bg-accent-coral-bg text-accent-coral-fg',
+} as const
+
+function StatTile({
+  label,
+  value,
+  icon: Icon,
+  accent,
+}: {
+  label: string
+  value: string
+  icon: LucideIcon
+  accent: keyof typeof STAT_TILE_ACCENT_CLASS
+}) {
   return (
-    <div className={cn('rounded-lg border border-border bg-background p-3.5', CARD_GRADIENT)}>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
-    </div>
+    <Card className="p-3.5">
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-lg',
+            STAT_TILE_ACCENT_CLASS[accent],
+          )}
+        >
+          <Icon className="size-4" />
+        </div>
+        <div>
+          <p className="font-mono text-2xl font-semibold text-foreground">{value}</p>
+          <p className="text-sm text-muted-foreground">{label}</p>
+        </div>
+      </div>
+    </Card>
   )
 }
 
@@ -185,6 +231,9 @@ export default function BatchPerformancePage() {
   // college-then-batch picker — Super Admin's flow is untouched.
   const user = useAuthStore((state) => state.user)
   const isSuperAdmin = user?.roles.includes('super_admin') ?? false
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const statVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS
+  const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   const [pickedCollegeId, setPickedCollegeId] = useState<string | null>(null)
   const colleges = useColleges({ page: 1, pageSize: PICKER_PAGE_SIZE }, { enabled: isSuperAdmin })
@@ -297,16 +346,20 @@ export default function BatchPerformancePage() {
   }
 
   return (
-    <div className="p-5">
-      <div className="mb-4">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Batch Performance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Aggregate results for a batch on one assessment — average score, pass rate, and
-          per-student outcomes.
-        </p>
-      </div>
+    <div className="space-y-4 p-5">
+      <PageHeader
+        title="Batch Performance"
+        description="Aggregate results for a batch on one assessment — average score, pass rate, and per-student outcomes."
+      />
 
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      {/* Picker stays its own Card below the header, not PageHeader's
+          stat-row children slot — this is a 2-3 field filter form (with its
+          own loading/error states per field), not the small stat-row/single-
+          filter shape that slot is meant for (see PageHeader.tsx's own
+          comment on what that slot is for), same "keep the filter UI
+          separate from the header" call StudentListPage.tsx already made
+          for its own (smaller) college search input. */}
+      <Card className="p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {/* Only Super Admin ever sees this — Faculty gets a single
               dropdown over their own assigned batches below instead (see
@@ -387,16 +440,12 @@ export default function BatchPerformancePage() {
             />
           </div>
         </div>
-      </div>
+      </Card>
 
-      {!batchId && (
-        <p className="mt-4 rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          Select a batch above to view its performance.
-        </p>
-      )}
+      {!batchId && <EmptyState message="Select a batch above to view its performance." />}
 
       {batchId && performance.isPending && (
-        <div className="mt-4 space-y-2" role="status" aria-label="Loading batch performance">
+        <div className="space-y-2" role="status" aria-label="Loading batch performance">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
           ))}
@@ -404,7 +453,7 @@ export default function BatchPerformancePage() {
       )}
 
       {batchId && performance.isError && (
-        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           {isNoAttemptsYet
             ? 'This batch has no attempts on any assessment yet.'
             : performance.error instanceof ApiError
@@ -414,7 +463,7 @@ export default function BatchPerformancePage() {
       )}
 
       {batchId && performance.data && (
-        <div className="mt-4 space-y-4">
+        <div className="space-y-4">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -444,35 +493,62 @@ export default function BatchPerformancePage() {
                 </Button>
               </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatTile
-                label="Average Score"
-                value={performance.data.averageScore ?? '—'}
-              />
-              <StatTile
-                label="Pass Rate"
-                value={
-                  performance.data.passRate !== null
-                    ? `${Math.round(performance.data.passRate * 100)}%`
-                    : '—'
-                }
-              />
-              <StatTile
-                label="Attempted / Total"
-                value={`${performance.data.studentsAttempted} / ${performance.data.totalStudents}`}
-              />
-              <StatTile
-                label="Score Range (min · median · max)"
-                value={
-                  performance.data.scoreDistribution.min !== null
-                    ? `${performance.data.scoreDistribution.min} · ${performance.data.scoreDistribution.median} · ${performance.data.scoreDistribution.max}`
-                    : '—'
-                }
-              />
-            </div>
+            {/* Genuine stat row (Phase 3b) — four real, already-fetched
+                numbers, so this gets the same staggered fade+rise entrance
+                every other stat row in the design system uses (motion.ts).
+                Only Pass Rate is a true single number (StatCard's numeric
+                `value` contract); the other three (a decimal-string
+                average, a ratio, a min·median·max range) use the
+                visually-matching StatTile above instead of forcing them
+                through StatCard's count-up — same non-numeric-value call
+                StudentDashboardPage.tsx's TierStatCard already made. */}
+            <motion.div
+              initial="hidden"
+              animate="show"
+              variants={containerVariants}
+              className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4"
+            >
+              <motion.div variants={statVariants}>
+                <StatTile
+                  label="Average Score"
+                  value={performance.data.averageScore ?? '—'}
+                  icon={Target}
+                  accent="indigo"
+                />
+              </motion.div>
+              <motion.div variants={statVariants}>
+                <StatCard
+                  label="Pass Rate (%)"
+                  value={performance.data.passRate !== null ? Math.round(performance.data.passRate * 100) : null}
+                  icon={CheckCircle2}
+                  iconClassName="bg-accent-teal-bg text-accent-teal-fg"
+                  accent="teal"
+                />
+              </motion.div>
+              <motion.div variants={statVariants}>
+                <StatTile
+                  label="Attempted / Total"
+                  value={`${performance.data.studentsAttempted} / ${performance.data.totalStudents}`}
+                  icon={Users}
+                  accent="amber"
+                />
+              </motion.div>
+              <motion.div variants={statVariants}>
+                <StatTile
+                  label="Score Range (min · median · max)"
+                  value={
+                    performance.data.scoreDistribution.min !== null
+                      ? `${performance.data.scoreDistribution.min} · ${performance.data.scoreDistribution.median} · ${performance.data.scoreDistribution.max}`
+                      : '—'
+                  }
+                  icon={BarChart3}
+                  accent="coral"
+                />
+              </motion.div>
+            </motion.div>
           </div>
 
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+          <Card className="p-4">
             <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Pass / Fail
             </h3>
@@ -488,6 +564,12 @@ export default function BatchPerformancePage() {
                     paddingAngle={2}
                     label={({ value }: { value: number }) => `${Math.round(value * 100)}%`}
                   >
+                    {/* PASS_COLOR/FAIL_COLOR intentionally stay raw hex, not
+                        Badge's status tokens — this is a chart data
+                        encoding (dataviz skill's validated colorblind-safe
+                        pair), a different concern from a semantic status
+                        pill, same reasoning HISTOGRAM_COLOR below already
+                        documents for the bar chart. */}
                     <Cell fill={PASS_COLOR} />
                     <Cell fill={FAIL_COLOR} />
                   </Pie>
@@ -496,14 +578,15 @@ export default function BatchPerformancePage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                No graded attempts yet for this assessment — the chart will appear once at least
-                one student's attempt has been fully evaluated.
-              </p>
+              <EmptyState
+                className="mt-3"
+                icon={PieChartIcon}
+                message="No graded attempts yet for this assessment — the chart will appear once at least one student's attempt has been fully evaluated."
+              />
             )}
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+          <Card className="p-4">
             <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Score Distribution
             </h3>
@@ -532,12 +615,13 @@ export default function BatchPerformancePage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                No graded attempts yet for this assessment — the chart will appear once at least
-                one student's attempt has been fully evaluated.
-              </p>
+              <EmptyState
+                className="mt-3"
+                icon={BarChart3}
+                message="No graded attempts yet for this assessment — the chart will appear once at least one student's attempt has been fully evaluated."
+              />
             )}
-          </div>
+          </Card>
 
           <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
             <Table>

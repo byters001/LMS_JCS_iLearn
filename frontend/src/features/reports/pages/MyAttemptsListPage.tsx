@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useMyAttempts } from '../api'
 import type { AttemptStatus } from '../types'
 
@@ -15,6 +19,21 @@ const STATUS_LABELS: Record<AttemptStatus, string> = {
   invalidated: 'Invalidated',
 }
 
+// Lifecycle state, not outcome — these badges say nothing about pass/fail
+// (that's a scorePercent-vs-threshold question StudentDashboardPage's own
+// RecentResultRow already answers separately, via 'success'/'danger' on the
+// SCORE, not the status). 'live' for in_progress reuses the exact "this is
+// happening right now" meaning FacultyAnalyticsPage's assessment-status
+// badges already give that variant; 'closed' for submitted reuses the same
+// "no longer active" neutral-grey token rather than inventing a new one.
+const STATUS_BADGE_VARIANT: Record<AttemptStatus, 'neutral' | 'live' | 'closed' | 'warning' | 'danger'> = {
+  not_started: 'neutral',
+  in_progress: 'live',
+  submitted: 'closed',
+  pending_evaluation: 'warning',
+  invalidated: 'danger',
+}
+
 function formatDate(value: string | null): string {
   if (!value) return '—'
   return new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -25,6 +44,15 @@ function formatDate(value: string | null): string {
 // assessments list before this phase). Same real-pagination pattern
 // StudentAssessmentsPage.tsx already uses (CLAUDE1.md non-negotiable #2) —
 // never fetch-all-then-paginate-client-side.
+//
+// Phase 3b — swapped the raw h1/p header for PageHeader. No genuine stat
+// row exists on this page (every number here already lives in the table
+// itself, same as PerformancePage.tsx's own Phase 3a call), so no entrance
+// animation is added. The row list is now the shared Table (same
+// header-row/hover/pl-4/pr-4 shape as ScoreHistoryTable.tsx and
+// StudentRosterTable.tsx) instead of a bespoke card list, split into
+// Assessment/Attempt/Date/Score/Status columns; status renders via the
+// shared Badge component instead of plain text.
 export default function MyAttemptsListPage() {
   const [page, setPage] = useState(1)
   const { data, isPending, isError, error, isFetching } = useMyAttempts({
@@ -35,13 +63,11 @@ export default function MyAttemptsListPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Attempt History</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every past and in-progress attempt across all your assessments.
-        </p>
-      </div>
+    <div className="space-y-4 p-6">
+      <PageHeader
+        title="Your Attempt History"
+        description="Every past and in-progress attempt across all your assessments."
+      />
 
       {isPending && (
         <div className="space-y-2" role="status" aria-label="Loading attempts">
@@ -59,45 +85,52 @@ export default function MyAttemptsListPage() {
         </div>
       )}
 
-      {data && (
+      {data && data.items.length === 0 && (
+        <EmptyState message="You haven't attempted any assessments yet." />
+      )}
+
+      {data && data.items.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-          {data.items.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">
-              You haven&apos;t attempted any assessments yet.
-            </div>
-          ) : (
-            <ul className="divide-y divide-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead className="pl-4">Assessment</TableHead>
+                <TableHead>Attempt</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Score</TableHead>
+                <TableHead className="pr-4">Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.items.map((attempt) => (
-                <li key={attempt.id}>
-                  <Link
-                    to={`/student/attempts/${attempt.id}/submitted`}
-                    className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/30"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-brand-primary">
-                        {attempt.assessmentTitle}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Attempt #{attempt.attemptNumber}
-                        {attempt.isRetake ? ' · Retake' : ''} &middot;{' '}
-                        {formatDate(attempt.submissionTime ?? attempt.createdAt)}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-medium text-brand-primary">
-                        {attempt.status === 'pending_evaluation'
-                          ? 'Pending'
-                          : (attempt.totalScore ?? '—')}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {STATUS_LABELS[attempt.status] ?? attempt.status}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
+                <TableRow key={attempt.id} className="hover:bg-muted/30">
+                  <TableCell className="max-w-0 pl-4 font-medium text-brand-primary">
+                    <Link
+                      to={`/student/attempts/${attempt.id}/submitted`}
+                      className="block truncate hover:underline"
+                    >
+                      {attempt.assessmentTitle}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    #{attempt.attemptNumber}
+                    {attempt.isRetake ? ' · Retake' : ''}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(attempt.submissionTime ?? attempt.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium text-brand-primary">
+                    {attempt.status === 'pending_evaluation' ? 'Pending' : (attempt.totalScore ?? '—')}
+                  </TableCell>
+                  <TableCell className="pr-4">
+                    <Badge variant={STATUS_BADGE_VARIANT[attempt.status]}>
+                      {STATUS_LABELS[attempt.status] ?? attempt.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
               ))}
-            </ul>
-          )}
+            </TableBody>
+          </Table>
 
           {data.total > 0 && (
             <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
