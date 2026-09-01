@@ -18,22 +18,15 @@ const TEST_CATEGORY_LABELS: Record<Assessment['testCategory'], string> = {
   mixed: 'Mixed',
 }
 
+// Parchment & Emerald rollout — was a hand-rolled bg-brand-accent/
+// border-brand-primary pair that predates the shared Badge variant system;
+// StudentDashboardPage already established 'live'/'scheduled' as the right
+// variants for this exact meaning (status-success-bg/accent-indigo-bg,
+// both scoped to Parchment & Emerald automatically), so this just adopts
+// them instead of carrying its own separately-themed copy.
 function StatusBadge({ status }: { status: Assessment['status'] }) {
-  if (status === 'live') {
-    return (
-      <Badge className="bg-brand-accent text-white">
-        <span className="size-1.5 rounded-full bg-white" />
-        Live
-      </Badge>
-    )
-  }
-  if (status === 'scheduled') {
-    return (
-      <Badge variant="outline" className="border-brand-primary/30 text-brand-primary">
-        Scheduled
-      </Badge>
-    )
-  }
+  if (status === 'live') return <Badge variant="live">Live</Badge>
+  if (status === 'scheduled') return <Badge variant="scheduled">Scheduled</Badge>
   return <Badge variant="secondary">{status}</Badge>
 }
 
@@ -69,7 +62,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   if (buttonState.kind === 'scheduled') {
     const startDate = formatStartDate(buttonState.startAt)
     return (
-      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4 opacity-60 shadow-sm grayscale-[0.4]">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 opacity-60 shadow-sm grayscale-[0.4]">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>
           <StatusBadge status={assessment.status} />
@@ -108,8 +101,9 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
     <Link
       to={linkTo}
       className={cn(
-        'group flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2',
+        'group flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-shell-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
         CARD_GRADIENT,
+        'from-student-primary/8',
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -134,23 +128,90 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
       </div>
 
       {/* Item 1 fix — "completed" gets a distinct muted/outline treatment
-          instead of the same solid brand-accent blue every clickable action
-          state uses, so it reads at a glance as "done", not "here's another
-          thing to click." Still a real link to the results page — only the
+          instead of the same solid CTA color every clickable action state
+          uses, so it reads at a glance as "done", not "here's another thing
+          to click." Still a real link to the results page — only the
           styling branches, not the behavior.
-          Visual-consistency pass — the non-completed branch previously
-          relied on buttonVariants' default variant (bg-primary, this app's
-          navy #211d8c), NOT the brand-accent blue this comment already
-          claimed it used — a real drift from AssessmentDetailPage.tsx's own
-          button for the identical Start/Continue/Retake action, which
-          already overrides to brand-accent explicitly. Fixed to match. */}
+          Parchment & Emerald rollout — bg-brand-accent (navy-scoped)
+          promoted to student-accent/student-accent-foreground, the same
+          vivid-fill-needs-a-dark-not-white-foreground pairing the dashboard
+          hero's ring/medallion already use. Known seam: AssessmentDetailPage.tsx's
+          own Start/Continue/Retake button still explicitly matches the OLD
+          bg-brand-accent this comment used to describe — that page wasn't
+          in this phase's scope, so the two now visually disagree until it
+          gets the same promotion. */}
       <span
         className={cn(
           buttonVariants({ variant: buttonState.kind === 'completed' ? 'outline' : 'default' }),
           'mt-1 h-9 w-full',
           buttonState.kind === 'completed'
             ? 'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground'
-            : 'bg-brand-accent text-white group-hover:bg-brand-accent/90',
+            : 'bg-student-accent text-student-accent-foreground group-hover:bg-student-accent/90',
+        )}
+      >
+        {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
+      </span>
+    </Link>
+  )
+}
+
+// Structural rollout — this page's job is browsing (a full-batch grid of
+// assessments), not reporting a personal standing, so it does NOT get a
+// dashboard-style hero/ring: there's no genuine "hero number" here (the
+// only candidate stats — X live/Y scheduled/Z completed — would need a
+// server-side count across every page, not just the current PAGE_SIZE=12
+// page this endpoint returns; adding that aggregate is real backend work
+// this phase's "structure only" scope excludes). The one deliberate
+// grid-break IS applied, though: the single most-actionable assessment on
+// page 1 (already in progress, or live and not yet started) gets pulled out
+// into a wider "Up Next" card above the uniform grid — derived entirely
+// from data already on the page, no new fetch. Only on page 1: a "most
+// urgent" card on page 2+ would have no real meaning (nothing says page 2's
+// items are less urgent than page 1's — the list isn't sorted by urgency),
+// so this stays a page-1-only affordance rather than a misleading one on
+// every page.
+const FEATURED_KIND_PRIORITY: Partial<Record<ReturnType<typeof getAttemptButtonState>['kind'], number>> = {
+  continue: 0,
+  start: 1,
+  retake: 2,
+}
+
+function pickFeatured(items: AvailableAssessment[]): AvailableAssessment | undefined {
+  return [...items]
+    .filter((a) => getAttemptButtonState(a).kind in FEATURED_KIND_PRIORITY)
+    .sort(
+      (a, b) =>
+        FEATURED_KIND_PRIORITY[getAttemptButtonState(a).kind]! -
+        FEATURED_KIND_PRIORITY[getAttemptButtonState(b).kind]!,
+    )[0]
+}
+
+function FeaturedAssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
+  const durationLabel = assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'
+  const buttonState = getAttemptButtonState(assessment)
+
+  return (
+    <Link
+      to={`/student/assessments/${assessment.id}`}
+      className="group mb-2.5 flex items-center justify-between gap-4 rounded-xl border border-border border-l-4 border-l-student-accent bg-card p-3.5 shadow-sm transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2"
+    >
+      <div className="min-w-0">
+        <p className="font-mono text-[10px] font-semibold tracking-widest text-student-primary uppercase">
+          Up next
+        </p>
+        <h3 className="mt-0.5 truncate font-heading text-lg font-semibold text-foreground">{assessment.title}</h3>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Badge variant="secondary">{TEST_CATEGORY_LABELS[assessment.testCategory]}</Badge>
+          <span className="flex items-center gap-1">
+            <Clock className="size-3.5" />
+            {durationLabel}
+          </span>
+        </div>
+      </div>
+      <span
+        className={cn(
+          buttonVariants({ variant: 'default' }),
+          'h-9 shrink-0 bg-student-accent px-4 text-student-accent-foreground group-hover:bg-student-accent/90',
         )}
       >
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
@@ -167,11 +228,13 @@ export default function StudentAssessmentsPage() {
   })
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
+  const featured = data && page === 1 ? pickFeatured(data.items) : undefined
+  const gridItems = data ? (featured ? data.items.filter((a) => a.id !== featured.id) : data.items) : []
 
   return (
     <div className="p-4">
-      <div className="mb-4">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Assessments</h1>
+      <div className="mb-3">
+        <h1 className="font-heading text-xl font-semibold text-primary">Your Assessments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Live and upcoming assessments for your batch.
         </p>
@@ -179,7 +242,7 @@ export default function StudentAssessmentsPage() {
 
       {isPending && (
         <div
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
           role="status"
           aria-label="Loading assessments"
         >
@@ -204,15 +267,18 @@ export default function StudentAssessmentsPage() {
               No assessments available right now.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {data.items.map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} />
-              ))}
-            </div>
+            <>
+              {featured && <FeaturedAssessmentCard assessment={featured} />}
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {gridItems.map((assessment) => (
+                  <AssessmentCard key={assessment.id} assessment={assessment} />
+                ))}
+              </div>
+            </>
           )}
 
           {data.total > 0 && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-3 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 Page {data.page} of {totalPages} &middot; {data.total} assessment
                 {data.total === 1 ? '' : 's'}
@@ -222,7 +288,7 @@ export default function StudentAssessmentsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
@@ -231,7 +297,7 @@ export default function StudentAssessmentsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >

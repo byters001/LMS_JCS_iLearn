@@ -53,6 +53,13 @@ function formatDate(value: string | null): string {
 // StudentRosterTable.tsx) instead of a bespoke card list, split into
 // Assessment/Attempt/Date/Score/Status columns; status renders via the
 // shared Badge component instead of plain text.
+//
+// Structural rollout — deliberately NO hero here either. Highlighting "your
+// most recent attempt" would just duplicate StudentDashboardPage's own
+// Recent Results, and this page's actual job — a complete, evenly-weighted
+// audit trail of every attempt — is undermined, not helped, by visually
+// privileging one row over the rest. A clean dense table is the correct
+// structural choice for a history page; only density/palette changed here.
 export default function MyAttemptsListPage() {
   const [page, setPage] = useState(1)
   const { data, isPending, isError, error, isFetching } = useMyAttempts({
@@ -63,7 +70,7 @@ export default function MyAttemptsListPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="space-y-3 p-5">
+    <div className="space-y-3 p-4">
       <PageHeader
         title="Your Attempt History"
         description="Every past and in-progress attempt across all your assessments."
@@ -104,7 +111,7 @@ export default function MyAttemptsListPage() {
             <TableBody>
               {data.items.map((attempt) => (
                 <TableRow key={attempt.id} className="hover:bg-muted/30">
-                  <TableCell className="max-w-0 pl-4 font-medium text-brand-primary">
+                  <TableCell className="max-w-0 pl-4 font-medium text-primary">
                     <Link
                       to={`/student/attempts/${attempt.id}/submitted`}
                       className="block truncate hover:underline"
@@ -119,7 +126,7 @@ export default function MyAttemptsListPage() {
                   <TableCell className="text-muted-foreground">
                     {formatDate(attempt.submissionTime ?? attempt.createdAt)}
                   </TableCell>
-                  <TableCell className="text-right font-medium text-brand-primary">
+                  <TableCell className="text-right font-medium text-primary">
                     {attempt.status === 'pending_evaluation' ? 'Pending' : (attempt.totalScore ?? '—')}
                   </TableCell>
                   <TableCell className="pr-4">
@@ -143,7 +150,7 @@ export default function MyAttemptsListPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
@@ -152,7 +159,7 @@ export default function MyAttemptsListPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 // Shared shape derived from what StudentListPage/LeaderboardPage/
 // CollegeListPage/AssessmentListPage already did inline: an h1 (font-heading
-// text-xl font-semibold text-brand-primary) + an optional description
+// text-xl font-semibold text-foreground) + an optional description
 // paragraph (mt-1 text-sm text-muted-foreground), with AssessmentListPage's
 // "Create Assessment" button being the one real precedent for a
 // right-aligned action (its own `flex items-baseline justify-between`
@@ -21,7 +21,7 @@ export function PageHeader({ title, description, actions, children }: PageHeader
     <div>
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <h1 className="font-heading text-xl font-semibold text-brand-primary">{title}</h1>
+          <h1 className="font-heading text-xl font-semibold text-foreground">{title}</h1>
           {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

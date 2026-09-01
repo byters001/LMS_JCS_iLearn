@@ -19,6 +19,11 @@ import ScoreHistoryTable from '../components/ScoreHistoryTable'
 // Neither section below is a StatCard grid (a chart + a delta callout, a
 // table with a %-change column) — no genuine stat row exists on this page,
 // so no entrance animation is added.
+//
+// Structural rollout — no hero wrapper added here either: the trend chart
+// already has real visual weight and its own focal readout (see
+// PerformanceAnalyticsSection.tsx's own comment on the light-touch
+// typographic sharpening that got instead of a redundant hero/ring).
 export default function PerformancePage() {
   return (
     <div className="p-4">
@@ -26,7 +31,7 @@ export default function PerformancePage() {
         title="Performance"
         description="Your score trend over time, and a full history of graded attempts."
       />
-      <div className="mt-4">
+      <div className="mt-3">
         <PerformanceAnalyticsSection />
         <ScoreHistoryTable />
       </div>

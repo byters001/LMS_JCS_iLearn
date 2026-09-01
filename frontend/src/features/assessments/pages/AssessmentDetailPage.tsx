@@ -112,7 +112,7 @@ export default function AssessmentDetailPage() {
           // before; StudentAssessmentsPage.tsx's card was repointed the
           // same way, same reasoning) — there's nothing left here to
           // start. Item 1 fix — same distinct muted/outline treatment as
-          // the card, not the solid brand-accent blue every clickable
+          // the card, not the solid student-accent fill every clickable
           // action state uses. Label now reads from the shared
           // ATTEMPT_BUTTON_LABELS map (previously hardcoded text here,
           // out of step with every other branch already reading from it).
@@ -133,7 +133,7 @@ export default function AssessmentDetailPage() {
           // new one when one exists, so this click handler doesn't need to
           // know which case it is).
           <Button
-            className="mt-4 w-full bg-brand-accent text-white hover:bg-brand-accent/90"
+            className="mt-4 w-full bg-student-accent text-student-accent-foreground hover:bg-student-accent/90"
             disabled={buttonState.kind === 'not-live'}
             onClick={() => navigate(`/student/assessments/${assessment.id}/instructions`)}
           >

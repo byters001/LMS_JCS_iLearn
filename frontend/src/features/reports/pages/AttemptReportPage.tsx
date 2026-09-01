@@ -41,6 +41,13 @@ import { TierBadge } from '../components/LeaderboardSection'
 // element on this page (both back-links, this button itself) hide via
 // `print:hidden`; each card-like block gets `print:break-inside-avoid` so
 // the browser's print engine doesn't split a card across a page boundary.
+//
+// Structural rollout — same read as AttemptResultPage.tsx: a single-attempt
+// receipt, not a dashboard, so no hero/ring wrapper. The two StatCards keep
+// their existing shape, just promoted onto student-primary/student-accent
+// (via the `accent` prop — "teal"/"amber", the same slots
+// StudentDashboardPage's own Avg Score/Standing cards use) instead of the
+// old hardcoded brand-accent/brand-primary.
 export default function AttemptReportPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
   const { data, isLoading, isError, error } = useMyAttemptDetail(attemptId)
@@ -48,7 +55,7 @@ export default function AttemptReportPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl p-5">
+      <div className="mx-auto max-w-3xl p-4">
         <p className="text-sm text-muted-foreground">Loading your report…</p>
       </div>
     )
@@ -56,7 +63,7 @@ export default function AttemptReportPage() {
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-3xl p-5">
+      <div className="mx-auto max-w-3xl p-4">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load your report. Please try again."}
         </p>
@@ -68,13 +75,13 @@ export default function AttemptReportPage() {
   const selfEntry = leaderboard.data?.entries.find((entry) => entry.isSelf)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-3 p-5 print:max-w-none print:p-0">
+    <div className="mx-auto max-w-3xl space-y-3 p-4 print:max-w-none print:p-0">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link to="/student/assessments" className="text-sm text-brand-accent hover:underline print:hidden">
+          <Link to="/student/assessments" className="text-sm text-primary hover:underline print:hidden">
             &larr; Back to Your Assessments
           </Link>
-          <h1 className="mt-2 font-heading text-2xl font-semibold text-brand-primary">
+          <h1 className="mt-2 font-heading text-2xl font-semibold text-primary">
             {attempt.assessmentTitle}
           </h1>
           <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -88,7 +95,7 @@ export default function AttemptReportPage() {
         {attempt.status === 'submitted' && (
           <Button
             variant="outline"
-            className="print:hidden shrink-0 gap-1.5 border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+            className="print:hidden shrink-0 gap-1.5 border-primary text-primary hover:bg-primary/5"
             onClick={() => window.print()}
             title={
               'Opens your browser’s print dialog — choose "Save as PDF" (or your OS printer of the same name) as the destination to download a PDF.'
@@ -110,7 +117,7 @@ export default function AttemptReportPage() {
           available once evaluation completes.{' '}
           <Link
             to={`/student/attempts/${attemptId}/submitted`}
-            className="text-brand-accent hover:underline print:hidden"
+            className="text-primary hover:underline print:hidden"
           >
             View what&apos;s graded so far &rarr;
           </Link>
@@ -130,14 +137,16 @@ export default function AttemptReportPage() {
               label="Score (%)"
               value={attempt.scorePercent !== null ? Math.round(attempt.scorePercent) : null}
               icon={Target}
-              iconClassName="bg-brand-accent/10 text-brand-accent"
+              iconClassName="bg-student-accent/10 text-student-accent"
+              accent="teal"
               className="print:shadow-none"
             />
             <StatCard
               label="Batch Rank"
               value={leaderboard.isPending ? undefined : (selfEntry?.rank ?? null)}
               icon={Trophy}
-              iconClassName="bg-brand-primary/10 text-brand-primary"
+              iconClassName="bg-student-primary/10 text-student-primary"
+              accent="amber"
               className="print:shadow-none"
             />
           </div>
@@ -171,7 +180,7 @@ export default function AttemptReportPage() {
 
       <Link
         to={`/student/attempts/${attemptId}/submitted`}
-        className="inline-block text-sm text-brand-accent hover:underline print:hidden"
+        className="inline-block text-sm text-primary hover:underline print:hidden"
       >
         View detailed question breakdown &rarr;
       </Link>

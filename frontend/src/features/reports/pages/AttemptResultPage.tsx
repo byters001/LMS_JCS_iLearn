@@ -33,13 +33,22 @@ const STATUS_LABELS: Record<AttemptStatus, string> = {
 // class of page (AttemptReportPage.tsx, this attempt's own polished
 // report) already established that PageHeader's title+description+
 // stat-row API doesn't fit a detail view like this one.
+//
+// Structural rollout — deliberately no hero/ring here either: this page
+// reports on ONE specific attempt, a single data record, not an aggregate
+// standing — a ring/typographic hero would misrepresent what the page
+// actually is. Palette-token promotion only (the old hardcoded
+// text-brand-primary/text-brand-accent now read text-primary throughout),
+// same constrained mx-auto max-w-2xl reading
+// width kept as-is since a receipt genuinely benefits from it, unlike the
+// dashboard's full-width grids.
 export default function AttemptResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
   const { data, isLoading, isError, error } = useMyAttemptDetail(attemptId)
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-3 p-5" role="status" aria-label="Loading your results">
+      <div className="mx-auto max-w-2xl space-y-3 p-4" role="status" aria-label="Loading your results">
         <div className="h-36 animate-pulse rounded-lg bg-muted" />
         <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
@@ -48,7 +57,7 @@ export default function AttemptResultPage() {
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-2xl p-5">
+      <div className="mx-auto max-w-2xl p-4">
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
@@ -61,9 +70,9 @@ export default function AttemptResultPage() {
   const { attempt, questions } = data
 
   return (
-    <div className="mx-auto max-w-2xl p-5">
+    <div className="mx-auto max-w-2xl p-4">
       <Card className="gap-0 p-4">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">{attempt.assessmentTitle}</h1>
+        <h1 className="font-heading text-xl font-semibold text-primary">{attempt.assessmentTitle}</h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Attempt #{attempt.attemptNumber}
           {attempt.isRetake ? ' · Retake' : ''}
@@ -72,13 +81,13 @@ export default function AttemptResultPage() {
         <div className="mt-4 flex items-center gap-8">
           <div>
             <p className="text-sm text-muted-foreground">Status</p>
-            <p className="font-medium text-brand-primary">
+            <p className="font-medium text-primary">
               {STATUS_LABELS[attempt.status] ?? attempt.status}
             </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Score</p>
-            <p className="font-medium text-brand-primary">
+            <p className="font-medium text-primary">
               {attempt.status === 'pending_evaluation'
                 ? 'Pending'
                 : (attempt.totalScore ?? '—')}
@@ -115,7 +124,7 @@ export default function AttemptResultPage() {
           questions.map((question, index) => (
             <Card key={question.questionVersionId} className="gap-0 p-4">
               <div className="flex items-start justify-between gap-4">
-                <p className="text-sm text-brand-primary">
+                <p className="text-sm text-primary">
                   {index + 1}. {question.questionText}
                 </p>
                 {/* Only for mcq/coding — psychometric has no "correct
@@ -144,7 +153,7 @@ export default function AttemptResultPage() {
 
       <Link
         to="/student/attempts"
-        className="mt-6 inline-block text-sm text-brand-accent hover:underline"
+        className="mt-6 inline-block text-sm text-primary hover:underline"
       >
         &larr; Back to your attempt history
       </Link>

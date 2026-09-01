@@ -25,7 +25,16 @@ import type { MyAttemptSummary } from '../types'
 const FETCH_SIZE = 50
 const MAX_CHART_POINTS = 20
 
-const SCORE_LINE_COLOR = '#4A44C4' // brand-accent, tailwind.config.js
+// Parchment & Emerald rollout — was the literal brand-accent hex ('#4A44C4',
+// this codebase's other Recharts widgets' usual convention for a fixed
+// color Recharts needs as a real value, not a Tailwind class). This
+// component is Student-only (PerformancePage.tsx, AttemptReportPage.tsx —
+// no other role renders it), and Recharts accepts a CSS var string directly
+// here exactly like SuperAdminAnalyticsPage's own chart already does for
+// its axis/grid colors, so this resolves to the scoped --primary (deep
+// emerald) automatically instead of needing a hardcoded student-specific
+// hex that Tailwind's static color config isn't involved in at all.
+const SCORE_LINE_COLOR = 'var(--primary)'
 // Phase 4 (AttemptReportPage.tsx's highlightAttemptId dot) — same green
 // this codebase already uses for "this is the positive/highlighted one"
 // elsewhere (BatchPerformancePage.tsx's PASS_COLOR, the Super Admin/Faculty
@@ -119,7 +128,7 @@ export default function PerformanceAnalyticsSection({
 
   const sectionShell = (children: ReactNode) => (
     <Card className="mb-3 p-3.5">
-      <h2 className="font-heading text-lg font-semibold text-brand-primary">{heading}</h2>
+      <h2 className="font-heading text-lg font-semibold text-primary">{heading}</h2>
       {children}
     </Card>
   )
@@ -165,12 +174,12 @@ export default function PerformanceAnalyticsSection({
     return sectionShell(
       <div className="mt-3 flex items-center justify-between rounded-lg border border-border p-4">
         <div>
-          <p className="truncate text-sm font-medium text-brand-primary">
+          <p className="truncate text-sm font-medium text-primary">
             {only.attempt.assessmentTitle}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">First attempt</p>
         </div>
-        <p className="text-2xl font-semibold text-brand-primary">{formatScore(only.score)}</p>
+        <p className="font-heading text-2xl font-bold text-primary">{formatScore(only.score)}</p>
       </div>,
     )
   }
@@ -207,8 +216,21 @@ export default function PerformanceAnalyticsSection({
 
   return sectionShell(
     <>
-      <div className="mt-1 flex items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">Points scored across your completed attempts</p>
+      {/* Structural rollout — this chart already has real visual weight
+          (220px, full width) and its own focal readout (the delta callout
+          below), so it doesn't get a separate hero/ring wrapper — that would
+          be redundant, not additive. The one change: the latest score
+          itself, previously only implicit in the chart's rightmost point,
+          now gets a modest typographic beat (a real number, not just a
+          delta) beside the existing callout — light-touch sharpening of the
+          anchor that's already there, not a new structural element. */}
+      <div className="mt-1 flex items-end justify-between gap-4">
+        <div>
+          <p className="font-heading text-3xl leading-none font-bold text-primary">
+            {formatScore(target.score)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Latest score · points across your completed attempts</p>
+        </div>
         {previous ? (
           <DeltaCallout diff={target.score - previous.score} />
         ) : (
