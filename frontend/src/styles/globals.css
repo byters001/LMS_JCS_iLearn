@@ -247,6 +247,88 @@
     --accent-coral-fg: #8b4a24;
 }
 
+/* Faculty portal — "Slate & Amber" phase. Same mechanism as .theme-parchment
+   above: scoped to TrainerLayout's root wrapper only, brand-primary/
+   brand-accent and :root/.dark untouched. Stat-chip ramp (--accent-indigo-*
+   etc) deliberately NOT overridden here — StatCard isn't rendered on either
+   page this phase touched (FacultyAnalyticsPage/SuperAdminAnalyticsPage),
+   so it still resolves to the global indigo/teal/amber/coral values
+   wherever else it's used under /trainer; flag if that ramp should get its
+   own Faculty-flavored values later. WCAG AA verified for every pairing
+   before this went in front of the user for approval:
+     foreground on background            13.40:1
+     foreground on card                  14.65:1
+     muted-foreground on muted            4.63:1
+     primary on background                5.42:1   (headings/links)
+     primary-foreground on primary        5.83:1   (filled buttons)
+     secondary-foreground on secondary    5.01:1   (badges/chips)
+   Static companions (rail colors, gradient stops, the accent pair) live as
+   plain hex in tailwind.config.js's faculty-* block — see that file's own
+   comment for the accent/white-text fix this needed. */
+.theme-faculty {
+    --background: #f3f5f7;
+    --foreground: #1e2a33;
+    --card: #ffffff;
+    --card-foreground: #1e2a33;
+    --popover: #ffffff;
+    --popover-foreground: #1e2a33;
+    --primary: #8a5a00;
+    --primary-foreground: #fffdf7;
+    --secondary: #fceacb;
+    --secondary-foreground: #8a5a00;
+    --muted: #e7ecef;
+    --muted-foreground: #5b6b76;
+    --accent: #fceacb;
+    --accent-foreground: #8a5a00;
+    --border: #d7dee3;
+    --input: #d7dee3;
+    --ring: #8a5a00;
+    --chart-1: #8a5a00;
+    --chart-2: #d97706;
+    --chart-3: #f0b429;
+    --chart-4: #5b6b76;
+    --chart-5: #2f4858;
+
+    --shell-accent: #d97706;
+}
+
+/* Admin portal — "Graphite & Steel" phase. Same scoping mechanism, applied
+   to AdminLayout's root wrapper. Stat-chip ramp left unscoped for the same
+   reason as .theme-faculty above. WCAG AA verified before approval:
+     foreground on background            14.48:1
+     foreground on card                  16.11:1
+     muted-foreground on muted            5.04:1
+     primary on background                8.15:1
+     primary-foreground on primary        9.06:1
+     secondary-foreground on secondary    7.37:1
+   Static companions in tailwind.config.js's admin-* block. */
+.theme-admin {
+    --background: #f1f3f5;
+    --foreground: #1b2226;
+    --card: #ffffff;
+    --card-foreground: #1b2226;
+    --popover: #ffffff;
+    --popover-foreground: #1b2226;
+    --primary: #204d67;
+    --primary-foreground: #ffffff;
+    --secondary: #dceaf0;
+    --secondary-foreground: #204d67;
+    --muted: #e3e7ea;
+    --muted-foreground: #56626b;
+    --accent: #dceaf0;
+    --accent-foreground: #204d67;
+    --border: #d2d8dc;
+    --input: #d2d8dc;
+    --ring: #204d67;
+    --chart-1: #204d67;
+    --chart-2: #256f92;
+    --chart-3: #6fa8c4;
+    --chart-4: #56626b;
+    --chart-5: #8a3b3b;
+
+    --shell-accent: #256f92;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

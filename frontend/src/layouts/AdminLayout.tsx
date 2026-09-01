@@ -57,7 +57,7 @@ function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="theme-admin flex min-h-screen bg-background text-foreground">
       <Sidebar navItems={NAV_ITEMS} />
 
       {/* min-w-0 is load-bearing here: without it, this flex child refuses

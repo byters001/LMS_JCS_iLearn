@@ -115,7 +115,7 @@ export default function SuperAdminAnalyticsPage() {
       >
         <div className="flex flex-wrap items-end gap-3">
           <div className="max-w-sm space-y-1.5">
-            <label className="text-xs font-medium text-brand-primary" htmlFor="analyticsCollegePicker">
+            <label className="text-xs font-medium text-primary" htmlFor="analyticsCollegePicker">
               College
             </label>
             <Combobox
@@ -131,7 +131,7 @@ export default function SuperAdminAnalyticsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-brand-primary">
+            <p className="text-xs font-medium text-primary">
               Proctoring window
             </p>
             {/* Segmented toggle, not a dropdown — same pattern
@@ -148,7 +148,7 @@ export default function SuperAdminAnalyticsPage() {
                     'rounded px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     proctoringDays === option.days
                       ? 'bg-shell-accent text-white'
-                      : 'text-muted-foreground hover:text-brand-primary',
+                      : 'text-muted-foreground hover:text-primary',
                   )}
                 >
                   {option.label}
@@ -161,9 +161,13 @@ export default function SuperAdminAnalyticsPage() {
       </PageHeader>
 
       {/* Structural language shared with StudentDashboardPage/
-          FacultyAnalyticsPage, adapted to Admin's own numbers and kept on
-          Admin's own existing tokens — structural pass only, no new colors.
-          Total Students is the hero: the single number that answers "how
+          FacultyAnalyticsPage, adapted to Admin's own numbers. Now on
+          Admin's own "Graphite & Steel" scoped theme (.theme-admin in
+          globals.css, applied on AdminLayout's root) — admin-* tokens in
+          tailwind.config.js drive the hero gradient/rail; shell-accent
+          resolves per-scope automatically, so the corner badge below needed
+          no code change. Total Students is the hero: the single number that
+          answers "how
           big is this platform" at a glance, given genuine typographic
           display weight (Space Grotesk, ~60px) instead of a 4th equal-weight
           stat card — this is a plain count, not a percentage, so it gets
@@ -186,7 +190,7 @@ export default function SuperAdminAnalyticsPage() {
       >
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-xl bg-gradient-to-br from-admin-gradient-from to-admin-gradient-to p-4 text-white shadow-sm lg:col-span-3"
         >
           {(proctoringActivity.data?.totalEvents ?? 0) > 0 && (
             <div
@@ -249,7 +253,7 @@ export default function SuperAdminAnalyticsPage() {
 
         <motion.div variants={statVariants} className="lg:col-span-2">
           <Card className="h-full p-3.5">
-            <h2 className="font-heading text-sm font-semibold text-brand-primary">Recent Proctoring Events</h2>
+            <h2 className="font-heading text-sm font-semibold text-primary">Recent Proctoring Events</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">Latest integrity signals in the selected window.</p>
 
             {proctoringActivity.isPending && (
@@ -269,7 +273,7 @@ export default function SuperAdminAnalyticsPage() {
                 {recentEventsPreview.map((event) => (
                   <li key={event.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-brand-primary">{event.studentName}</p>
+                      <p className="truncate text-xs font-medium text-primary">{event.studentName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{event.assessmentTitle}</p>
                     </div>
                     <Badge variant="warning" className="shrink-0 text-[10px]">
@@ -415,7 +419,7 @@ export default function SuperAdminAnalyticsPage() {
       </Card>
 
       <Card className="p-3.5">
-        <h2 className="font-heading text-lg font-semibold text-brand-primary">Organizations</h2>
+        <h2 className="font-heading text-lg font-semibold text-primary">Organizations</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Every college on the platform, joined with its submitted-attempt activity above.
         </p>
@@ -447,7 +451,7 @@ export default function SuperAdminAnalyticsPage() {
                 const performance = collegePerformanceByCollegeId.get(college.id)
                 return (
                   <TableRow key={college.id}>
-                    <TableCell className="font-medium text-brand-primary">{college.name}</TableCell>
+                    <TableCell className="font-medium text-primary">{college.name}</TableCell>
                     <TableCell>
                       <Badge variant={college.status === 'active' ? 'live' : 'neutral'}>{college.status}</Badge>
                     </TableCell>
@@ -466,7 +470,7 @@ export default function SuperAdminAnalyticsPage() {
       </Card>
 
       <Card className="p-3.5">
-        <h2 className="font-heading text-lg font-semibold text-brand-primary">Recent Proctoring Events</h2>
+        <h2 className="font-heading text-lg font-semibold text-primary">Recent Proctoring Events</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Raw event log for the window above — tab switches, fullscreen exits, and similar
           integrity signals. There is no review/approval workflow on these yet, so every event
@@ -519,7 +523,7 @@ export default function SuperAdminAnalyticsPage() {
             <TableBody>
               {proctoringActivity.data.recentEvents.map((event) => (
                 <TableRow key={event.id}>
-                  <TableCell className="font-medium text-brand-primary">{event.studentName}</TableCell>
+                  <TableCell className="font-medium text-primary">{event.studentName}</TableCell>
                   <TableCell className="max-w-0 text-muted-foreground">
                     <span className="block truncate">{event.assessmentTitle}</span>
                   </TableCell>

@@ -129,7 +129,7 @@ export default function FacultyAnalyticsPage() {
       >
         {showBatchFilter && (
           <div className="max-w-sm space-y-1.5">
-            <label className="text-xs font-medium text-brand-primary" htmlFor="facultyBatchPicker">
+            <label className="text-xs font-medium text-primary" htmlFor="facultyBatchPicker">
               Batch
             </label>
             <Combobox
@@ -148,10 +148,13 @@ export default function FacultyAnalyticsPage() {
       </PageHeader>
 
       {/* Structural language shared with StudentDashboardPage's Parchment &
-          Emerald redesign, adapted to Faculty's own real numbers and kept on
-          Faculty's own existing tokens (brand-primary/brand-accent/
-          shell-accent/brand-gradient-*) — this pass is structural, not a
-          color change here. Avg Score is the hero: the one number a Faculty
+          Emerald redesign, adapted to Faculty's own real numbers. Now on
+          Faculty's own "Slate & Amber" scoped theme (.theme-faculty in
+          globals.css, applied on TrainerLayout's root) — faculty-* tokens
+          in tailwind.config.js drive the hero gradient/rail; shell-accent
+          resolves per-scope automatically (see globals.css's .theme-faculty
+          comment), so the corner badge below needed no code change at all.
+          Avg Score is the hero: the one number a Faculty
           member most wants at a glance (are my students actually learning),
           rendered as the same bespoke ring StudentDashboardPage uses rather
           than a 4th equal-weight stat card. My Batches/My Students/
@@ -169,7 +172,7 @@ export default function FacultyAnalyticsPage() {
       >
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-xl bg-gradient-to-br from-faculty-gradient-from to-faculty-gradient-to p-4 text-white shadow-sm lg:col-span-3"
         >
           {!needsAttentionPending && needsAttentionRows.length > 0 && (
             <div
@@ -247,7 +250,7 @@ export default function FacultyAnalyticsPage() {
 
         <motion.div variants={statVariants} className="lg:col-span-2">
           <Card className="h-full p-3.5">
-            <h2 className="font-heading text-sm font-semibold text-brand-primary">Live &amp; Upcoming</h2>
+            <h2 className="font-heading text-sm font-semibold text-primary">Live &amp; Upcoming</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">Across every batch you&apos;re assigned to.</p>
 
             {isAssessmentsPending && (
@@ -281,7 +284,7 @@ export default function FacultyAnalyticsPage() {
                 <TableBody>
                   {liveAndUpcoming.map((assessment) => (
                     <TableRow key={assessment.id}>
-                      <TableCell className="max-w-0 font-medium text-brand-primary">
+                      <TableCell className="max-w-0 font-medium text-primary">
                         <Link to={`/trainer/assessments/${assessment.id}/edit`} className="block truncate hover:underline">
                           {assessment.title}
                         </Link>
@@ -363,7 +366,7 @@ export default function FacultyAnalyticsPage() {
       </Card>
 
       <Card className="p-3.5">
-        <h2 className="font-heading text-lg font-semibold text-brand-primary">Needs Attention</h2>
+        <h2 className="font-heading text-lg font-semibold text-primary">Needs Attention</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Students whose best attempt on their batch&apos;s most recent assessment fell below the passing
           threshold.
@@ -395,7 +398,7 @@ export default function FacultyAnalyticsPage() {
                 <div className="flex items-center gap-2.5 min-w-0">
                   <AlertTriangle className="size-4 shrink-0 text-status-danger-fg" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-brand-primary">{row.fullName}</p>
+                    <p className="truncate text-sm font-medium text-primary">{row.fullName}</p>
                     <p className="text-xs text-muted-foreground">{row.batchName}</p>
                   </div>
                 </div>

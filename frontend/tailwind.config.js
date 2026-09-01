@@ -45,6 +45,38 @@ export default {
         'student-rail-active': '#1FA971',
         'student-rail-active-foreground': '#0F241A',
         'student-rail-border': '#16332A',
+        // Faculty "Slate & Amber" phase — same additive pattern as
+        // student-* above, paired with globals.css's .theme-faculty block.
+        // faculty-accent-foreground is dark ink (#1E2A33), not white: white
+        // text on faculty-accent only reaches 3.19:1, well under AA; the
+        // dark-ink pairing verified at 4.60:1 instead (same "vivid accent
+        // needs a dark, not light, foreground" pattern student-accent hit).
+        'faculty-primary': '#8A5A00',
+        'faculty-primary-foreground': '#FFFDF7',
+        'faculty-accent': '#D97706',
+        'faculty-accent-foreground': '#1E2A33',
+        'faculty-gradient-from': '#5C3A00',
+        'faculty-gradient-to': '#8A5A00',
+        'faculty-rail': '#241A0C',
+        'faculty-rail-foreground': '#B8A78C',
+        'faculty-rail-active': '#D97706',
+        'faculty-rail-active-foreground': '#241A0C',
+        'faculty-rail-border': '#3A2A14',
+        // Admin "Graphite & Steel" phase — same additive pattern, paired
+        // with globals.css's .theme-admin block. admin-accent is a darkened
+        // #256F92 (an initial #2B7FA6 only reached 4.48:1 with white text,
+        // just under AA) — verified 5.58:1 with white text after the fix.
+        'admin-primary': '#204D67',
+        'admin-primary-foreground': '#FFFFFF',
+        'admin-accent': '#256F92',
+        'admin-accent-foreground': '#FFFFFF',
+        'admin-gradient-from': '#0F2E3D',
+        'admin-gradient-to': '#204D67',
+        'admin-rail': '#12171A',
+        'admin-rail-foreground': '#9AA7AD',
+        'admin-rail-active': '#256F92',
+        'admin-rail-active-foreground': '#FFFFFF',
+        'admin-rail-border': '#232B2F',
         // Semantic accent ramps + status tokens — see globals.css :root/.dark
         // for the light/dark values these resolve to.
         'accent-indigo-bg': 'var(--accent-indigo-bg)',
