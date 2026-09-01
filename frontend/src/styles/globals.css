@@ -127,6 +127,13 @@
     --status-danger-fg: #b91c1c;
     --status-neutral-bg: #f1f5f9;
     --status-neutral-fg: #475569;
+
+    /* Promoted from a static Tailwind hex to a CSS var, same #4F46E5 value
+       — zero visual change anywhere this already renders (Sidebar.tsx,
+       NotificationBell.tsx, StudentDashboardPage.tsx's RecentResultRow).
+       Exists purely so .theme-parchment below can override it, the same
+       scoping mechanism .dark already uses. */
+    --shell-accent: #4f46e5;
 }
 
 .dark {
@@ -175,6 +182,69 @@
     --status-danger-fg: #f87171;
     --status-neutral-bg: #334155;
     --status-neutral-fg: #cbd5e1;
+}
+
+/* Student portal — "Parchment & Emerald" phase. Scoped to StudentLayout's
+   root wrapper only (the .theme-parchment class), overriding the same
+   semantic tokens .dark overrides — brand-primary/brand-accent and the
+   plain :root/.dark values are untouched, so Admin/Trainer keep today's
+   indigo theme exactly as-is. Static companions (rail colors, gradient
+   stops, the emerald "brand" pair) that don't need scope-swapping live as
+   plain hex tokens in tailwind.config.js's student-* block instead.
+   WCAG AA (>=4.5:1 text, >=3:1 non-text) verified for every pairing below
+   before this went in front of the user for approval:
+     foreground on background            13.73:1
+     foreground on card                  14.66:1
+     muted-foreground on muted            4.94:1
+     muted-foreground on background       5.49:1
+     primary on background                6.05:1   (headings/links)
+     primary-foreground on primary        6.52:1   (filled buttons)
+     secondary-foreground on secondary    5.39:1   (badges/chips)
+     accent-indigo-fg on accent-indigo-bg 5.39:1   (repurposed as the
+     accent-teal-fg on accent-teal-bg     4.63:1    emerald/mint/gold/clay
+     accent-amber-fg on accent-amber-bg   5.15:1    stat-chip ramp for this
+     accent-coral-fg on accent-coral-bg   5.13:1    scope, via StatCard's
+                                                     existing accent prop)
+   destructive/status-* intentionally NOT overridden — those are already
+   green/amber/red/slate, not part of the blue theme being replaced. */
+.theme-parchment {
+    --background: #faf6ed;
+    --foreground: #1c2b22;
+    --card: #fffef9;
+    --card-foreground: #1c2b22;
+    --popover: #fffef9;
+    --popover-foreground: #1c2b22;
+    --primary: #0e6b4a;
+    --primary-foreground: #fffef9;
+    --secondary: #dceee3;
+    --secondary-foreground: #0e6b4a;
+    --muted: #f0eadc;
+    --muted-foreground: #6b6355;
+    --accent: #dceee3;
+    --accent-foreground: #0e6b4a;
+    --border: #e3dac5;
+    --input: #e3dac5;
+    --ring: #0e6b4a;
+    --chart-1: #0e6b4a;
+    --chart-2: #1fa971;
+    --chart-3: #59c79a;
+    --chart-4: #c99a3e;
+    --chart-5: #8b5e34;
+
+    --shell-accent: #1fa971;
+
+    /* StatCard's accent prop ("indigo"/"teal"/"amber"/"coral") is reused
+       as-is — only the values these names resolve to change within this
+       scope, so no component or call-site edits were needed to reskin the
+       dashboard's stat chips. */
+    --accent-indigo-bg: #dceee3;
+    --accent-indigo-fg: #0e6b4a;
+    --accent-teal-bg: #e4f3ea;
+    --accent-teal-fg: #1b7a54;
+    --accent-amber-bg: #f7e7c1;
+    --accent-amber-fg: #7a5b12;
+    --accent-coral-bg: #f3dccb;
+    --accent-coral-fg: #8b4a24;
 }
 
 @layer base {

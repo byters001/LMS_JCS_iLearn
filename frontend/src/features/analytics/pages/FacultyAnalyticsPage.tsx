@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { AlertTriangle, BarChart3, CheckCircle2, Layers, TrendingUp, Users } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, Layers } from 'lucide-react'
 import { useState } from 'react'
 import {
   Legend,
@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { StatCard } from '@/components/ui/StatCard'
+import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAssessments } from '@/features/assessments/api'
 import { useMyBatches } from '@/features/organization/api'
@@ -145,121 +145,164 @@ export default function FacultyAnalyticsPage() {
           </div>
         )}
 
-        {/* 4-stat row (Phase 2 correction) — "Active Assessments" dropped as
-            a stat card: it's the exact same count the Live+Upcoming table
-            below now shows as an actual list, so keeping both would just be
-            the same number twice in two shapes. Completion Rate takes the
-            4th slot instead — real, already-fetched, and a genuinely
-            different signal (are my students finishing what's assigned)
-            than the other three, not shown anywhere else on this page. */}
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={containerVariants}
-          className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          <motion.div variants={statVariants}>
-            <StatCard
-              label="My Batches"
-              value={overview.data?.totalBatches}
-              icon={Layers}
-              iconClassName="bg-brand-primary/10 text-brand-primary"
-              accent="indigo"
-            />
-          </motion.div>
-          <motion.div variants={statVariants}>
-            <StatCard
-              label="My Students"
-              value={overview.data?.totalStudents}
-              icon={Users}
-              iconClassName="bg-brand-accent/10 text-brand-accent"
-              accent="teal"
-            />
-          </motion.div>
-          <motion.div variants={statVariants}>
-            <StatCard
-              label="Avg Score (%)"
-              value={overview.data ? formatPercent(overview.data.averageScorePercent) : undefined}
-              icon={TrendingUp}
-              iconClassName="bg-brand-primary/10 text-brand-primary"
-              accent="amber"
-            />
-          </motion.div>
-          <motion.div variants={statVariants}>
-            <StatCard
-              label="Completion Rate (%)"
-              value={
-                overview.data
-                  ? formatPercent(
-                      overview.data.completionRate !== null ? overview.data.completionRate * 100 : null,
-                    )
-                  : undefined
-              }
-              icon={CheckCircle2}
-              iconClassName="bg-brand-accent/10 text-brand-accent"
-              accent="coral"
-            />
-          </motion.div>
-        </motion.div>
       </PageHeader>
 
-      <Card className="p-3.5">
-        <h2 className="font-heading text-lg font-semibold text-brand-primary">Live &amp; Upcoming Assessments</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Across every batch you&apos;re assigned to, soonest first.
-        </p>
+      {/* Structural language shared with StudentDashboardPage's Parchment &
+          Emerald redesign, adapted to Faculty's own real numbers and kept on
+          Faculty's own existing tokens (brand-primary/brand-accent/
+          shell-accent/brand-gradient-*) — this pass is structural, not a
+          color change here. Avg Score is the hero: the one number a Faculty
+          member most wants at a glance (are my students actually learning),
+          rendered as the same bespoke ring StudentDashboardPage uses rather
+          than a 4th equal-weight stat card. My Batches/My Students/
+          Completion Rate pack tightly beside it instead of floating as
+          separate boxes. The Needs Attention count bleeds off the hero's
+          own corner — real data already fetched below for that section, not
+          a decorative badge — the deliberate grid-break. Live & Upcoming
+          moves up beside the hero (same pairing StudentDashboardPage uses:
+          hero + already-fetched adjacent content, not hero + filler). */}
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={containerVariants}
+        className="grid grid-cols-1 gap-2.5 lg:grid-cols-5"
+      >
+        <motion.div
+          variants={statVariants}
+          className="relative overflow-visible rounded-xl bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+        >
+          {!needsAttentionPending && needsAttentionRows.length > 0 && (
+            <div
+              className="absolute -top-3 -right-3 flex size-14 items-center justify-center rounded-full border-4 border-background bg-shell-accent text-white shadow-md"
+              title={`${needsAttentionRows.length} student${needsAttentionRows.length === 1 ? '' : 's'} need attention`}
+            >
+              <AlertTriangle className="size-6" />
+            </div>
+          )}
 
-        {isAssessmentsPending && (
-          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading assessments">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
-            ))}
+          <p className="text-xs text-white/70">Aggregate performance</p>
+          <h1 className="mt-0.5 font-heading text-xl font-semibold">Your Batches</h1>
+
+          <div className="mt-3 flex items-center gap-4">
+            <div className="relative shrink-0">
+              <ScoreRing
+                percent={overview.data ? formatPercent(overview.data.averageScorePercent) ?? null : null}
+                size={100}
+                strokeWidth={9}
+                trackClassName="stroke-white/20"
+                progressClassName="stroke-white"
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {!overview.data ? (
+                  <span className="inline-block h-6 w-10 animate-pulse rounded bg-white/20" />
+                ) : (
+                  <span className="font-heading text-2xl leading-none font-bold">
+                    {overview.data.averageScorePercent !== null
+                      ? `${formatPercent(overview.data.averageScorePercent)}%`
+                      : '—'}
+                  </span>
+                )}
+                <span className="mt-1 font-mono text-[9px] tracking-wide text-white/70 uppercase">avg score</span>
+              </div>
+            </div>
+
+            <div className="flex flex-1 flex-col justify-center gap-1.5 border-l border-white/15 pl-4">
+              <div>
+                <p className="font-mono text-xl leading-none font-semibold">
+                  {overview.data ? (
+                    overview.data.totalBatches
+                  ) : (
+                    <span className="inline-block h-5 w-6 animate-pulse rounded bg-white/20 align-middle" />
+                  )}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/70">My Batches</p>
+              </div>
+              <div>
+                <p className="font-mono text-xl leading-none font-semibold">
+                  {overview.data ? (
+                    overview.data.totalStudents
+                  ) : (
+                    <span className="inline-block h-5 w-8 animate-pulse rounded bg-white/20 align-middle" />
+                  )}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/70">My Students</p>
+              </div>
+              <div>
+                <p className="font-mono text-xl leading-none font-semibold">
+                  {overview.data ? (
+                    overview.data.completionRate !== null ? (
+                      `${formatPercent(overview.data.completionRate * 100)}%`
+                    ) : (
+                      '—'
+                    )
+                  ) : (
+                    <span className="inline-block h-5 w-8 animate-pulse rounded bg-white/20 align-middle" />
+                  )}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/70">Completion Rate</p>
+              </div>
+            </div>
           </div>
-        )}
+        </motion.div>
 
-        {isAssessmentsError && (
-          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
-            Failed to load assessments.
-          </div>
-        )}
+        <motion.div variants={statVariants} className="lg:col-span-2">
+          <Card className="h-full p-3.5">
+            <h2 className="font-heading text-sm font-semibold text-brand-primary">Live &amp; Upcoming</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Across every batch you&apos;re assigned to.</p>
 
-        {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length === 0 && (
-          <EmptyState className="mt-2.5" message="Nothing live or scheduled right now." />
-        )}
+            {isAssessmentsPending && (
+              <div className="mt-2.5 space-y-2" role="status" aria-label="Loading assessments">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
+                ))}
+              </div>
+            )}
 
-        {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length > 0 && (
-          <Table className="mt-2.5">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Assessment</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Starts</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {liveAndUpcoming.map((assessment) => (
-                <TableRow key={assessment.id}>
-                  <TableCell className="max-w-0 font-medium text-brand-primary">
-                    <Link to={`/trainer/assessments/${assessment.id}/edit`} className="block truncate hover:underline">
-                      {assessment.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground capitalize">{assessment.testCategory}</TableCell>
-                  <TableCell>
-                    <Badge variant={ASSESSMENT_STATUS_BADGE[assessment.status] ?? 'neutral'}>
-                      {assessment.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {assessment.startAt ? new Date(assessment.startAt).toLocaleDateString() : '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </Card>
+            {isAssessmentsError && (
+              <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
+                Failed to load assessments.
+              </div>
+            )}
+
+            {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length === 0 && (
+              <EmptyState className="mt-2.5" message="Nothing live or scheduled right now." />
+            )}
+
+            {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length > 0 && (
+              <Table className="mt-2.5">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Assessment</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Starts</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {liveAndUpcoming.map((assessment) => (
+                    <TableRow key={assessment.id}>
+                      <TableCell className="max-w-0 font-medium text-brand-primary">
+                        <Link to={`/trainer/assessments/${assessment.id}/edit`} className="block truncate hover:underline">
+                          {assessment.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground capitalize">{assessment.testCategory}</TableCell>
+                      <TableCell>
+                        <Badge variant={ASSESSMENT_STATUS_BADGE[assessment.status] ?? 'neutral'}>
+                          {assessment.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {assessment.startAt ? new Date(assessment.startAt).toLocaleDateString() : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* Batch comparison — ranked list with inline proportional bars, same
           widget shape as StudentListPage.tsx's "Students by college" (name +

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { BarChart3, Building2, Layers, PlayCircle, ShieldAlert, Users } from 'lucide-react'
+import { BarChart3, Building2, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import {
   Bar,
@@ -16,7 +16,6 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { StatCard } from '@/components/ui/StatCard'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useBatchCountsByCollege, useColleges } from '@/features/organization/api'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -100,6 +99,10 @@ export default function SuperAdminAnalyticsPage() {
   const collegePerformanceByCollegeId = new Map(
     (collegePerformance.data ?? []).map((row) => [row.collegeId, row]),
   )
+  // Hero row's compact preview — the SAME recentEvents array the full table
+  // further down this page already renders, just its first few rows. No
+  // second query.
+  const recentEventsPreview = (proctoringActivity.data?.recentEvents ?? []).slice(0, 4)
 
   const statVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS
   const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
@@ -155,68 +158,130 @@ export default function SuperAdminAnalyticsPage() {
           </div>
         </div>
 
-        {/* 4-stat row (Phase 2 correction) — Avg Score(%) and Completion
-            Rate(%) dropped as stat cards: both are still shown, in richer
-            form, by the College-wise Performance chart below, so losing the
-            headline duplicate isn't a real information loss. The freed slot
-            is the corrected proctoring metric — a raw, honestly-labeled
-            event count (see analytics.types.ts's ProctoringActivityResult
-            comment for the "pending/reviewed" audit finding this replaces),
-            not a fabricated review-workflow status. */}
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={containerVariants}
-          className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          <motion.div variants={statVariants}>
-            {collegeId ? (
-              <StatCard
-                label="Total Batches"
-                value={batchCountsByCollegeId.get(collegeId)}
-                icon={Layers}
-                iconClassName="bg-brand-primary/10 text-brand-primary"
-                accent="indigo"
-              />
-            ) : (
-              <StatCard
-                label="Total Colleges"
-                value={colleges.data?.total}
-                icon={Building2}
-                iconClassName="bg-brand-primary/10 text-brand-primary"
-                accent="indigo"
-              />
-            )}
-          </motion.div>
-          <motion.div variants={statVariants}>
-            <StatCard
-              label="Total Students"
-              value={overview.data?.totalStudents}
-              icon={Users}
-              iconClassName="bg-brand-accent/10 text-brand-accent"
-              accent="teal"
-            />
-          </motion.div>
-          <motion.div variants={statVariants}>
-            <StatCard
-              label="Active Assessments"
-              value={overview.data?.activeAssessments}
-              icon={PlayCircle}
-              iconClassName="bg-brand-primary/10 text-brand-primary"
-              accent="amber"
-            />
-          </motion.div>
-          <motion.div variants={statVariants}>
-            <StatCard
-              label={`Proctoring Events (${proctoringDays === 1 ? '24h' : `${proctoringDays}d`})`}
-              value={proctoringActivity.data?.totalEvents}
-              icon={ShieldAlert}
-              iconClassName="bg-brand-accent/10 text-brand-accent"
-              accent="coral"
-            />
-          </motion.div>
-        </motion.div>
       </PageHeader>
+
+      {/* Structural language shared with StudentDashboardPage/
+          FacultyAnalyticsPage, adapted to Admin's own numbers and kept on
+          Admin's own existing tokens — structural pass only, no new colors.
+          Total Students is the hero: the single number that answers "how
+          big is this platform" at a glance, given genuine typographic
+          display weight (Space Grotesk, ~60px) instead of a 4th equal-weight
+          stat card — this is a plain count, not a percentage, so it gets
+          the same scale-contrast treatment mockup B explored rather than
+          the ring StudentDashboardPage/FacultyAnalyticsPage use for a %
+          metric (forcing the ring onto a raw count would misread as
+          "0-100% of something"). Total Colleges/Batches, Active Assessments,
+          and the Proctoring count pack tightly beside it. The corner badge
+          bleeds only when there's a real signal (>=1 proctoring event in the
+          selected window) — the deliberate grid-break, tied to actual data
+          rather than decorative. Recent Proctoring Events (right column)
+          reuses the SAME query already powering the full table further down
+          this page — no second fetch, just its first few rows as a preview
+          beside the hero. */}
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={containerVariants}
+        className="grid grid-cols-1 gap-2.5 lg:grid-cols-5"
+      >
+        <motion.div
+          variants={statVariants}
+          className="relative overflow-visible rounded-xl bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+        >
+          {(proctoringActivity.data?.totalEvents ?? 0) > 0 && (
+            <div
+              className="absolute -top-3 -right-3 flex size-14 items-center justify-center rounded-full border-4 border-background bg-shell-accent text-white shadow-md"
+              title={`${proctoringActivity.data?.totalEvents} proctoring event${proctoringActivity.data?.totalEvents === 1 ? '' : 's'} in this window`}
+            >
+              <ShieldAlert className="size-6" />
+            </div>
+          )}
+
+          <p className="text-xs text-white/70">Platform-wide</p>
+          {overview.data ? (
+            <span className="mt-1 block font-heading text-6xl leading-[0.85] font-bold">
+              {overview.data.totalStudents}
+            </span>
+          ) : (
+            <span className="mt-1 inline-block h-12 w-28 animate-pulse rounded bg-white/20" />
+          )}
+          <p className="mt-1.5 font-mono text-[11px] tracking-widest text-white/70 uppercase">Total Students</p>
+
+          <div className="mt-3 flex items-center gap-5 border-t border-white/15 pt-3">
+            <div>
+              <p className="font-mono text-xl leading-none font-semibold">
+                {collegeId ? (
+                  (batchCountsByCollegeId.get(collegeId) ?? (
+                    <span className="inline-block h-5 w-6 animate-pulse rounded bg-white/20 align-middle" />
+                  ))
+                ) : colleges.data ? (
+                  colleges.data.total
+                ) : (
+                  <span className="inline-block h-5 w-6 animate-pulse rounded bg-white/20 align-middle" />
+                )}
+              </p>
+              <p className="mt-0.5 text-[10px] text-white/70">{collegeId ? 'Total Batches' : 'Total Colleges'}</p>
+            </div>
+            <div>
+              <p className="font-mono text-xl leading-none font-semibold">
+                {overview.data ? (
+                  overview.data.activeAssessments
+                ) : (
+                  <span className="inline-block h-5 w-6 animate-pulse rounded bg-white/20 align-middle" />
+                )}
+              </p>
+              <p className="mt-0.5 text-[10px] text-white/70">Active Assessments</p>
+            </div>
+            <div>
+              <p className="font-mono text-xl leading-none font-semibold">
+                {proctoringActivity.data ? (
+                  proctoringActivity.data.totalEvents
+                ) : (
+                  <span className="inline-block h-5 w-6 animate-pulse rounded bg-white/20 align-middle" />
+                )}
+              </p>
+              <p className="mt-0.5 text-[10px] text-white/70">
+                Proctoring ({proctoringDays === 1 ? '24h' : `${proctoringDays}d`})
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div variants={statVariants} className="lg:col-span-2">
+          <Card className="h-full p-3.5">
+            <h2 className="font-heading text-sm font-semibold text-brand-primary">Recent Proctoring Events</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Latest integrity signals in the selected window.</p>
+
+            {proctoringActivity.isPending && (
+              <div className="mt-2.5 space-y-2" role="status" aria-label="Loading proctoring events">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
+                ))}
+              </div>
+            )}
+
+            {proctoringActivity.data && recentEventsPreview.length === 0 && (
+              <EmptyState className="mt-2.5" icon={ShieldAlert} message="No proctoring events logged in this window." />
+            )}
+
+            {proctoringActivity.data && recentEventsPreview.length > 0 && (
+              <ul className="mt-2.5 space-y-1.5">
+                {recentEventsPreview.map((event) => (
+                  <li key={event.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-brand-primary">{event.studentName}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">{event.assessmentTitle}</p>
+                    </div>
+                    <Badge variant="warning" className="shrink-0 text-[10px]">
+                      {PROCTORING_EVENT_LABELS[event.eventType] ?? event.eventType}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </motion.div>
+      </motion.div>
 
       <Card className="p-3.5">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">

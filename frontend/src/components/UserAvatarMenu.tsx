@@ -55,7 +55,7 @@ export function UserAvatarMenu({ name, email, onLogout, isLoggingOut }: UserAvat
         aria-label="Account menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
-        className="flex size-8 items-center justify-center rounded-full bg-brand-primary text-xs font-semibold text-white transition-opacity hover:opacity-90"
+        className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
       >
         {getInitials(name)}
       </button>
@@ -63,7 +63,7 @@ export function UserAvatarMenu({ name, email, onLogout, isLoggingOut }: UserAvat
       {isOpen && (
         <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-border bg-background shadow-lg">
           <div className="border-b border-border px-3.5 py-2.5">
-            <p className="truncate font-heading text-sm font-medium text-brand-primary">{name}</p>
+            <p className="truncate font-heading text-sm font-medium text-foreground">{name}</p>
             <p className="truncate text-xs text-muted-foreground">{email}</p>
           </div>
           <button
