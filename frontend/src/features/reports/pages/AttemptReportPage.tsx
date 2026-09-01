@@ -48,7 +48,7 @@ export default function AttemptReportPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
+      <div className="mx-auto max-w-3xl p-5">
         <p className="text-sm text-muted-foreground">Loading your report…</p>
       </div>
     )
@@ -56,7 +56,7 @@ export default function AttemptReportPage() {
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
+      <div className="mx-auto max-w-3xl p-5">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load your report. Please try again."}
         </p>
@@ -68,7 +68,7 @@ export default function AttemptReportPage() {
   const selfEntry = leaderboard.data?.entries.find((entry) => entry.isSelf)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6 print:max-w-none print:p-0">
+    <div className="mx-auto max-w-3xl space-y-3 p-5 print:max-w-none print:p-0">
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link to="/student/assessments" className="text-sm text-brand-accent hover:underline print:hidden">
@@ -118,7 +118,7 @@ export default function AttemptReportPage() {
       )}
 
       {attempt.status === 'invalidated' && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           This attempt was invalidated (proctoring flag) and has no scored result to report.
         </div>
       )}

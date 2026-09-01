@@ -346,7 +346,7 @@ export default function BatchPerformancePage() {
   }
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <PageHeader
         title="Batch Performance"
         description="Aggregate results for a batch on one assessment — average score, pass rate, and per-student outcomes."
@@ -359,7 +359,7 @@ export default function BatchPerformancePage() {
           comment on what that slot is for), same "keep the filter UI
           separate from the header" call StudentListPage.tsx already made
           for its own (smaller) college search input. */}
-      <Card className="p-4">
+      <Card className="p-3.5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {/* Only Super Admin ever sees this — Faculty gets a single
               dropdown over their own assigned batches below instead (see
@@ -453,7 +453,7 @@ export default function BatchPerformancePage() {
       )}
 
       {batchId && performance.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {isNoAttemptsYet
             ? 'This batch has no attempts on any assessment yet.'
             : performance.error instanceof ApiError
@@ -548,7 +548,7 @@ export default function BatchPerformancePage() {
             </motion.div>
           </div>
 
-          <Card className="p-4">
+          <Card className="p-3.5">
             <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Pass / Fail
             </h3>
@@ -586,7 +586,7 @@ export default function BatchPerformancePage() {
             )}
           </Card>
 
-          <Card className="p-4">
+          <Card className="p-3.5">
             <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Score Distribution
             </h3>
@@ -678,7 +678,7 @@ export default function BatchPerformancePage() {
               </TableBody>
             </Table>
 
-            <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+            <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
               <p className="text-sm text-muted-foreground">
                 Page {performance.data.page} of {totalPages} &middot;{' '}
                 {performance.data.totalStudents} student

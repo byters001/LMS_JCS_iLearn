@@ -144,7 +144,7 @@ export function SystemCheckCard({ onAllChecksPassedChange }: SystemCheckCardProp
   }, [allPassed, onAllChecksPassedChange])
 
   return (
-    <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+    <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
       <h2 className="font-heading text-xl font-semibold text-brand-primary">System Check</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         We check your camera, microphone, connection, and browser before you begin.

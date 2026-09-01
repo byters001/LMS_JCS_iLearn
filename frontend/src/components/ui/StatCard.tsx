@@ -58,7 +58,7 @@ export function StatCard({ label, value, icon: Icon, iconClassName, accent, delt
 
   return (
     <Card className={cn('p-3.5', className)}>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <div
           className={cn(
             'flex shrink-0 items-center justify-center',
@@ -95,7 +95,7 @@ export function StatCard({ label, value, icon: Icon, iconClassName, accent, delt
         </div>
       </div>
       {progress && progress.total > 0 && (
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-brand-accent"
             style={{ width: `${Math.min(100, (progress.value / progress.total) * 100)}%` }}

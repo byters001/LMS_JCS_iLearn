@@ -63,7 +63,7 @@ export default function MyAttemptsListPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-3 p-5">
       <PageHeader
         title="Your Attempt History"
         description="Every past and in-progress attempt across all your assessments."
@@ -78,7 +78,7 @@ export default function MyAttemptsListPage() {
       )}
 
       {isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load your attempt history. Please try again.'}
@@ -133,7 +133,7 @@ export default function MyAttemptsListPage() {
           </Table>
 
           {data.total > 0 && (
-            <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+            <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
               <p className="text-sm text-muted-foreground">
                 Page {data.page} of {totalPages} &middot; {data.total} attempt
                 {data.total === 1 ? '' : 's'}

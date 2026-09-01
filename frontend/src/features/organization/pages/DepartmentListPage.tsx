@@ -51,7 +51,7 @@ export default function DepartmentListPage() {
     : 1
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="max-w-sm flex-1">
           <p className="mb-1 text-xs font-medium text-muted-foreground">College</p>
@@ -78,7 +78,7 @@ export default function DepartmentListPage() {
       </div>
 
       {collegeId === null && (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
           Select a college above to view its departments.
         </p>
       )}
@@ -92,7 +92,7 @@ export default function DepartmentListPage() {
       )}
 
       {collegeId !== null && departments.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {departments.error instanceof ApiError
             ? departments.error.message
             : 'Failed to load departments. Please try again.'}
@@ -112,7 +112,7 @@ export default function DepartmentListPage() {
             <TableBody>
               {departments.data.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">
                     No departments found for this college yet.
                   </TableCell>
                 </TableRow>
@@ -150,7 +150,7 @@ export default function DepartmentListPage() {
             </TableBody>
           </Table>
 
-          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
             <p className="text-sm text-muted-foreground">
               Page {departments.data.page} of {totalPages} &middot; {departments.data.total}{' '}
               department

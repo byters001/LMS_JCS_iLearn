@@ -130,7 +130,7 @@ function DifficultySubCard({
       aria-expanded={isSelected}
       onClick={onSelect}
       className={cn(
-        'rounded-lg border bg-card px-4 py-3 text-left shadow-sm transition-shadow hover:shadow-md',
+        'rounded-lg border bg-card px-3.5 py-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
         CARD_GRADIENT,
         isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
       )}
@@ -234,7 +234,7 @@ export default function QuestionListPage() {
   }
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-4 p-4">
       <div className="flex items-baseline justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Questions</h1>
@@ -256,7 +256,7 @@ export default function QuestionListPage() {
       </div>
 
       {typeCountsError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           Failed to load question counts. Please try again.
         </div>
       )}
@@ -333,7 +333,7 @@ export default function QuestionListPage() {
               )}
 
               {questions.isError && (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
                   Failed to load questions. Please try again.
                 </div>
               )}
@@ -372,7 +372,7 @@ export default function QuestionListPage() {
                     </TableBody>
                   </Table>
 
-                  <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+                  <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
                     <p className="text-sm text-muted-foreground">
                       Page {questions.page} of {totalPages} &middot; {questions.total} question
                       {questions.total === 1 ? '' : 's'}

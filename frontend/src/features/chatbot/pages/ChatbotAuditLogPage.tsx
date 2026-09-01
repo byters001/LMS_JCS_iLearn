@@ -69,7 +69,7 @@ export default function ChatbotAuditLogPage() {
     : 1
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <div>
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Chatbot Audit Log</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -89,7 +89,7 @@ export default function ChatbotAuditLogPage() {
       )}
 
       {queries.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {queries.error instanceof ApiError
             ? queries.error.message
             : 'Failed to load the chatbot audit log. Please try again.'}
@@ -152,7 +152,7 @@ export default function ChatbotAuditLogPage() {
             </TableBody>
           </Table>
 
-          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
             <p className="text-sm text-muted-foreground">
               Page {queries.data.page} of {totalPages} &middot; {queries.data.total} quer
               {queries.data.total === 1 ? 'y' : 'ies'}

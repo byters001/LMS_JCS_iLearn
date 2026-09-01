@@ -92,7 +92,7 @@ export function NotificationBell() {
 
       {isOpen && (
         <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-border bg-background shadow-lg">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+          <div className="flex items-center justify-between border-b border-border px-3.5 py-2">
             <p className="text-sm font-semibold text-brand-primary">Notifications</p>
             {unreadCount > 0 && (
               <span className="text-xs text-muted-foreground">{unreadCount} unread</span>
@@ -101,7 +101,7 @@ export function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {recentQuery.isPending && (
-              <div className="space-y-2 p-3" role="status" aria-label="Loading notifications">
+              <div className="space-y-2 p-2.5" role="status" aria-label="Loading notifications">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="h-14 animate-pulse rounded-md bg-muted" />
                 ))}
@@ -113,7 +113,7 @@ export function NotificationBell() {
             )}
 
             {recentQuery.data && recentQuery.data.items.length === 0 && (
-              <p className="p-6 text-center text-sm text-muted-foreground">No notifications yet.</p>
+              <p className="p-4 text-center text-sm text-muted-foreground">No notifications yet.</p>
             )}
 
             {recentQuery.data && recentQuery.data.items.length > 0 && (
@@ -124,15 +124,15 @@ export function NotificationBell() {
                       type="button"
                       onClick={() => handleNotificationClick(notification)}
                       className={cn(
-                        'block w-full px-4 py-3 text-left transition-colors hover:bg-muted/50',
-                        !notification.isRead && 'bg-brand-accent/5',
+                        'block w-full px-3.5 py-2.5 text-left transition-colors hover:bg-muted/50',
+                        !notification.isRead && 'bg-shell-accent/5',
                       )}
                     >
                       <div className="flex items-start gap-2">
                         {!notification.isRead && (
                           <span
                             aria-hidden="true"
-                            className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-accent"
+                            className="mt-1.5 size-2 shrink-0 rounded-full bg-shell-accent"
                           />
                         )}
                         <div className="min-w-0 flex-1">

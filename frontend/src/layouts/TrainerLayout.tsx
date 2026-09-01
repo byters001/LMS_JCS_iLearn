@@ -72,7 +72,7 @@ function TrainerLayout() {
             edge, notification bell + account avatar at the right — the
             avatar replaces the old sidebar bottom-block avatar/logout
             entirely (see Sidebar.tsx's own comment). */}
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
           {/* Item 5a — was a bare, unwired <Input>, same dead shell as
               AdminLayout.tsx's copy (see that file's comment). Pool results
               will simply never appear here — GET /question-pools 403s for

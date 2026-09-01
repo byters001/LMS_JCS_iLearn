@@ -16,7 +16,7 @@ import LeaderboardSection from '../components/LeaderboardSection'
 // already exists" applies.
 export default function LeaderboardPage() {
   return (
-    <div className="p-5">
+    <div className="p-4">
       <PageHeader title="Leaderboard" description="See how you rank against your batch." />
       <div className="mt-4">
         <LeaderboardSection />

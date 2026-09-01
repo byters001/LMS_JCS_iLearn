@@ -12,6 +12,15 @@ export default {
         'brand-line-soft': '#332CAD',
         'brand-gradient-from': '#211D8C',
         'brand-gradient-to': '#2A25A0',
+        // Phase 1 layout-shell redesign — a distinct, more vivid violet-indigo
+        // used ONLY by the sidebar/top-bar shell (Sidebar.tsx, layout headers,
+        // NotificationBell's unread indicator). Deliberately NOT a replacement
+        // of brand-accent: brand-accent still drives features/attempts (exam
+        // screens, explicitly out of scope) and the rest of today's page
+        // content (also out of scope until a later phase — see CLAUDE1.md/the
+        // Phase 1 brief's "not page content yet" scoping). See globals.css's
+        // --sidebar-* block for the WCAG contrast numbers this was picked for.
+        'shell-accent': '#4F46E5',
         // Semantic accent ramps + status tokens — see globals.css :root/.dark
         // for the light/dark values these resolve to.
         'accent-indigo-bg': 'var(--accent-indigo-bg)',

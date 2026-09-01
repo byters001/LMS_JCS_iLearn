@@ -55,7 +55,7 @@ export default function StaffAttemptDetailPage() {
 
   if (!batchId) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-destructive">
           Missing batchId — open this page from a student row in Batch Performance.
         </p>
@@ -65,7 +65,7 @@ export default function StaffAttemptDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-muted-foreground">Loading attempt details…</p>
       </div>
     )
@@ -73,7 +73,7 @@ export default function StaffAttemptDetailPage() {
 
   if (isError || !data) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
@@ -86,8 +86,8 @@ export default function StaffAttemptDetailPage() {
   const { attempt, questions } = data
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+    <div className="mx-auto max-w-2xl p-5">
+      <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {studentName ?? 'Student'} &middot; Attempt Detail
         </p>
@@ -115,7 +115,7 @@ export default function StaffAttemptDetailPage() {
         </div>
       </div>
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-4 space-y-3">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Question Breakdown
         </h2>

@@ -56,7 +56,7 @@ export default function FacultyListPage() {
   }
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Faculty</h1>
@@ -76,7 +76,7 @@ export default function FacultyListPage() {
       )}
 
       {faculty.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {faculty.error instanceof ApiError
             ? faculty.error.message
             : 'Failed to load faculty. Please try again.'}
@@ -145,7 +145,7 @@ export default function FacultyListPage() {
             </p>
           )}
 
-          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
             <p className="text-sm text-muted-foreground">
               Page {faculty.data.page} of {totalPages} &middot; {faculty.data.total} faculty
               {faculty.isFetching ? ' · refreshing…' : ''}

@@ -22,14 +22,15 @@ interface SidebarProps {
 function navLinkClassName(collapsed: boolean) {
   return ({ isActive }: { isActive: boolean }) =>
     cn(
-      'flex items-center gap-2.5 rounded-md border-l-2 font-heading text-sm tracking-tight outline-none transition-all duration-200 ease-out',
-      'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
-      collapsed ? 'justify-center border-l-0 px-0 py-3' : 'px-3 py-2',
+      'flex items-center gap-2.5 rounded-md font-heading text-sm tracking-tight outline-none transition-colors duration-150 ease-out',
+      'focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
+      collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-1.5',
+      // Solid accent chip, not a light-tint — a translucent bg reads as
+      // "barely there" against near-black (the old light-sidebar treatment),
+      // so active state needs full-strength fill + white text instead.
       isActive
-        ? collapsed
-          ? 'bg-brand-accent/8 font-bold text-brand-primary'
-          : 'border-primary bg-brand-accent/8 font-bold text-brand-primary'
-        : 'border-transparent font-medium text-muted-foreground hover:bg-muted hover:text-brand-primary',
+        ? 'bg-sidebar-primary font-bold text-sidebar-primary-foreground'
+        : 'font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
     )
 }
 
@@ -68,7 +69,7 @@ export function Sidebar({ navItems }: SidebarProps) {
         collapsed ? 'w-16' : 'w-60',
       )}
     >
-      <div className={cn('flex h-16 shrink-0 items-center border-b border-sidebar-border', collapsed ? 'justify-center px-2' : 'px-4')}>
+      <div className={cn('flex h-14 shrink-0 items-center border-b border-sidebar-border', collapsed ? 'justify-center px-2' : 'px-4')}>
         {collapsed ? (
           // Collapsed state swaps the full wordmark for just its gear/
           // checkmark mark — the same public/jcs-logo.png asset the login
@@ -85,7 +86,7 @@ export function Sidebar({ navItems }: SidebarProps) {
         )}
       </div>
 
-      <nav className={cn('flex-1 overflow-y-auto py-4', collapsed ? 'space-y-2 px-2' : 'space-y-1 px-3')}>
+      <nav className={cn('flex-1 overflow-y-auto py-2.5', collapsed ? 'space-y-1.5 px-2' : 'space-y-0.5 px-3')}>
         {navItems.map((item) => {
           if (item.type === 'link') {
             return (
@@ -121,18 +122,18 @@ export function Sidebar({ navItems }: SidebarProps) {
             <Collapsible key={item.label} defaultOpen={isChildActive}>
               <CollapsibleTrigger
                 className={cn(
-                  'group flex w-full items-center gap-2.5 rounded-md border-l-2 border-transparent px-3 py-2 font-heading text-sm font-medium tracking-tight outline-none transition-all duration-200 ease-out',
-                  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
+                  'group flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 font-heading text-sm font-medium tracking-tight outline-none transition-colors duration-150 ease-out',
+                  'focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
                   isChildActive
-                    ? 'text-brand-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-brand-primary',
+                    ? 'text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 )}
               >
                 <item.icon className="size-4 shrink-0" />
                 <span className="flex-1 text-left">{item.label}</span>
                 <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 pt-1 pl-4">
+              <CollapsibleContent className="space-y-0.5 pt-0.5 pl-4">
                 {item.children.map((child) => (
                   <NavLink key={child.to} to={child.to} end={child.end} className={navLinkClassName(false)}>
                     <child.icon className="size-4 shrink-0" />

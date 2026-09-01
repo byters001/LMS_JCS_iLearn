@@ -263,19 +263,19 @@ export default function CreateQuestionPage() {
   })
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-3xl p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to questions
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Question</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Creates the question and its first version in one step, as a draft — submitting it for
           review and approval is a separate workflow.
         </p>
 
-        <form onSubmit={onSubmit} noValidate className="mt-6 space-y-6">
+        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
           {/* --- Shared fields, apply to every type --- */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">

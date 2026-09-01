@@ -42,7 +42,7 @@ export default function AssessmentEditPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-muted-foreground">Loading assessment…</p>
       </div>
     )
@@ -50,7 +50,7 @@ export default function AssessmentEditPage() {
 
   if (isError || !assessment) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load this assessment."}
         </p>
@@ -61,12 +61,12 @@ export default function AssessmentEditPage() {
   const isContentEditable = assessment.status === 'draft'
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-3xl p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to assessments
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="font-heading text-xl font-semibold text-brand-primary">{assessment.title}</h1>
@@ -118,7 +118,7 @@ export default function AssessmentEditPage() {
         </dl>
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-4 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Sections
         </h2>
@@ -147,7 +147,7 @@ export default function AssessmentEditPage() {
         </div>
 
         {isContentEditable && (
-          <div className="mt-4 rounded-lg border-2 border-dashed border-border p-4">
+          <div className="mt-4 rounded-lg border-2 border-dashed border-border p-3.5">
             <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Add a new section
             </p>
@@ -156,7 +156,7 @@ export default function AssessmentEditPage() {
         )}
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-4 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Batches
         </h2>
@@ -169,7 +169,7 @@ export default function AssessmentEditPage() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-4 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Workflow
         </h2>

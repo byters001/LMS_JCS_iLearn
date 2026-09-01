@@ -43,7 +43,7 @@ export default function PoolListPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="p-5">
+    <div className="p-4">
       <div className="mb-4 flex items-baseline justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Question Pools</h1>
@@ -66,7 +66,7 @@ export default function PoolListPage() {
       )}
 
       {pools.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           Failed to load question pools. Please try again.
         </div>
       )}
@@ -106,7 +106,7 @@ export default function PoolListPage() {
             </TableBody>
           </Table>
 
-          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-4 py-3">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
             <p className="text-sm text-muted-foreground">
               Page {pools.data?.page ?? page} of {totalPages} &middot; {total} pool
               {total === 1 ? '' : 's'}

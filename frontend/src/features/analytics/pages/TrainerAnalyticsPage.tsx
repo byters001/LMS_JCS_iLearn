@@ -22,12 +22,13 @@ export default function TrainerAnalyticsPage() {
   const [tab, setTab] = useState(hasBatchDrillDownParams ? 'batch-drilldown' : 'overview')
 
   // No shared outer padding — same reasoning as AdminAnalyticsPage.tsx:
-  // FacultyAnalyticsPage self-pads (p-5) and BatchPerformancePage already
-  // self-pads (unchanged), so wrapping both in a second p-5 here would
-  // double-pad whichever tab is active.
+  // FacultyAnalyticsPage self-pads (p-4, the density pass's tightened root
+  // padding) and BatchPerformancePage already self-pads (its own p-5, still
+  // pending the same pass), so wrapping both in a second padded container
+  // here would double-pad whichever tab is active.
   return (
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="m-5 mb-0">
+      <TabsList className="m-4 mb-0">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="batch-drilldown">Batch Drill-down</TabsTrigger>
       </TabsList>

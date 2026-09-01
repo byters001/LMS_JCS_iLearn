@@ -64,7 +64,7 @@ export default function BatchListPage() {
     : 1
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <PageHeader
         title="Batches"
         description="Training cohorts within a college, grouped by training program."
@@ -101,7 +101,7 @@ export default function BatchListPage() {
 
       {collegeId !== null && batches.isPending && (
         <div
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
           role="status"
           aria-label="Loading batches"
         >
@@ -112,7 +112,7 @@ export default function BatchListPage() {
       )}
 
       {collegeId !== null && batches.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {batches.error instanceof ApiError
             ? batches.error.message
             : 'Failed to load batches. Please try again.'}
@@ -125,7 +125,7 @@ export default function BatchListPage() {
 
       {collegeId !== null && batches.data && batches.data.items.length > 0 && (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {batches.data.items.map((batch) => (
               <BatchCard
                 key={batch.id}
@@ -152,7 +152,7 @@ export default function BatchListPage() {
             </p>
           )}
 
-          <Card className="flex-row items-center justify-between px-4 py-3">
+          <Card className="flex-row items-center justify-between px-3.5 py-2.5">
             <p className="text-sm text-muted-foreground">
               Page {batches.data.page} of {totalPages} &middot; {batches.data.total} batch
               {batches.data.total === 1 ? '' : 'es'}

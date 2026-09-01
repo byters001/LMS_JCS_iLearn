@@ -69,7 +69,7 @@ function CollegeCard({
   onDelete: () => void
 }) {
   return (
-    <Card className="gap-3 p-4">
+    <Card className="gap-2.5 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-white">
@@ -189,7 +189,7 @@ export default function CollegeListPage() {
     : 1
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       {/* Stat row is a single card, not the 3-column grid StudentListPage
           uses — "total departments across every college" would need a new,
           unfiltered useDepartments query (departments are only ever fetched
@@ -226,7 +226,7 @@ export default function CollegeListPage() {
 
           {colleges.isPending && (
             <div
-              className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               role="status"
               aria-label="Loading colleges"
             >
@@ -237,7 +237,7 @@ export default function CollegeListPage() {
           )}
 
           {colleges.isError && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
               {colleges.error instanceof ApiError
                 ? colleges.error.message
                 : 'Failed to load colleges. Please try again.'}
@@ -250,7 +250,7 @@ export default function CollegeListPage() {
 
           {colleges.data && collegeItems.length > 0 && (
             <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {collegeItems.map((college) => (
                   <CollegeCard
                     key={college.id}
@@ -268,7 +268,7 @@ export default function CollegeListPage() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-3.5 py-2.5 shadow-sm">
                 <p className="text-sm text-muted-foreground">
                   Page {colleges.data.page} of {totalPages} &middot; {colleges.data.total} college
                   {colleges.data.total === 1 ? '' : 's'}

@@ -118,7 +118,7 @@ export default function PerformanceAnalyticsSection({
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   const sectionShell = (children: ReactNode) => (
-    <Card className="mb-4 p-4">
+    <Card className="mb-3 p-3.5">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">{heading}</h2>
       {children}
     </Card>
@@ -132,7 +132,7 @@ export default function PerformanceAnalyticsSection({
 
   if (isError) {
     return sectionShell(
-      <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
         {error instanceof ApiError
           ? error.message
           : 'Failed to load your performance analytics. Please try again.'}

@@ -39,7 +39,7 @@ const ALL_BATCHES_VALUE = '__all__'
 
 // Same brand-accent/green pair Phase 2 already established (BatchPerformancePage's
 // HISTOGRAM_COLOR / PASS_COLOR) — no new hues on this page either.
-const SCORE_COLOR = '#4A44C4'
+const SCORE_COLOR = '#4F46E5'
 const IMPROVEMENT_COLOR = '#16a34a'
 
 function formatPercent(value: number | null | undefined): number | null | undefined {
@@ -122,7 +122,7 @@ export default function FacultyAnalyticsPage() {
   const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <PageHeader
         title="My Analytics"
         description="Aggregate performance across the batches you're assigned to."
@@ -156,7 +156,7 @@ export default function FacultyAnalyticsPage() {
           initial="hidden"
           animate="show"
           variants={containerVariants}
-          className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
         >
           <motion.div variants={statVariants}>
             <StatCard
@@ -203,14 +203,14 @@ export default function FacultyAnalyticsPage() {
         </motion.div>
       </PageHeader>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="font-heading text-lg font-semibold text-brand-primary">Live &amp; Upcoming Assessments</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Across every batch you&apos;re assigned to, soonest first.
         </p>
 
         {isAssessmentsPending && (
-          <div className="mt-3 space-y-2" role="status" aria-label="Loading assessments">
+          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading assessments">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
             ))}
@@ -218,17 +218,17 @@ export default function FacultyAnalyticsPage() {
         )}
 
         {isAssessmentsError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load assessments.
           </div>
         )}
 
         {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length === 0 && (
-          <EmptyState className="mt-3" message="Nothing live or scheduled right now." />
+          <EmptyState className="mt-2.5" message="Nothing live or scheduled right now." />
         )}
 
         {!isAssessmentsPending && !isAssessmentsError && liveAndUpcoming.length > 0 && (
-          <Table className="mt-3">
+          <Table className="mt-2.5">
             <TableHeader>
               <TableRow>
                 <TableHead>Assessment</TableHead>
@@ -267,7 +267,7 @@ export default function FacultyAnalyticsPage() {
           assigned batch regardless of the picker above — the comparison IS
           the point, same reasoning SuperAdminAnalyticsPage's own
           college-comparison chart never takes a collegeId. */}
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           My Batches — Performance
         </h2>
@@ -276,37 +276,37 @@ export default function FacultyAnalyticsPage() {
         </p>
 
         {batchPerformance.isPending && (
-          <div className="mt-3 h-24 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading" />
+          <div className="mt-2.5 h-24 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading" />
         )}
 
         {batchPerformance.isError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load batch performance.
           </div>
         )}
 
         {batchPerformance.data && batchPerformance.data.length === 0 && (
-          <EmptyState className="mt-3" icon={Layers} message="You have no assigned batches yet." />
+          <EmptyState className="mt-2.5" icon={Layers} message="You have no assigned batches yet." />
         )}
 
         {batchPerformance.data && batchPerformance.data.length > 0 && !hasBatchScoreData && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             icon={BarChart3}
             message="No submitted attempts yet across your batches — this will populate once students start completing assessments."
           />
         )}
 
         {batchPerformance.data && hasBatchScoreData && (
-          <div className="mt-3 space-y-2.5">
+          <div className="mt-2.5 space-y-2">
             {batchPerformance.data.map((row) => (
-              <div key={row.batchId} className="flex items-center gap-3">
+              <div key={row.batchId} className="flex items-center gap-2.5">
                 <p className="w-36 shrink-0 truncate text-sm text-foreground" title={row.batchName}>
                   {row.batchName}
                 </p>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-brand-accent"
+                    className="h-full rounded-full bg-shell-accent"
                     style={{ width: `${row.averageScorePercent ?? 0}%` }}
                   />
                 </div>
@@ -319,7 +319,7 @@ export default function FacultyAnalyticsPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="font-heading text-lg font-semibold text-brand-primary">Needs Attention</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Students whose best attempt on their batch&apos;s most recent assessment fell below the passing
@@ -327,7 +327,7 @@ export default function FacultyAnalyticsPage() {
         </p>
 
         {needsAttentionPending && (
-          <div className="mt-3 space-y-2" role="status" aria-label="Loading">
+          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
             ))}
@@ -336,18 +336,18 @@ export default function FacultyAnalyticsPage() {
 
         {!needsAttentionPending && needsAttentionRows.length === 0 && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             icon={CheckCircle2}
             message="No students below the passing threshold on their most recent assessment right now."
           />
         )}
 
         {!needsAttentionPending && needsAttentionRows.length > 0 && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2.5 space-y-1.5">
             {needsAttentionRows.slice(0, NEEDS_ATTENTION_SHOWN).map((row) => (
               <div
                 key={`${row.batchId}-${row.studentId}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <AlertTriangle className="size-4 shrink-0 text-status-danger-fg" />
@@ -365,7 +365,7 @@ export default function FacultyAnalyticsPage() {
 
       {/* Skill profile — Radar (first vs. latest attempt, one axis per MCQ
           category), not a grouped bar chart. */}
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Skill-category Improvement
         </h2>
@@ -377,18 +377,18 @@ export default function FacultyAnalyticsPage() {
         </p>
 
         {categoryImprovement.isPending && (
-          <div className="mt-3 h-64 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading" />
+          <div className="mt-2.5 h-64 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading" />
         )}
 
         {categoryImprovement.isError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load category improvement.
           </div>
         )}
 
         {categoryImprovement.data && categoryImprovement.data.length === 0 && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             icon={BarChart3}
             message="No students have two or more submitted MCQ attempts in the same category yet — this chart will populate as retake activity accumulates."
           />

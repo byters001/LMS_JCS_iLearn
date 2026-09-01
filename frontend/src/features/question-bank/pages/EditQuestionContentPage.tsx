@@ -106,12 +106,12 @@ function EditQuestionContentForm({
   })
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
+    <div className="mx-auto max-w-3xl p-5">
       <Link to={`../${question.id}`} className="text-sm text-brand-accent hover:underline">
         &larr; Back to question
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Edit Content</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Question content is versioned, never edited in place — saving here creates a NEW version
@@ -121,7 +121,7 @@ function EditQuestionContentForm({
           a specific version id, never "whichever version is current."
         </p>
 
-        <form onSubmit={onSubmit} noValidate className="mt-6 space-y-6">
+        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
           <QuestionContentFields
             type={question.type}
             register={register}
@@ -173,7 +173,7 @@ export default function EditQuestionContentPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-muted-foreground">Loading question…</p>
       </div>
     )
@@ -181,7 +181,7 @@ export default function EditQuestionContentPage() {
 
   if (isError || !question) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load this question."}
         </p>

@@ -124,7 +124,7 @@ export function GlobalSearch({ basePath }: GlobalSearchProps) {
         <div className="absolute left-0 z-20 mt-2 w-full max-w-2xl rounded-lg border border-border bg-background shadow-lg">
           <div className="max-h-96 overflow-y-auto">
             {isLoading && (
-              <div className="space-y-2 p-3" role="status" aria-label="Searching">
+              <div className="space-y-2 p-2.5" role="status" aria-label="Searching">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
                 ))}
@@ -132,7 +132,7 @@ export function GlobalSearch({ basePath }: GlobalSearchProps) {
             )}
 
             {!isLoading && totalResults === 0 && (
-              <p className="p-6 text-center text-sm text-muted-foreground">
+              <p className="p-4 text-center text-sm text-muted-foreground">
                 No matches for &ldquo;{debouncedQuery}&rdquo;.
               </p>
             )}
@@ -185,7 +185,7 @@ export function GlobalSearch({ basePath }: GlobalSearchProps) {
                     plain info so the search still surfaces a real match
                     instead of hiding students entirely. */}
                 {studentResults.map((student) => (
-                  <div key={student.id} className="px-4 py-2.5">
+                  <div key={student.id} className="px-3.5 py-2">
                     <p className="text-sm text-brand-primary">{student.fullName ?? '(no name)'}</p>
                     <p className="text-xs text-muted-foreground">
                       {[student.rollNumber, student.collegeName].filter(Boolean).join(' · ') || '—'}
@@ -204,7 +204,7 @@ export function GlobalSearch({ basePath }: GlobalSearchProps) {
 function ResultGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-border py-1.5 last:border-b-0">
-      <p className="px-4 py-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+      <p className="px-3.5 py-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </p>
       {children}
@@ -226,7 +226,7 @@ function ResultRow({
       type="button"
       onClick={onClick}
       className={cn(
-        'block w-full px-4 py-2 text-left transition-colors hover:bg-muted/50',
+        'block w-full px-3.5 py-1.5 text-left transition-colors hover:bg-muted/50',
       )}
     >
       <p className="truncate text-sm text-brand-primary">{title}</p>

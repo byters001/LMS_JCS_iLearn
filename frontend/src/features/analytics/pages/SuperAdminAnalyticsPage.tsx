@@ -38,7 +38,7 @@ const ALL_COLLEGES_VALUE = '__all__'
 // BatchPerformancePage.tsx's PASS_COLOR / TrainerDetailPage.tsx's
 // TREND_LINE_COLOR already use for "positive" — no new hues introduced
 // anywhere on this page.
-const SCORE_COLOR = '#4A44C4'
+const SCORE_COLOR = '#4F46E5'
 const IMPROVEMENT_COLOR = '#16a34a'
 
 // Date-range half of the filter bar (Phase 2 brief's "filter bar
@@ -105,12 +105,12 @@ export default function SuperAdminAnalyticsPage() {
   const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <PageHeader
         title="Platform Overview"
         description="Aggregate performance across every college, batch, and assessment — pick a college below to narrow the scope."
       >
-        <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end gap-3">
           <div className="max-w-sm space-y-1.5">
             <label className="text-xs font-medium text-brand-primary" htmlFor="analyticsCollegePicker">
               College
@@ -144,7 +144,7 @@ export default function SuperAdminAnalyticsPage() {
                   className={cn(
                     'rounded px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     proctoringDays === option.days
-                      ? 'bg-brand-accent text-white'
+                      ? 'bg-shell-accent text-white'
                       : 'text-muted-foreground hover:text-brand-primary',
                   )}
                 >
@@ -167,7 +167,7 @@ export default function SuperAdminAnalyticsPage() {
           initial="hidden"
           animate="show"
           variants={containerVariants}
-          className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
         >
           <motion.div variants={statVariants}>
             {collegeId ? (
@@ -218,7 +218,7 @@ export default function SuperAdminAnalyticsPage() {
         </motion.div>
       </PageHeader>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           College-wise Performance
         </h2>
@@ -227,18 +227,18 @@ export default function SuperAdminAnalyticsPage() {
         </p>
 
         {collegePerformance.isPending && (
-          <div className="mt-3 h-56 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading chart" />
+          <div className="mt-2.5 h-56 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading chart" />
         )}
 
         {collegePerformance.isError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load college performance.
           </div>
         )}
 
         {collegePerformance.data && !hasCollegeScoreData && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             icon={BarChart3}
             message="No submitted attempts yet on the platform — this chart will populate once students start completing assessments."
           />
@@ -277,7 +277,7 @@ export default function SuperAdminAnalyticsPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Skill-category Improvement
         </h2>
@@ -289,18 +289,18 @@ export default function SuperAdminAnalyticsPage() {
         </p>
 
         {categoryImprovement.isPending && (
-          <div className="mt-3 h-56 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading chart" />
+          <div className="mt-2.5 h-56 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading chart" />
         )}
 
         {categoryImprovement.isError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load category improvement.
           </div>
         )}
 
         {categoryImprovement.data && categoryImprovement.data.length === 0 && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             icon={BarChart3}
             message="No students have two or more submitted MCQ attempts in the same category yet — this chart will populate as retake activity accumulates."
           />
@@ -349,14 +349,14 @@ export default function SuperAdminAnalyticsPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="font-heading text-lg font-semibold text-brand-primary">Organizations</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Every college on the platform, joined with its submitted-attempt activity above.
         </p>
 
         {(colleges.isPending || collegePerformance.isPending) && (
-          <div className="mt-3 space-y-2" role="status" aria-label="Loading organizations">
+          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading organizations">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
             ))}
@@ -364,11 +364,11 @@ export default function SuperAdminAnalyticsPage() {
         )}
 
         {colleges.data && collegePerformance.data && colleges.data.items.length === 0 && (
-          <EmptyState className="mt-3" icon={Building2} message="No colleges on the platform yet." />
+          <EmptyState className="mt-2.5" icon={Building2} message="No colleges on the platform yet." />
         )}
 
         {colleges.data && collegePerformance.data && colleges.data.items.length > 0 && (
-          <Table className="mt-3">
+          <Table className="mt-2.5">
             <TableHeader>
               <TableRow>
                 <TableHead>College</TableHead>
@@ -400,7 +400,7 @@ export default function SuperAdminAnalyticsPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="font-heading text-lg font-semibold text-brand-primary">Recent Proctoring Events</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Raw event log for the window above — tab switches, fullscreen exits, and similar
@@ -409,7 +409,7 @@ export default function SuperAdminAnalyticsPage() {
         </p>
 
         {proctoringActivity.isPending && (
-          <div className="mt-3 space-y-2" role="status" aria-label="Loading proctoring events">
+          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading proctoring events">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
             ))}
@@ -417,13 +417,13 @@ export default function SuperAdminAnalyticsPage() {
         )}
 
         {proctoringActivity.isError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load proctoring events.
           </div>
         )}
 
         {proctoringActivity.data && proctoringActivity.data.byType.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
             {proctoringActivity.data.byType.map((entry) => (
               <Badge key={entry.eventType} variant="warning">
                 {PROCTORING_EVENT_LABELS[entry.eventType] ?? entry.eventType} · {entry.count}
@@ -434,14 +434,14 @@ export default function SuperAdminAnalyticsPage() {
 
         {proctoringActivity.data && proctoringActivity.data.recentEvents.length === 0 && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             icon={ShieldAlert}
             message="No proctoring events logged in this window."
           />
         )}
 
         {proctoringActivity.data && proctoringActivity.data.recentEvents.length > 0 && (
-          <Table className="mt-3">
+          <Table className="mt-2.5">
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>

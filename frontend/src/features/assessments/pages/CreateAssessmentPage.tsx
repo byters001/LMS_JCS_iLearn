@@ -139,19 +139,19 @@ export default function CreateAssessmentPage() {
   })
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-2xl p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to assessments
       </Link>
 
-      <div className="mt-3 rounded-lg border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-lg border border-border bg-background p-4 shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Assessment</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Sections, questions, question pools, and batch assignment are all configured on the
           next screen once this assessment exists as a draft.
         </p>
 
-        <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
+        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="title" className="text-sm font-medium text-brand-primary">
               Title

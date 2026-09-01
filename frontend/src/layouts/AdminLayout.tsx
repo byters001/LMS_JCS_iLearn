@@ -69,7 +69,7 @@ function AdminLayout() {
             edge, notification bell + account avatar at the right — the
             avatar replaces the old sidebar bottom-block avatar/logout
             entirely (see Sidebar.tsx's own comment). */}
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-6 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
           {/* Item 5a — was a bare, unwired <Input> (no value/onChange/
               onSubmit at all — confirmed a pure visual shell before this
               fix). GlobalSearch owns its own icon/input/dropdown now. */}

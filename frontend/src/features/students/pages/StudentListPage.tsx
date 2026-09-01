@@ -87,7 +87,7 @@ export default function StudentListPage() {
   )
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3 p-4">
       <PageHeader
         title="Students"
         description="Every student profile across your platform, browsable college by college."
@@ -144,7 +144,7 @@ export default function StudentListPage() {
           doesn't have that problem, since the exact count is always
           directly readable regardless of bar length. */}
       {chartData.length > 1 && (
-        <Card className="p-4">
+        <Card className="p-3.5">
           <h2 className="font-heading text-sm font-semibold text-brand-primary">Students by college</h2>
           {chartReady ? (
             <div className="mt-3 space-y-2.5">
@@ -205,7 +205,7 @@ export default function StudentListPage() {
         )}
 
         {colleges.isError && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             Failed to load colleges. Please try again.
           </div>
         )}

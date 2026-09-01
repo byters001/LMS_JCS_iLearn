@@ -21,7 +21,7 @@ import ScoreHistoryTable from '../components/ScoreHistoryTable'
 // so no entrance animation is added.
 export default function PerformancePage() {
   return (
-    <div className="p-5">
+    <div className="p-4">
       <PageHeader
         title="Performance"
         description="Your score trend over time, and a full history of graded attempts."

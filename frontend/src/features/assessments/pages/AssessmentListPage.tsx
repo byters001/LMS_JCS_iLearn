@@ -39,7 +39,7 @@ function AssessmentCard({ assessment }: { assessment: AssessmentListItem }) {
   const isContentEditable = assessment.status === 'draft'
 
   return (
-    <Card className="gap-3 p-4">
+    <Card className="gap-2.5 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-white">
@@ -111,7 +111,7 @@ export default function AssessmentListPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="p-5">
+    <div className="p-4">
       <div className="mb-4 flex items-baseline justify-between">
         <div>
           <h1 className="font-heading text-xl font-semibold text-brand-primary">Assessments</h1>
@@ -137,7 +137,7 @@ export default function AssessmentListPage() {
       )}
 
       {isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load assessments. Please try again.'}
@@ -154,7 +154,7 @@ export default function AssessmentListPage() {
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 shadow-sm">
+          <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-background px-3.5 py-2.5 shadow-sm">
             <p className="text-sm text-muted-foreground">
               Page {data.page} of {totalPages} &middot; {data.total} assessment
               {data.total === 1 ? '' : 's'}

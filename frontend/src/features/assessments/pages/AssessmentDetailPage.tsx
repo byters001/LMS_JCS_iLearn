@@ -42,7 +42,7 @@ export default function AssessmentDetailPage() {
 
   if (!assessment) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-muted-foreground">
           Couldn&apos;t load this assessment&apos;s details directly.{' '}
           <Link to="/student/assessments" className="text-brand-accent underline">
@@ -61,12 +61,12 @@ export default function AssessmentDetailPage() {
   const buttonState = getAttemptButtonState(assessment)
 
   return (
-    <div className="p-6">
+    <div className="p-5">
       <Link to="/student/assessments" className="text-sm text-brand-accent hover:underline">
         &larr; Back to assessments
       </Link>
 
-      <div className="mt-3 max-w-xl rounded-lg border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 max-w-xl rounded-lg border border-border bg-background p-4 shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">{assessment.title}</h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {TEST_CATEGORY_LABELS[assessment.testCategory] ?? assessment.testCategory}

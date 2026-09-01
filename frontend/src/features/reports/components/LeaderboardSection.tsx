@@ -95,7 +95,7 @@ export default function LeaderboardSection() {
   const { data, isPending, isError, error } = useLeaderboard()
 
   return (
-    <Card className="mb-4 p-4">
+    <Card className="mb-3 p-3.5">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Leaderboard</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Ranked by average score across your batch's completed attempts.
@@ -110,7 +110,7 @@ export default function LeaderboardSection() {
       )}
 
       {isError && (
-        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load the leaderboard. Please try again.'}

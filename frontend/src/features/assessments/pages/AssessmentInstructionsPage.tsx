@@ -67,7 +67,7 @@ export default function AssessmentInstructionsPage() {
 
   if (!assessment) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-muted-foreground">
           Couldn&apos;t load this assessment&apos;s details directly.{' '}
           <Link to="/student/assessments" className="text-brand-accent underline">
@@ -132,7 +132,7 @@ export default function AssessmentInstructionsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-5">
       <Link
         to={`/student/assessments/${assessment.id}`}
         className="text-sm text-brand-accent hover:underline"
@@ -152,8 +152,8 @@ export default function AssessmentInstructionsPage() {
             would fight the two cards' genuinely different content lengths
             (a fixed bullet list vs. four independently-resolving check rows)
             for no real benefit, so this only equalizes width. */}
-        <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-border bg-background p-6 shadow-sm">
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
             <h1 className="font-heading text-xl font-semibold text-brand-primary">
               Before you start: {assessment.title}
             </h1>

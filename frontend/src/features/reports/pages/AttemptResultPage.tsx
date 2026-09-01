@@ -39,7 +39,7 @@ export default function AttemptResultPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-3 p-6" role="status" aria-label="Loading your results">
+      <div className="mx-auto max-w-2xl space-y-3 p-5" role="status" aria-label="Loading your results">
         <div className="h-36 animate-pulse rounded-lg bg-muted" />
         <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
@@ -48,8 +48,8 @@ export default function AttemptResultPage() {
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl p-5">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : "Couldn't load your results. Please try again."}
@@ -61,8 +61,8 @@ export default function AttemptResultPage() {
   const { attempt, questions } = data
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <Card className="gap-0 p-6">
+    <div className="mx-auto max-w-2xl p-5">
+      <Card className="gap-0 p-4">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">{attempt.assessmentTitle}</h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Attempt #{attempt.attemptNumber}
@@ -104,7 +104,7 @@ export default function AttemptResultPage() {
         )}
       </Card>
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-4 space-y-3">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Question Breakdown
         </h2>

@@ -43,7 +43,7 @@ export default function QuestionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-muted-foreground">Loading question…</p>
       </div>
     )
@@ -51,7 +51,7 @@ export default function QuestionDetailPage() {
 
   if (isError || !question) {
     return (
-      <div className="p-6">
+      <div className="p-5">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load this question."}
         </p>
@@ -60,12 +60,12 @@ export default function QuestionDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-2xl p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to questions
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <p className="text-base text-brand-primary">
             {question.currentVersion?.questionText ?? '—'}
@@ -130,7 +130,7 @@ export default function QuestionDetailPage() {
       {question.currentVersion &&
         (question.currentVersion.images.length > 0 ||
           question.currentVersion.options.length > 0) && (
-          <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+          <div className="mt-6 rounded-xl border border-border bg-background p-4 shadow-sm">
             <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Content
             </h2>
@@ -186,7 +186,7 @@ export default function QuestionDetailPage() {
           </div>
         )}
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-6 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Workflow
         </h2>

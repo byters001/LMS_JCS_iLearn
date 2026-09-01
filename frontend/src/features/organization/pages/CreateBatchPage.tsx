@@ -83,18 +83,18 @@ export default function CreateBatchPage() {
   })
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-2xl p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to batches
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Batch</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           A batch is a training cohort within an existing training program.
         </p>
 
-        <form onSubmit={onSubmit} noValidate className="mt-6 space-y-6">
+        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
           <div className="space-y-1.5">
             <p className="text-sm font-medium text-brand-primary">College</p>
             <Combobox

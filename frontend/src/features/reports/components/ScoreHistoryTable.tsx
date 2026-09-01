@@ -102,7 +102,7 @@ export default function ScoreHistoryTable() {
   const { data, isPending, isError, error } = useMyAttempts({ page: 1, pageSize: FETCH_SIZE })
 
   return (
-    <Card className="mb-4 p-4">
+    <Card className="mb-3 p-3.5">
       <h2 className="font-heading text-lg font-semibold text-brand-primary">Score History</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Every graded attempt, most recent first, with your % change vs. the attempt before it.
@@ -117,7 +117,7 @@ export default function ScoreHistoryTable() {
       )}
 
       {isError && (
-        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load your score history. Please try again.'}

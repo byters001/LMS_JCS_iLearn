@@ -25,15 +25,16 @@ export default function AdminAnalyticsPage() {
   const hasBatchDrillDownParams = searchParams.has('batchId') || searchParams.has('assessmentId')
   const [tab, setTab] = useState(hasBatchDrillDownParams ? 'batch-drilldown' : 'overview')
 
-  // No shared outer padding here — SuperAdminAnalyticsPage self-pads (p-5,
-  // added to match) and BatchPerformancePage already self-pads (unchanged,
-  // still needs its own p-5 for its OTHER mount point, /trainer/analytics,
-  // which has no wrapper at all). Wrapping both in a second p-5 here would
-  // double-pad whichever tab is active — the TabsList itself gets its own
-  // margin instead of sharing a padded container with either page.
+  // No shared outer padding here — SuperAdminAnalyticsPage self-pads (p-4,
+  // the density pass's tightened root padding) and BatchPerformancePage
+  // already self-pads (its own p-5, still pending the same pass — it needs
+  // its own padding regardless for its OTHER mount point, /trainer/analytics,
+  // which has no wrapper at all). Wrapping both in a second padded container
+  // here would double-pad whichever tab is active — the TabsList itself gets
+  // its own margin instead of sharing a padded container with either page.
   return (
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="m-5 mb-0">
+      <TabsList className="m-4 mb-0">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="batch-drilldown">Batch Drill-down</TabsTrigger>
       </TabsList>

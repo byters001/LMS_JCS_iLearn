@@ -83,14 +83,26 @@
     --chart-4: #332cad;
     --chart-5: #c7c4ee;
     --radius: 0.625rem;
-    --sidebar: #ffffff;
-    --sidebar-foreground: #211d8c;
-    --sidebar-primary: #211d8c;
+
+    /* Phase 1 layout-shell redesign — sidebar is now permanently dark
+       (near-black slate with a faint violet cast, not navy) regardless of
+       the app theme; nothing else reads --sidebar-* (verified: only
+       Sidebar.tsx consumes these), so this is fully isolated from page
+       content/exam screens. Contrast against --sidebar (#15131f, luminance
+       0.00725), WCAG AA normal text needs >= 4.5:1, non-text (rings/
+       borders) needs >= 3:1:
+         --sidebar-foreground   #aba6c9 vs #15131f  -> 7.89:1  (inactive nav text/icon)
+         --sidebar-primary-fg   #fafaf7 vs #4f46e5  -> 6.01:1  (active chip text, also checked vs #15131f: 17.5:1)
+         --sidebar-accent-fg    #fafaf7 vs #211e33  -> 15.47:1 (hover text)
+         --sidebar-ring         #8b85d6 vs #15131f  -> 5.61:1  (focus ring, non-text 3:1 min) */
+    --sidebar: #15131f;
+    --sidebar-foreground: #aba6c9;
+    --sidebar-primary: #4f46e5;
     --sidebar-primary-foreground: #fafaf7;
-    --sidebar-accent: #ece9fa;
-    --sidebar-accent-foreground: #211d8c;
-    --sidebar-border: #e2dff5;
-    --sidebar-ring: #4a44c4;
+    --sidebar-accent: #211e33;
+    --sidebar-accent-foreground: #fafaf7;
+    --sidebar-border: #2a2740;
+    --sidebar-ring: #8b85d6;
 
     /* Phase 1 semantic accent ramps — decorative icon-chip colors (StatCard
        accent prop etc). Indigo reuses the existing primary/accent family
@@ -141,14 +153,9 @@
     --chart-3: #4a44c4;
     --chart-4: #fafaf7;
     --chart-5: #332cad;
-    --sidebar: #211d8c;
-    --sidebar-foreground: #fafaf7;
-    --sidebar-primary: #fafaf7;
-    --sidebar-primary-foreground: #211d8c;
-    --sidebar-accent: #332cad;
-    --sidebar-accent-foreground: #fafaf7;
-    --sidebar-border: #4a44c44d;
-    --sidebar-ring: #8b85d6;
+    /* --sidebar-* intentionally NOT overridden here — the sidebar shell is
+       permanently dark (see :root's own comment above), independent of
+       .dark theme state. */
 
     /* Dark-mode counterparts — same pairs verified >= 4.5:1. */
     --accent-indigo-bg: #332cad;

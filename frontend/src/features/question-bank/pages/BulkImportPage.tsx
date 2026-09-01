@@ -557,12 +557,12 @@ export default function BulkImportPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-6">
+    <div className="mx-auto max-w-5xl space-y-4 p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to questions
       </Link>
 
-      <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">
           Bulk Import Questions
         </h1>
@@ -570,7 +570,7 @@ export default function BulkImportPage() {
           Download a template, fill it in, upload it back here to preview, validate, and import.
         </p>
 
-        <div className="mt-6 space-y-1.5">
+        <div className="mt-4 space-y-1.5">
           <label htmlFor="importType" className="text-sm font-medium text-brand-primary">
             Question Type
           </label>
@@ -632,7 +632,7 @@ export default function BulkImportPage() {
       </div>
 
       {step === 'preview' && (
-        <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
             Preview
           </h2>

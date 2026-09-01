@@ -26,7 +26,7 @@ export function PageHeader({ title, description, actions, children }: PageHeader
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-      {children && <div className="mt-4">{children}</div>}
+      {children && <div className="mt-3">{children}</div>}
     </div>
   )
 }

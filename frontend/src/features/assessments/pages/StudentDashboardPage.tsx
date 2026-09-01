@@ -100,7 +100,7 @@ function RecentResultRow({ attempt }: { attempt: { id: string; assessmentTitle: 
   return (
     <Link
       to={`/student/attempts/${attempt.id}/submitted`}
-      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 outline-none transition-colors hover:border-brand-accent/50 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5 outline-none transition-colors hover:border-shell-accent/50 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-brand-primary">{attempt.assessmentTitle}</p>
@@ -193,8 +193,8 @@ export default function StudentDashboardPage() {
   const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   return (
-    <div className="space-y-4 p-5">
-      <div className="rounded-xl bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to p-6 text-white shadow-sm">
+    <div className="space-y-3 p-4">
+      <div className="rounded-xl bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to p-4 text-white shadow-sm">
         <p className="text-sm text-white/70">Welcome back,</p>
         <h1 className="mt-1 font-heading text-2xl font-semibold">
           {profile.isPending ? (
@@ -204,7 +204,7 @@ export default function StudentDashboardPage() {
           )}
         </h1>
         {!profile.isPending && (profile.data?.collegeName || profile.data?.batchName) && (
-          <p className="mt-2 text-sm text-white/80">
+          <p className="mt-1.5 text-sm text-white/80">
             {[profile.data?.collegeName, profile.data?.batchName].filter(Boolean).join(' · ')}
           </p>
         )}
@@ -214,7 +214,7 @@ export default function StudentDashboardPage() {
         initial="hidden"
         animate="show"
         variants={containerVariants}
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
       >
         <motion.div variants={statVariants}>
           <StatCard
@@ -248,8 +248,8 @@ export default function StudentDashboardPage() {
         </motion.div>
       </motion.div>
 
-      <Card className="p-4">
-        <div className="flex items-center justify-between gap-3">
+      <Card className="p-3.5">
+        <div className="flex items-center justify-between gap-2.5">
           <div>
             <h2 className="font-heading text-lg font-semibold text-brand-primary">Upcoming Assessments</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -262,7 +262,7 @@ export default function StudentDashboardPage() {
         </div>
 
         {available.isPending && (
-          <div className="mt-3 space-y-2" role="status" aria-label="Loading upcoming assessments">
+          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading upcoming assessments">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-11 animate-pulse rounded-lg bg-muted" />
             ))}
@@ -270,7 +270,7 @@ export default function StudentDashboardPage() {
         )}
 
         {available.isError && (
-          <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
             {available.error instanceof ApiError
               ? available.error.message
               : 'Failed to load your assessments. Please try again.'}
@@ -279,13 +279,13 @@ export default function StudentDashboardPage() {
 
         {available.data && upcoming.length === 0 && (
           <EmptyState
-            className="mt-3"
+            className="mt-2.5"
             message="Nothing left to complete right now — check back once a new assessment goes live."
           />
         )}
 
         {available.data && upcoming.length > 0 && (
-          <Table className="mt-3">
+          <Table className="mt-2.5">
             <TableHeader>
               <TableRow>
                 <TableHead>Assessment</TableHead>
@@ -305,12 +305,12 @@ export default function StudentDashboardPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <h2 className="font-heading text-lg font-semibold text-brand-primary">Recent Results</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">Your most recently submitted attempts.</p>
 
         {attempts.isPending && (
-          <div className="mt-3 space-y-2" role="status" aria-label="Loading recent results">
+          <div className="mt-2.5 space-y-2" role="status" aria-label="Loading recent results">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
             ))}
@@ -318,11 +318,11 @@ export default function StudentDashboardPage() {
         )}
 
         {attempts.data && recentResults.length === 0 && (
-          <EmptyState className="mt-3" message="No submitted attempts yet." />
+          <EmptyState className="mt-2.5" message="No submitted attempts yet." />
         )}
 
         {attempts.data && recentResults.length > 0 && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2.5 space-y-1.5">
             {recentResults.map((attempt) => (
               <RecentResultRow key={attempt.id} attempt={attempt} />
             ))}

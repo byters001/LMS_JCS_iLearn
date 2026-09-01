@@ -108,7 +108,7 @@ export default function MyBatchesPage() {
   const participation = useBatchAssessmentParticipation(selectedBatchId ?? undefined)
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 p-5">
       <div>
         <h1 className="font-heading text-xl font-semibold text-brand-primary">My Batches</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -118,7 +118,7 @@ export default function MyBatchesPage() {
 
       {batches.isPending && (
         <div
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           role="status"
           aria-label="Loading batches"
         >
@@ -129,7 +129,7 @@ export default function MyBatchesPage() {
       )}
 
       {batches.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {batches.error instanceof ApiError
             ? batches.error.message
             : 'Failed to load your batches. Please try again.'}
@@ -137,14 +137,14 @@ export default function MyBatchesPage() {
       )}
 
       {batches.data && batches.data.items.length === 0 && (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
           You're not assigned to any batches yet.
         </p>
       )}
 
       {batches.data && batches.data.items.length > 0 && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {batches.data.items.map((batch) => (
               <BatchCard
                 key={batch.id}
@@ -241,7 +241,7 @@ export default function MyBatchesPage() {
                 )}
 
                 {participation.isError && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
                     {participation.error instanceof ApiError
                       ? participation.error.message
                       : 'Failed to load assessment participation. Please try again.'}
@@ -262,7 +262,7 @@ export default function MyBatchesPage() {
                       <TableBody>
                         {participation.data.assessments.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
                               No scheduled, live, or completed assessments assigned to this batch yet.
                             </TableCell>
                           </TableRow>

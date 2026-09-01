@@ -69,7 +69,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   if (buttonState.kind === 'scheduled') {
     const startDate = formatStartDate(buttonState.startAt)
     return (
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 opacity-60 shadow-sm grayscale-[0.4]">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4 opacity-60 shadow-sm grayscale-[0.4]">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>
           <StatusBadge status={assessment.status} />
@@ -108,7 +108,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
     <Link
       to={linkTo}
       className={cn(
-        'group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2',
+        'group flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2',
         CARD_GRADIENT,
       )}
     >
@@ -169,7 +169,7 @@ export default function StudentAssessmentsPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
 
   return (
-    <div className="p-5">
+    <div className="p-4">
       <div className="mb-4">
         <h1 className="font-heading text-xl font-semibold text-brand-primary">Your Assessments</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -190,7 +190,7 @@ export default function StudentAssessmentsPage() {
       )}
 
       {isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : 'Failed to load assessments. Please try again.'}

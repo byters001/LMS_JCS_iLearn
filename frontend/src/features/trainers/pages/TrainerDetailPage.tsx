@@ -70,7 +70,7 @@ export default function TrainerDetailPage() {
   )
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
+    <div className="mx-auto max-w-4xl space-y-5 p-5">
       <Link to=".." className="text-sm text-brand-accent hover:underline">
         &larr; Back to trainers
       </Link>
@@ -84,7 +84,7 @@ export default function TrainerDetailPage() {
       )}
 
       {performance.isError && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {performance.error instanceof ApiError
             ? performance.error.message
             : 'Failed to load trainer performance. Please try again.'}
@@ -105,12 +105,12 @@ export default function TrainerDetailPage() {
             <StatTile label="Assessments Tracked" value={String(performance.data.trend.length)} />
           </div>
 
-          <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
+          <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
             <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Assigned Batches
             </h2>
             {performance.data.batches.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              <p className="mt-3 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 No batches assigned yet.
               </p>
             ) : (
@@ -157,7 +157,7 @@ export default function TrainerDetailPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <p className="mt-3 rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              <p className="mt-3 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 No graded assessment activity yet across this trainer's batches — the trend will
                 appear once at least one attempt has been fully evaluated.
               </p>
