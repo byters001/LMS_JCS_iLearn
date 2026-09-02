@@ -83,14 +83,14 @@ function TypeCard({
       className={cn(
         'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
         CARD_GRADIENT,
-        isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
+        isSelected ? 'border-shell-accent ring-2 ring-shell-accent/20' : 'border-border',
       )}
     >
       <div className="flex items-center gap-3">
         <div
           className={cn(
             'flex size-10 shrink-0 items-center justify-center rounded-full',
-            isSelected ? 'bg-brand-accent/10 text-brand-accent' : 'bg-brand-primary/10 text-brand-primary',
+            isSelected ? 'bg-shell-accent/10 text-shell-accent' : 'bg-primary/10 text-primary',
           )}
         >
           <Icon className="size-5" />
@@ -132,7 +132,7 @@ function DifficultySubCard({
       className={cn(
         'rounded-lg border bg-card px-3.5 py-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
         CARD_GRADIENT,
-        isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
+        isSelected ? 'border-shell-accent ring-2 ring-shell-accent/20' : 'border-border',
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -237,7 +237,7 @@ export default function QuestionListPage() {
     <div className="space-y-4 p-4">
       <div className="flex items-baseline justify-between">
         <div>
-          <h1 className="font-heading text-xl font-semibold text-brand-primary">Questions</h1>
+          <h1 className="font-heading text-xl font-semibold text-primary">Questions</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Browse the question bank by type, then difficulty.
           </p>
@@ -246,7 +246,7 @@ export default function QuestionListPage() {
           <Button asChild variant="outline">
             <Link to="bulk-import">Bulk Import</Link>
           </Button>
-          <Button asChild className="bg-brand-accent text-white hover:bg-brand-accent/90">
+          <Button asChild>
             <Link to="new">
               <Plus className="size-4" />
               Create Question
@@ -312,11 +312,7 @@ export default function QuestionListPage() {
                     the trainer/admin on the create form with both fields
                     already set to the combination they were just browsing,
                     instead of the form's plain 'mcq'/'medium' defaults. */}
-                <Button
-                  asChild
-                  size="sm"
-                  className="bg-brand-accent text-white hover:bg-brand-accent/90"
-                >
+                <Button asChild size="sm">
                   <Link to={`new?type=${selectedType}&difficulty=${selectedDifficulty}`}>
                     <Plus className="size-4" />
                     Add Question
@@ -359,7 +355,7 @@ export default function QuestionListPage() {
                         questions.items.map((question) => (
                           <TableRow key={question.id} className="hover:bg-muted/30">
                             <TableCell className="pl-4 font-medium">
-                              <Link to={question.id} className="text-brand-primary hover:underline">
+                              <Link to={question.id} className="text-primary hover:underline">
                                 {question.questionText ? truncate(question.questionText) : '—'}
                               </Link>
                             </TableCell>
@@ -382,7 +378,7 @@ export default function QuestionListPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                        className="border-primary text-primary hover:bg-primary/5"
                         disabled={page <= 1 || questions.isFetching}
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                       >
@@ -391,7 +387,7 @@ export default function QuestionListPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                        className="border-primary text-primary hover:bg-primary/5"
                         disabled={page >= totalPages || questions.isFetching}
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       >

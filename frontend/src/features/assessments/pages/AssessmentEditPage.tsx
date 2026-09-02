@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { useAssessmentDetail } from '../api'
 import { AddSectionForm } from '../components/AddSectionForm'
 import { AssessmentSectionCard } from '../components/AssessmentSectionCard'
@@ -61,15 +62,15 @@ export default function AssessmentEditPage() {
   const isContentEditable = assessment.status === 'draft'
 
   return (
-    <div className="mx-auto max-w-3xl p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
+    <div className="mx-auto max-w-3xl space-y-3 p-4">
+      <Link to=".." className="text-sm text-primary hover:underline">
         &larr; Back to assessments
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-heading text-xl font-semibold text-brand-primary">{assessment.title}</h1>
+            <h1 className="font-heading text-xl font-semibold text-primary">{assessment.title}</h1>
             <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {TEST_CATEGORY_LABELS[assessment.testCategory]}
             </p>
@@ -103,22 +104,22 @@ export default function AssessmentEditPage() {
         <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
           <div>
             <dt className="text-muted-foreground">Timer</dt>
-            <dd className="font-medium text-brand-primary">
+            <dd className="font-medium text-primary">
               {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
             </dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Max Attempts</dt>
-            <dd className="font-medium text-brand-primary">{assessment.maxAttempts}</dd>
+            <dd className="font-medium text-primary">{assessment.maxAttempts}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Created</dt>
-            <dd className="font-medium text-brand-primary">{formatDate(assessment.createdAt)}</dd>
+            <dd className="font-medium text-primary">{formatDate(assessment.createdAt)}</dd>
           </div>
         </dl>
-      </div>
+      </Card>
 
-      <div className="mt-4 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Sections
         </h2>
@@ -154,9 +155,9 @@ export default function AssessmentEditPage() {
             <AddSectionForm assessmentId={assessment.id} />
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="mt-4 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Batches
         </h2>
@@ -167,16 +168,16 @@ export default function AssessmentEditPage() {
             batchIds={assessment.batchIds}
           />
         </div>
-      </div>
+      </Card>
 
-      <div className="mt-4 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Workflow
         </h2>
         <div className="mt-4">
           <WorkflowActions assessmentId={assessment.id} status={assessment.status} />
         </div>
-      </div>
+      </Card>
 
       <EditAssessmentDialog assessment={assessment} open={isEditOpen} onOpenChange={setIsEditOpen} />
 

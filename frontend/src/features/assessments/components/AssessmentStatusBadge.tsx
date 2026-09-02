@@ -33,7 +33,17 @@ const STATUS_STYLES: Record<AssessmentStatus, string> = {
   // its own light/dark text pairing, not the app's fixed brand-primary
   // token (which has no dark-mode counterpart to switch to).
   scheduled: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400',
-  live: 'bg-brand-accent text-white',
+  // Faculty Slate & Amber rollout — was `bg-brand-accent text-white`, a
+  // static hex fill that also disagreed with every other "live" pill in the
+  // app (StudentAssessmentsPage's StatusBadge, FacultyAnalyticsPage's own
+  // ASSESSMENT_STATUS_BADGE map, both already on Badge's `live` variant /
+  // status-success tokens). AssessmentListPage and MyBatchesPage's
+  // participation table both render this component directly, so the
+  // mismatch was visible on real Faculty surfaces, not just theoretical.
+  // status-success is scoped per theme like every other semantic token, so
+  // this now uses the SAME variant token those other two call sites do
+  // instead of a third, brand-specific rendering of the same status.
+  live: 'bg-status-success-bg text-status-success-fg',
   completed: 'bg-green-600/10 text-green-700 dark:text-green-400',
   archived: 'bg-muted text-muted-foreground/60',
 }
@@ -41,7 +51,7 @@ const STATUS_STYLES: Record<AssessmentStatus, string> = {
 export function AssessmentStatusBadge({ status }: { status: AssessmentStatus }) {
   return (
     <Badge className={STATUS_STYLES[status]}>
-      {status === 'live' && <span className="size-1.5 rounded-full bg-white" />}
+      {status === 'live' && <span className="size-1.5 rounded-full bg-status-success-fg" />}
       {STATUS_LABELS[status] ?? status}
     </Badge>
   )

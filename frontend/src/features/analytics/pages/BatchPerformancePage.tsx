@@ -366,7 +366,7 @@ export default function BatchPerformancePage() {
               this component's own root-cause-fix comment above). */}
           {isSuperAdmin && (
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-medium text-brand-primary" htmlFor="collegePicker">
+              <label className="text-xs font-medium text-primary" htmlFor="collegePicker">
                 College
               </label>
               <Combobox
@@ -385,7 +385,7 @@ export default function BatchPerformancePage() {
             </div>
           )}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-brand-primary" htmlFor="batchPicker">
+            <label className="text-xs font-medium text-primary" htmlFor="batchPicker">
               Batch
             </label>
             <Combobox
@@ -421,7 +421,7 @@ export default function BatchPerformancePage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-brand-primary" htmlFor="assessmentPicker">
+            <label className="text-xs font-medium text-primary" htmlFor="assessmentPicker">
               Assessment <span className="text-muted-foreground">(optional)</span>
             </label>
             <Combobox
@@ -476,7 +476,7 @@ export default function BatchPerformancePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={isDownloadingResults}
                   onClick={() => void handleDownloadResults()}
                 >
@@ -485,7 +485,7 @@ export default function BatchPerformancePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={isDownloadingSummary}
                   onClick={() => void handleDownloadSummary()}
                 >
@@ -653,7 +653,7 @@ export default function BatchPerformancePage() {
 
                     return (
                       <TableRow key={student.studentId} className="hover:bg-muted/30">
-                        <TableCell className="pl-4 font-medium text-brand-primary">
+                        <TableCell className="pl-4 font-medium text-primary">
                           {student.attemptId ? (
                             <Link
                               to={{ pathname: `attempts/${student.attemptId}`, search: `?${detailSearch}` }}
@@ -689,7 +689,7 @@ export default function BatchPerformancePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={page <= 1 || performance.isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
@@ -698,7 +698,7 @@ export default function BatchPerformancePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                  className="border-primary text-primary hover:bg-primary/5"
                   disabled={page >= totalPages || performance.isFetching}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >

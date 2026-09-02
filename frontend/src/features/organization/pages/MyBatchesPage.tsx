@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import { PageHeader } from '@/components/ui/PageHeader'
 import {
   Table,
   TableBody,
@@ -108,13 +109,11 @@ export default function MyBatchesPage() {
   const participation = useBatchAssessmentParticipation(selectedBatchId ?? undefined)
 
   return (
-    <div className="space-y-5 p-5">
-      <div>
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">My Batches</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Batches you're currently assigned to as a trainer.
-        </p>
-      </div>
+    <div className="space-y-3 p-4">
+      <PageHeader
+        title="My Batches"
+        description="Batches you're currently assigned to as a trainer."
+      />
 
       {batches.isPending && (
         <div
@@ -169,7 +168,7 @@ export default function MyBatchesPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || batches.isFetching}
                 onClick={() => goToBatchesPage(Math.max(1, page - 1))}
               >
@@ -178,7 +177,7 @@ export default function MyBatchesPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || batches.isFetching}
                 onClick={() => goToBatchesPage(Math.min(totalPages, page + 1))}
               >
@@ -272,7 +271,7 @@ export default function MyBatchesPage() {
                               <TableCell className="pl-4 font-medium">
                                 <Link
                                   to={`/trainer/analytics?batchId=${selectedBatch.id}&assessmentId=${row.assessmentId}`}
-                                  className="text-brand-primary hover:underline"
+                                  className="text-primary hover:underline"
                                 >
                                   {row.assessmentTitle}
                                 </Link>

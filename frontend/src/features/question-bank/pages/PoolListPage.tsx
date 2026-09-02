@@ -46,13 +46,13 @@ export default function PoolListPage() {
     <div className="p-4">
       <div className="mb-4 flex items-baseline justify-between">
         <div>
-          <h1 className="font-heading text-xl font-semibold text-brand-primary">Question Pools</h1>
+          <h1 className="font-heading text-xl font-semibold text-primary">Question Pools</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Reusable, criteria-filtered buckets of approved questions for pool-based assessment
             sections.
           </p>
         </div>
-        <Button asChild className="bg-brand-accent text-white hover:bg-brand-accent/90">
+        <Button asChild>
           <Link to="new">Create Pool</Link>
         </Button>
       </div>
@@ -92,7 +92,7 @@ export default function PoolListPage() {
                 items.map((pool) => (
                   <TableRow key={pool.id} className="hover:bg-muted/30">
                     <TableCell className="pl-4 font-medium">
-                      <Link to={pool.id} className="text-brand-primary hover:underline">
+                      <Link to={pool.id} className="text-primary hover:underline">
                         {pool.name}
                       </Link>
                     </TableCell>
@@ -116,7 +116,7 @@ export default function PoolListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || pools.isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -125,7 +125,7 @@ export default function PoolListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || pools.isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >

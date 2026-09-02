@@ -21,7 +21,7 @@ interface ComboboxProps {
 }
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent disabled:cursor-not-allowed disabled:opacity-50'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-shell-accent disabled:cursor-not-allowed disabled:opacity-50'
 
 // Generic searchable single-select — feature code supplies `options` (already
 // fetched/filtered upstream) plus a `value`/`onSelect` pair, same shape as a
@@ -129,15 +129,24 @@ export function Combobox({
                 }}
                 className={cn(
                   'block w-full truncate px-3 py-2 text-left text-sm hover:bg-muted',
-                  // Visual-consistency pass — was `bg-muted text-brand-primary`
-                  // (navy, no accent), inconsistent with every other "this is
-                  // the selected one" treatment elsewhere in the app (Sidebar's
-                  // nav active state, StudentListPage's selected college card,
-                  // LeaderboardSection's isSelf row — all brand-accent). This
-                  // is a shared component reused by every college/batch/
-                  // assessment picker across all three roles, so fixing it
-                  // here fixes it everywhere at once.
-                  option.value === value && 'bg-brand-accent/10 font-medium text-brand-accent',
+                  // Un-deferred (Faculty Slate & Amber rollout) — was
+                  // `bg-brand-accent/10 text-brand-accent`, a static hex that
+                  // doesn't follow .theme-parchment/.theme-faculty/.theme-admin
+                  // scoping. Harmless while every page around this component
+                  // was still brand-primary/brand-accent itself (indigo next
+                  // to indigo), but now that FacultyAnalyticsPage,
+                  // BatchPerformancePage, and AssessmentEditPage's attach-
+                  // question/pool forms are all reskinned to Slate & Amber,
+                  // a static indigo highlight here would read as a visibly
+                  // broken picker on THREE Faculty surfaces instead of
+                  // staying invisible on one. The tint uses shell-accent (a
+                  // non-text surface, 3:1 is enough), but the LABEL itself
+                  // stays on `primary` rather than `shell-accent` — Faculty's
+                  // shell-accent (#D97706) is only 3.19:1 on white
+                  // (tailwind.config.js's own faculty-* comment), under the
+                  // 4.5:1 AA floor for real text, where primary is verified
+                  // >=5.42:1 in every scope.
+                  option.value === value && 'bg-shell-accent/10 font-medium text-primary',
                 )}
               >
                 {option.label}

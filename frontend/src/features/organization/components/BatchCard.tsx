@@ -13,7 +13,11 @@ import type { Batch } from '../types'
 
 function StatusBadge({ status }: { status: Batch['status'] }) {
   if (status === 'active') {
-    return <Badge className="shrink-0 bg-brand-accent/10 text-brand-accent">active</Badge>
+    return (
+      <Badge variant="accent" className="shrink-0">
+        active
+      </Badge>
+    )
   }
   return <Badge variant="secondary" className="shrink-0">{status}</Badge>
 }
@@ -73,12 +77,12 @@ export function BatchCard({
       className={cn(
         'gap-3 p-3.5 transition-shadow hover:shadow-md',
         onSelect ? 'cursor-pointer' : undefined,
-        isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : undefined,
+        isSelected ? 'border-shell-accent ring-2 ring-shell-accent/20' : undefined,
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-medium text-brand-primary">{batch.name}</p>
+          <p className="truncate font-medium text-primary">{batch.name}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {batch.collegeName} · {batch.departmentName}
           </p>
@@ -103,7 +107,7 @@ export function BatchCard({
                   <button
                     type="button"
                     aria-label={`Actions for ${batch.name}`}
-                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-brand-primary"
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-primary"
                   >
                     <MoreVertical className="size-4" />
                   </button>

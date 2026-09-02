@@ -80,7 +80,7 @@ export function AssessmentSectionCard({
           AssessmentEditPage.tsx's original comment on why: clipping would
           also clip the Attach forms' Combobox dropdowns. */}
       <div className="flex items-center justify-between gap-3 rounded-t-lg bg-muted/30 px-4 py-2.5">
-        <h3 className="font-medium text-brand-primary">{section.title}</h3>
+        <h3 className="font-medium text-primary">{section.title}</h3>
         <div className="flex shrink-0 items-center gap-2">
           <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">
             {section.selectionMode === 'manual' ? 'Manual' : 'Pool'}
@@ -158,7 +158,7 @@ export function AssessmentSectionCard({
             <ul className="space-y-1.5 text-sm">
               {(rawPools.data ?? []).map((link) => (
                 <li key={link.id} className="flex items-center justify-between gap-3">
-                  <span className="text-brand-primary">
+                  <span className="text-primary">
                     {poolNameById.get(link.questionPoolId) ?? link.questionPoolId}
                   </span>
                   {isContentEditable && (

@@ -42,11 +42,11 @@ function AssessmentCard({ assessment }: { assessment: AssessmentListItem }) {
     <Card className="gap-2.5 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-white">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
             {getInitials(assessment.title)}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-heading font-medium text-brand-primary">{assessment.title}</p>
+            <p className="truncate font-heading font-medium text-primary">{assessment.title}</p>
             <p className="truncate text-xs text-muted-foreground">
               {TEST_CATEGORY_LABELS[assessment.testCategory]}
             </p>
@@ -57,7 +57,7 @@ function AssessmentCard({ assessment }: { assessment: AssessmentListItem }) {
 
       <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-2.5">
         <div className="flex items-center gap-2">
-          <Users className="size-4 shrink-0 text-brand-primary" />
+          <Users className="size-4 shrink-0 text-primary" />
           <div className="min-w-0">
             <p className="font-heading text-sm leading-tight font-semibold text-foreground">
               {assessment.studentCount}
@@ -66,7 +66,7 @@ function AssessmentCard({ assessment }: { assessment: AssessmentListItem }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <HelpCircle className="size-4 shrink-0 text-brand-accent" />
+          <HelpCircle className="size-4 shrink-0 text-shell-accent" />
           <div className="min-w-0">
             <p className="font-heading text-sm leading-tight font-semibold text-foreground">
               {assessment.questionCount}
@@ -85,7 +85,7 @@ function AssessmentCard({ assessment }: { assessment: AssessmentListItem }) {
             asChild
             variant="outline"
             size="sm"
-            className="flex-1 border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+            className="flex-1 border-primary text-primary hover:bg-primary/5"
           >
             <Link to={`${assessment.id}/edit`}>Edit</Link>
           </Button>
@@ -114,12 +114,12 @@ export default function AssessmentListPage() {
     <div className="p-4">
       <div className="mb-4 flex items-baseline justify-between">
         <div>
-          <h1 className="font-heading text-xl font-semibold text-brand-primary">Assessments</h1>
+          <h1 className="font-heading text-xl font-semibold text-primary">Assessments</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Every assessment across the platform, at every stage of the approval workflow.
           </p>
         </div>
-        <Button asChild className="bg-brand-accent text-white hover:bg-brand-accent/90">
+        <Button asChild>
           <Link to="new">Create Assessment</Link>
         </Button>
       </div>
@@ -164,7 +164,7 @@ export default function AssessmentListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -173,7 +173,7 @@ export default function AssessmentListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
