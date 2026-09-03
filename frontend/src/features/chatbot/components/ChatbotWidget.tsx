@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CHATBOT_ENABLED } from '@/lib/featureFlags'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { downloadChatbotQueryExport, useAskChatbot } from '../api'
@@ -194,6 +195,17 @@ export function ChatbotWidget() {
     }
   }
 
+  // UI cleanup phase, item 5 — single, easily-reversible flag (not
+  // commented-out/deleted code) hiding this widget from every layout that
+  // renders it (AdminLayout.tsx, TrainerLayout.tsx), without touching
+  // either layout file. Backend has its own independent flag
+  // (config/env.ts's CHATBOT_ENABLED) rejecting POST /chatbot/ask
+  // directly — this is belt-and-suspenders with that, not a substitute
+  // for it, same reasoning as the role check right below.
+  if (!CHATBOT_ENABLED) {
+    return null
+  }
+
   // Client-side convenience only — the real gate is server-side
   // ('chatbot.query', seeded to super_admin + faculty only; see
   // backend/src/modules/chatbot/chatbot.routes.ts). A student who somehow
@@ -255,12 +267,12 @@ export function ChatbotWidget() {
       {isOpen && (
         <div
           className={cn(
-            'absolute flex h-[32rem] w-96 flex-col rounded-lg border border-border bg-background shadow-lg',
+            'absolute flex h-[32rem] w-96 flex-col overflow-hidden rounded-2xl bg-background shadow-lg',
             openLeftward ? 'right-0' : 'left-0',
             openUpward ? 'bottom-16' : 'top-16',
           )}
         >
-          <div className="flex shrink-0 items-center justify-between rounded-t-lg border-b border-border bg-brand-primary px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between bg-brand-primary px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-white">Reports Assistant</p>
               <p className="text-xs text-white/70">Ask about attendance, results, or rosters</p>

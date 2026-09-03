@@ -292,6 +292,29 @@
     --sidebar-accent-foreground: #faf6f0;
     --sidebar-border: #2e2118;
     --sidebar-ring: #ff8a63;
+
+    /* Soft & Organic phase — approved direction from the 3-mockup review
+       (large radius, shadow-based elevation instead of hard borders, pill
+       nav/stats). Scoped to `.app-shell` ONLY, additive on top of :root's
+       own `--radius: 0.625rem` (left byte-for-byte untouched) — the exact
+       same isolation technique this block already used for color
+       (`--hero-gradient-*`/`--sidebar-*` above): AttemptLayout.tsx never
+       applies the `.app-shell` class (see that file's own comment), and
+       features/attempts only ever consumes Button/Input from the shared UI
+       kit (confirmed by grep) — both read `rounded-lg`, which derives from
+       `var(--radius)` via the `@theme inline` chain in this file's own head
+       (`--radius-lg: var(--radius)`, etc). Because `@theme inline` re-
+       resolves that `var()` at each consuming element's own computed-value
+       time (not baked once at :root), overriding `--radius` here changes
+       every real role page's Button/Input/Card/Dialog corners while the
+       exam-taking screen — rendered with no `.app-shell` ancestor — keeps
+       resolving :root's original 0.625rem, pixel-for-pixel. Verified live in
+       the browser, not just via diff (see rollout summary).
+       0.75rem -> radius-3xl (Card's new default) = 1.65rem/26.4px,
+       radius-4xl (hero panels) = 1.95rem/31.2px — both inside the approved
+       24-32px band; radius-lg (Button/Input) = 0.75rem/12px, a modest soften
+       rather than a full pill, matching the mockup's own restraint there. */
+    --radius: 0.75rem;
 }
 
 /* Dense, near-black dashboard mode (structural/density reference: a dark

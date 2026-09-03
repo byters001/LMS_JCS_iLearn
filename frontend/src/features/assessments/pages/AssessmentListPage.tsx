@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
@@ -158,7 +159,7 @@ export default function AssessmentListPage() {
 
       {data && data.items.length > 0 && (
         <>
-          <div className="overflow-hidden rounded-lg border border-border">
+          <Card className="overflow-hidden p-0">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -226,9 +227,9 @@ export default function AssessmentListPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
+          </Card>
 
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3.5 py-2.5 shadow-sm">
+          <Card className="flex-row items-center justify-between px-3.5 py-2.5">
             <p className="text-sm text-muted-foreground">
               Page {data.page} of {totalPages} &middot; {data.total} assessment
               {data.total === 1 ? '' : 's'}
@@ -251,7 +252,7 @@ export default function AssessmentListPage() {
                 Next
               </Button>
             </div>
-          </div>
+          </Card>
         </>
       )}
     </div>

@@ -1,21 +1,12 @@
 import { motion } from 'framer-motion'
-import { Award, Crown, Medal, Trophy } from 'lucide-react'
+import { Award, ClipboardList, Crown, Medal, Trophy } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ScoreRing } from '@/components/ui/ScoreRing'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { useLeaderboard, useMyAttempts } from '@/features/reports/api'
 import type { LeaderboardTier } from '@/features/reports/types'
 import { useMyDashboardProfile } from '@/features/students/api'
@@ -52,37 +43,68 @@ const TEST_CATEGORY_LABELS: Record<TestCategory, string> = {
   mixed: 'Mixed',
 }
 
-function UpcomingAssessmentRow({ assessment }: { assessment: AvailableAssessment }) {
+// Soft & Organic phase — replaces the old table row with the mockup's
+// "Upcoming Assessments" card treatment (approved 3-mockup review): a big
+// rounded card, a soft icon chip, and a pill-shaped CTA button, in place of
+// a dense table row. This is the paradigm case the rollout brief calls out
+// by name — a small (UPCOMING_SHOWN-capped), dashboard-glance,
+// one-CTA-per-row list, exactly the shape this pattern fits, unlike a real
+// management table (AssessmentListPage's dense staff-facing listing stays a
+// table — see that file's own comment on why real tabular density is kept
+// there).
+function UpcomingAssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   const buttonState = getAttemptButtonState(assessment)
   const isScheduled = buttonState.kind === 'scheduled'
   return (
-    <TableRow>
-      <TableCell className="max-w-0 font-medium text-primary">
-        <span className="block truncate">{assessment.title}</span>
-      </TableCell>
-      <TableCell className="text-muted-foreground">
-        {TEST_CATEGORY_LABELS[assessment.testCategory]}
-      </TableCell>
-      <TableCell>
-        <Badge variant={isScheduled ? 'scheduled' : 'live'}>
+    <div className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
+      <div
+        className={cn(
+          'flex size-10 shrink-0 items-center justify-center rounded-full',
+          isScheduled ? 'bg-accent-indigo-bg text-accent-indigo-fg' : 'bg-status-success-bg text-status-success-fg',
+        )}
+      >
+        <ClipboardList className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-primary">{assessment.title}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          {TEST_CATEGORY_LABELS[assessment.testCategory]} ·{' '}
           {isScheduled ? 'Opens soon' : ATTEMPT_BUTTON_LABELS[buttonState.kind]}
-        </Badge>
-      </TableCell>
-      <TableCell className="text-right">
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/student/assessments/${assessment.id}`}>Open</Link>
-        </Button>
-      </TableCell>
-    </TableRow>
+        </p>
+      </div>
+      <Button asChild size="sm" className="shrink-0 rounded-full">
+        <Link to={`/student/assessments/${assessment.id}`}>Open</Link>
+      </Button>
+    </div>
   )
 }
 
-function RecentResultRow({ attempt }: { attempt: { id: string; assessmentTitle: string; scorePercent: number | null; submissionTime: string | null } }) {
+// Soft & Organic phase — a leading circular score chip (bigger, more visual
+// weight) replaces the old trailing text Badge; same exact pass/fail/pending
+// semantic mapping (status-success/danger/neutral tokens) as before, just
+// reshaped, and the whole row loses its hard border for a shadow-based card
+// matching the new Card language.
+const RESULT_SCORE_CLASS = {
+  pass: 'bg-status-success-bg text-status-success-fg',
+  fail: 'bg-status-danger-bg text-status-danger-fg',
+  pending: 'bg-status-neutral-bg text-status-neutral-fg',
+} as const
+
+function RecentResultCard({ attempt }: { attempt: { id: string; assessmentTitle: string; scorePercent: number | null; submissionTime: string | null } }) {
+  const tone = attempt.scorePercent === null ? 'pending' : attempt.scorePercent >= 40 ? 'pass' : 'fail'
   return (
     <Link
       to={`/student/attempts/${attempt.id}/submitted`}
-      className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5 outline-none transition-colors hover:border-shell-accent/50 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-sm outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
+      <div
+        className={cn(
+          'flex size-12 shrink-0 items-center justify-center rounded-full text-sm font-bold',
+          RESULT_SCORE_CLASS[tone],
+        )}
+      >
+        {attempt.scorePercent === null ? '—' : `${Math.round(attempt.scorePercent)}%`}
+      </div>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-primary">{attempt.assessmentTitle}</p>
         {attempt.submissionTime && (
@@ -94,13 +116,6 @@ function RecentResultRow({ attempt }: { attempt: { id: string; assessmentTitle: 
           </p>
         )}
       </div>
-      <Badge
-        variant={
-          attempt.scorePercent === null ? 'neutral' : attempt.scorePercent >= 40 ? 'success' : 'danger'
-        }
-      >
-        {attempt.scorePercent === null ? 'Pending' : `${Math.round(attempt.scorePercent)}%`}
-      </Badge>
     </Link>
   )
 }
@@ -194,7 +209,7 @@ export default function StudentDashboardPage() {
       <motion.div initial="hidden" animate="show" variants={containerVariants} className="grid grid-cols-1 gap-2.5 lg:grid-cols-5">
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-4xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-md lg:col-span-3"
         >
           <div
             className={cn(
@@ -311,23 +326,11 @@ export default function StudentDashboardPage() {
             )}
 
             {available.data && upcoming.length > 0 && (
-              <Table className="mt-2.5">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Assessment</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">
-                      <span className="sr-only">Open</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {upcoming.map((assessment) => (
-                    <UpcomingAssessmentRow key={assessment.id} assessment={assessment} />
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="mt-2.5 space-y-2">
+                {upcoming.map((assessment) => (
+                  <UpcomingAssessmentCard key={assessment.id} assessment={assessment} />
+                ))}
+              </div>
             )}
           </Card>
         </motion.div>
@@ -363,7 +366,7 @@ export default function StudentDashboardPage() {
         {attempts.data && recentResults.length > 0 && (
           <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {recentResults.map((attempt) => (
-              <RecentResultRow key={attempt.id} attempt={attempt} />
+              <RecentResultCard key={attempt.id} attempt={attempt} />
             ))}
           </div>
         )}

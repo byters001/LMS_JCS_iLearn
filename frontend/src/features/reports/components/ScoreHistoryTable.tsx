@@ -136,7 +136,11 @@ export default function ScoreHistoryTable() {
             )
           }
           return (
-            <div className="mt-3 overflow-hidden rounded-lg border border-border">
+            // Nested directly inside this component's own <Card> below — a
+            // second Card here would double up shadow/elevation, so this
+            // stays a plain rounded, borderless clip (same reasoning as
+            // LeaderboardSection.tsx's identical table).
+            <div className="mt-3 overflow-hidden rounded-2xl">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">

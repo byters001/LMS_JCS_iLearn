@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Layers, UserCheck, Users } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
+import { Bar3DShapeEnd } from '@/components/charts/Bar3DShape'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -189,14 +190,14 @@ export default function TrainersDashboardPage() {
                 axisLine={false}
               />
               <Tooltip content={<BatchCountTooltip />} cursor={{ fill: 'var(--muted)' }} />
-              <Bar dataKey="batches" fill="var(--chart-1)" radius={[0, 4, 4, 0]} maxBarSize={18} />
+              <Bar dataKey="batches" fill="var(--chart-1)" shape={Bar3DShapeEnd} maxBarSize={18} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
       )}
 
       {!trainers.isPending && !trainers.isError && (
-        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+        <Card className="gap-0 overflow-hidden p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -269,7 +270,7 @@ export default function TrainersDashboardPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )

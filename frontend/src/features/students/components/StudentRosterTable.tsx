@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import {
   Table,
@@ -127,7 +128,7 @@ export function StudentRosterTable({
       )}
 
       {studentsQuery.data && (
-        <div className="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+        <Card className="gap-0 overflow-hidden p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -226,7 +227,7 @@ export function StudentRosterTable({
               </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {editingStudent && (

@@ -121,7 +121,7 @@ export function GlobalSearch({ basePath }: GlobalSearchProps) {
       />
 
       {isOpen && isSearchActive && (
-        <div className="absolute left-0 z-20 mt-2 w-full max-w-2xl rounded-lg border border-border bg-background shadow-lg">
+        <div className="absolute left-0 z-20 mt-2 w-full max-w-2xl overflow-hidden rounded-2xl bg-background shadow-lg">
           <div className="max-h-96 overflow-y-auto">
             {isLoading && (
               <div className="space-y-2 p-2.5" role="status" aria-label="Searching">

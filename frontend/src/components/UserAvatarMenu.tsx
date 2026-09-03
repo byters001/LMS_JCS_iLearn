@@ -61,7 +61,7 @@ export function UserAvatarMenu({ name, email, onLogout, isLoggingOut }: UserAvat
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-20 mt-2 w-64 rounded-lg border border-border bg-background shadow-lg">
+        <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-2xl bg-background shadow-lg">
           <div className="border-b border-border px-3.5 py-2.5">
             <p className="truncate font-heading text-sm font-medium text-foreground">{name}</p>
             <p className="truncate text-xs text-muted-foreground">{email}</p>

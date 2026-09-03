@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
@@ -323,7 +324,7 @@ export default function MyBatchesPage() {
                 )}
 
                 {participation.data && (
-                  <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                  <Card className="overflow-hidden p-0">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -367,7 +368,7 @@ export default function MyBatchesPage() {
                         )}
                       </TableBody>
                     </Table>
-                  </div>
+                  </Card>
                 )}
               </TabsContent>
             </Tabs>

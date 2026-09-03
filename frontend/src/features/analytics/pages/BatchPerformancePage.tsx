@@ -18,6 +18,7 @@ import {
   YAxis,
 } from 'recharts'
 import { ApiError } from '@/api'
+import { Bar3DShapeTop } from '@/components/charts/Bar3DShape'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -171,7 +172,7 @@ function StatTile({
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-lg',
+            'flex size-10 shrink-0 items-center justify-center rounded-full',
             STAT_TILE_ACCENT_CLASS[accent],
           )}
         >
@@ -620,7 +621,8 @@ export default function BatchPerformancePage() {
                     nameKey="name"
                     innerRadius={60}
                     outerRadius={90}
-                    paddingAngle={2}
+                    paddingAngle={3}
+                    cornerRadius={8}
                     label={({ value }: { value: number }) => `${Math.round(value * 100)}%`}
                   >
                     {/* PASS_COLOR/FAIL_COLOR intentionally stay raw hex, not
@@ -670,7 +672,7 @@ export default function BatchPerformancePage() {
                     cursor={{ fill: 'var(--muted)' }}
                     content={(props) => <HistogramTooltipContent {...props} />}
                   />
-                  <Bar dataKey="count" fill={HISTOGRAM_COLOR} radius={[4, 4, 0, 0]} maxBarSize={56} />
+                  <Bar dataKey="count" fill={HISTOGRAM_COLOR} shape={Bar3DShapeTop} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -682,7 +684,7 @@ export default function BatchPerformancePage() {
             )}
           </Card>
 
-          <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+          <Card className="gap-0 overflow-hidden p-0">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -765,7 +767,7 @@ export default function BatchPerformancePage() {
                 </Button>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>

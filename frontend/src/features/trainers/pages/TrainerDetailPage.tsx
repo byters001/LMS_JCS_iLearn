@@ -1,7 +1,8 @@
 import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
+import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -10,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
 import { useTrainerPerformance } from '../api'
 import type { TrainerPerformanceTrendPoint } from '../types'
 
@@ -23,10 +23,10 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month:
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className={cn('rounded-lg border border-border bg-background p-4', CARD_GRADIENT)}>
+    <Card className="p-4">
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold text-primary">{value}</p>
-    </div>
+    </Card>
   )
 }
 
@@ -107,18 +107,18 @@ export default function TrainerDetailPage() {
             <StatTile label="Assessments Tracked" value={String(performance.data.trend.length)} />
           </div>
 
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+          <Card className="p-4">
             <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Assigned Batches
             </h2>
             {performance.data.batches.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+              <p className="mt-3 rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 No batches assigned yet.
               </p>
             ) : (
               <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {performance.data.batches.map((batch) => (
-                  <div key={batch.id} className="rounded-lg border border-border p-3">
+                  <div key={batch.id} className="rounded-2xl bg-muted/40 p-3">
                     <dt className="font-medium text-primary">{batch.name}</dt>
                     <dd className="mt-0.5 text-sm text-muted-foreground">
                       {batch.collegeName} &middot; {batch.departmentName}
@@ -127,16 +127,27 @@ export default function TrainerDetailPage() {
                 ))}
               </dl>
             )}
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+          {/* Soft & Organic phase — LineChart -> AreaChart with a gradient
+              fill and a circular dot, matching PerformanceAnalyticsSection's
+              (student Performance page) own trend-chart convention, so every
+              analytics page's trend line reads as the same visual language
+              instead of a plain stroke here and a filled area there. */}
+          <Card className="p-4">
             <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
               Pass Rate Trend
             </h2>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <AreaChart data={chartData} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="trainerPassRateFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={TREND_LINE_COLOR} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={TREND_LINE_COLOR} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
                   <Tooltip
@@ -149,24 +160,26 @@ export default function TrainerDetailPage() {
                         : ''
                     }
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="passRatePercent"
                     stroke={TREND_LINE_COLOR}
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    fill="url(#trainerPassRateFill)"
+                    dot={{ r: 4, fill: TREND_LINE_COLOR, strokeWidth: 0 }}
+                    activeDot={{ r: 6 }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <p className="mt-3 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+              <p className="mt-3 rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 No graded assessment activity yet across this trainer's batches — the trend will
                 appear once at least one attempt has been fully evaluated.
               </p>
             )}
-          </div>
+          </Card>
 
-          <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+          <Card className="overflow-hidden p-0">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -210,7 +223,7 @@ export default function TrainerDetailPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </>
       )}
     </div>

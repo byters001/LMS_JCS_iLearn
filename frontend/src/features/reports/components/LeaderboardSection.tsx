@@ -162,7 +162,7 @@ export default function LeaderboardSection() {
       {data && data.entries.length > 0 && (
         <>
           {selfEntry ? (
-            <div className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
               <div className="relative shrink-0">
                 <ScoreRing percent={selfEntry.averageScorePercent} size={64} strokeWidth={7} />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -185,12 +185,16 @@ export default function LeaderboardSection() {
               </div>
             </div>
           ) : (
-            <p className="mt-3 rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+            <p className="mt-3 rounded-2xl border border-dashed border-border p-3 text-sm text-muted-foreground">
               Complete an assessment to see your own standing here.
             </p>
           )}
 
-          <div className="mt-3 overflow-hidden rounded-lg border border-border">
+          {/* Nested directly inside this component's own <Card> below — a
+              second Card here would double up shadow/elevation, so this
+              stays a plain rounded, borderless clip rather than a full Card
+              (same reasoning as ScoreHistoryTable.tsx's identical table). */}
+          <div className="mt-3 overflow-hidden rounded-2xl">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">

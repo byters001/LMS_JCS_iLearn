@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
 import { cn } from '@/lib/utils'
 import {
@@ -247,7 +248,7 @@ export default function PoolDetailPage() {
         Back to pools
       </Link>
 
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="font-heading text-xl font-semibold text-primary">
@@ -283,9 +284,9 @@ export default function PoolDetailPage() {
             </dd>
           </div>
         </dl>
-      </div>
+      </Card>
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="mt-6 p-4">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Criteria
         </h2>
@@ -304,7 +305,7 @@ export default function PoolDetailPage() {
               (criteria.data ?? []).map((criterion) => (
                 <div
                   key={criterion.id}
-                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-border px-4 py-2.5 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl bg-muted/40 px-4 py-2.5 text-sm"
                 >
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="font-medium text-primary">
@@ -355,9 +356,9 @@ export default function PoolDetailPage() {
             <AddCriterionForm poolId={pool.data.id} poolType={pool.data.type} />
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="mt-6 p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
             Preview Resolution
@@ -407,7 +408,7 @@ export default function PoolDetailPage() {
               resolution.data.criteria.map((criterion) => {
                 const isShort = criterion.selected.length < criterion.countRequired
                 return (
-                  <div key={criterion.id} className="rounded-lg border border-border p-4">
+                  <div key={criterion.id} className="rounded-2xl bg-muted/40 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium text-primary">
                         {DIFFICULTY_LABELS[criterion.difficulty]}
@@ -461,7 +462,7 @@ export default function PoolDetailPage() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       <EditPoolDialog pool={pool.data} open={isEditPoolOpen} onOpenChange={setIsEditPoolOpen} />
 

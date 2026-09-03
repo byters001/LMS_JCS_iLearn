@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeAny } from 'zod';
+import { env } from '../../config/env';
 import { requirePermission } from '../../rbac/require-permission';
-import { ValidationError } from '../../shared/errors/app-error';
+import { ServiceUnavailableError, ValidationError } from '../../shared/errors/app-error';
 import { chatbotController } from './chatbot.controller';
 import {
   askChatbotSchema,
@@ -42,6 +43,23 @@ function validateQuery(schema: ZodTypeAny) {
   };
 }
 
+// Temporary kill switch (UI cleanup phase, item 5) — a preHandler, not a
+// controller/service change, so this stays a routing-layer concern and
+// chatbot.controller.ts/chatbot.service.ts are untouched. Placed in the
+// preHandler chain BEFORE chatbotController.ask ever runs, which means
+// chatbotService.askChatbot — and every chatbotRepository.logQuery call
+// inside it — never executes for a rejected request: no chatbot_query_log
+// row is written, not just "the client never sees a response." Toggled
+// entirely via config/env.ts's CHATBOT_ENABLED (backend/.env), no code
+// change needed to flip it back.
+async function assertChatbotEnabled(): Promise<void> {
+  if (!env.CHATBOT_ENABLED) {
+    throw new ServiceUnavailableError(
+      'The chatbot is temporarily unavailable. Please try again later.',
+    );
+  }
+}
+
 // 'chatbot.query' — a NEW permission key, seeded to BOTH super_admin and
 // faculty explicitly via a --custom migration (see drizzle/migrations/
 // <next>_add-chatbot-permissions.sql), per the task's own "super_admin/
@@ -64,7 +82,7 @@ export async function chatbotRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: AskChatbotInput }>(
     '/chatbot/ask',
     {
-      preHandler: [fastify.authenticate, CHATBOT_QUERY],
+      preHandler: [fastify.authenticate, CHATBOT_QUERY, assertChatbotEnabled],
       preValidation: validateBody(askChatbotSchema),
     },
     chatbotController.ask,

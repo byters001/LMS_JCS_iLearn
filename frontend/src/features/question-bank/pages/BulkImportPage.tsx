@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { spreadsheetFileToRows, csvTextToXlsxBlob, triggerBlobDownload } from '@/lib/spreadsheet'
 import { fetchAllQuestionsForDuplicateCheck, useCategories, useCreateQuestion, useTopics } from '../api'
 import type { CreateQuestionInput, QuestionCategory, QuestionDifficulty, QuestionTopic } from '../types'
@@ -562,7 +563,7 @@ export default function BulkImportPage() {
         &larr; Back to questions
       </Link>
 
-      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-4">
         <h1 className="font-heading text-xl font-semibold text-primary">
           Bulk Import Questions
         </h1>
@@ -629,10 +630,10 @@ export default function BulkImportPage() {
         {processingError && (
           <p className="mt-3 text-sm text-destructive">{processingError}</p>
         )}
-      </div>
+      </Card>
 
       {step === 'preview' && (
-        <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
+        <Card className="p-4">
           <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
             Preview
           </h2>
@@ -755,7 +756,7 @@ export default function BulkImportPage() {
               </Button>
             )}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )

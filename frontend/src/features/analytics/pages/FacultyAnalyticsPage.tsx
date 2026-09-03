@@ -211,7 +211,7 @@ export default function FacultyAnalyticsPage() {
       >
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-4xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-md lg:col-span-3"
         >
           {!needsAttentionPending && needsAttentionRows.length > 0 && (
             <div
@@ -432,7 +432,7 @@ export default function FacultyAnalyticsPage() {
             {needsAttentionRows.slice(0, NEEDS_ATTENTION_SHOWN).map((row) => (
               <div
                 key={`${row.batchId}-${row.studentId}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5"
+                className="flex items-center justify-between gap-3 rounded-xl bg-muted/40 p-2.5"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <AlertTriangle className="size-4 shrink-0 text-status-danger-fg" />

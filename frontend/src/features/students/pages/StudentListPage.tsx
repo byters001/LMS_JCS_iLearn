@@ -238,9 +238,9 @@ export default function StudentListPage() {
                   aria-expanded={isSelected}
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
-                    'rounded-lg border bg-card p-3 text-left shadow-sm transition-shadow hover:shadow-md',
+                    'rounded-2xl bg-card p-3 text-left shadow-sm transition-shadow hover:shadow-md',
                     CARD_GRADIENT,
-                    isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border',
+                    isSelected && 'ring-2 ring-primary shadow-md',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">

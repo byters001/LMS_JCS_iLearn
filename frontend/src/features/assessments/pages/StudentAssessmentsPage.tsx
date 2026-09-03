@@ -62,7 +62,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
   if (buttonState.kind === 'scheduled') {
     const startDate = formatStartDate(buttonState.startAt)
     return (
-      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 opacity-60 shadow-sm grayscale-[0.4]">
+      <div className="flex flex-col gap-2.5 rounded-3xl bg-card p-3.5 opacity-60 shadow-sm grayscale-[0.4]">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>
           <StatusBadge status={assessment.status} />
@@ -101,7 +101,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
     <Link
       to={linkTo}
       className={cn(
-        'group flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-shell-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
+        'group flex flex-col gap-2.5 rounded-3xl bg-card p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
         CARD_GRADIENT,
         'from-primary/8',
       )}
@@ -187,7 +187,7 @@ function FeaturedAssessmentCard({ assessment }: { assessment: AvailableAssessmen
   return (
     <Link
       to={`/student/assessments/${assessment.id}`}
-      className="group mb-2.5 flex items-center justify-between gap-4 rounded-xl border border-border border-l-4 border-l-primary bg-card p-3.5 shadow-sm transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2"
+      className="group mb-2.5 flex items-center justify-between gap-4 rounded-3xl border-l-4 border-l-primary bg-card p-3.5 shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2"
     >
       <div className="min-w-0">
         <p className="font-mono text-[10px] font-semibold tracking-widest text-primary uppercase">

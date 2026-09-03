@@ -1,7 +1,6 @@
 import { BookOpen, Building2, ChevronDown, MoreVertical, Users } from 'lucide-react'
 import { useState } from 'react'
 import { ApiError } from '@/api'
-import { getInitials } from '@/components/UserAvatarMenu'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -48,12 +47,18 @@ function StatusBadge({ status }: { status: CollegeStatus }) {
 
 // Card-based replacement for the old table row — same data, same three
 // mutations (Edit/New Program/Delete), just laid out like BatchCard.tsx's
-// grid card (avatar-initial badge, stat pair, ChevronDown expand + kebab
-// menu) rather than a table row, since that's the one "card with actions"
-// shape already proven out in this codebase rather than inventing a second
-// one. New Program/Delete move into the kebab menu (BatchCard's own
-// menuItems precedent) so the two buttons that stay on the card face —
-// View/Edit — are the two a reader reaches for most.
+// grid card (stat pair, ChevronDown expand + kebab menu) rather than a
+// table row, since that's the one "card with actions" shape already proven
+// out in this codebase rather than inventing a second one. New Program/
+// Delete move into the kebab menu (BatchCard's own menuItems precedent) so
+// the two buttons that stay on the card face — View/Edit — are the two a
+// reader reaches for most.
+//
+// UI cleanup phase — the circular initials avatar (e.g. "KT") was removed
+// entirely: name + status badge only, per explicit request. BatchCard.tsx
+// (the sibling grid card this one is modeled on) never had an avatar in
+// the first place, so this brings CollegeCard in line with it rather than
+// leaving it as the one card with a leftover identity badge.
 function CollegeCard({
   college,
   studentCount,
@@ -76,14 +81,9 @@ function CollegeCard({
   return (
     <Card className="gap-2.5 p-3.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-semibold text-white">
-            {getInitials(college.name)}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate font-heading font-medium text-primary">{college.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{college.code}</p>
-          </div>
+        <div className="min-w-0">
+          <p className="truncate font-heading font-medium text-primary">{college.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{college.code}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <StatusBadge status={college.status} />
@@ -269,7 +269,7 @@ export default function CollegeListPage() {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border border-border bg-background px-3.5 py-2.5 shadow-sm">
+              <Card className="flex-row items-center justify-between px-3.5 py-2.5">
                 <p className="text-sm text-muted-foreground">
                   Page {colleges.data.page} of {totalPages} &middot; {colleges.data.total} college
                   {colleges.data.total === 1 ? '' : 's'}
@@ -293,7 +293,7 @@ export default function CollegeListPage() {
                     Next
                   </Button>
                 </div>
-              </div>
+              </Card>
             </>
           )}
         </TabsContent>

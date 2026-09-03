@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -93,7 +94,7 @@ export default function ChatbotAuditLogPage() {
       )}
 
       {queries.data && (
-        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+        <Card className="gap-0 overflow-hidden p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -175,7 +176,7 @@ export default function ChatbotAuditLogPage() {
               </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )

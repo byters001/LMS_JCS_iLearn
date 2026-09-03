@@ -107,6 +107,20 @@ const envSchema = z.object({
   // function-calling model as of this phase; not a hardcoded assumption
   // baked into request-building code.
   NVIDIA_MODEL: z.string().min(1).default('meta/llama-3.1-70b-instruct'),
+
+  // Temporary platform-wide kill switch (UI cleanup phase, item 5) — the
+  // single easily-reversible flag chatbot.routes.ts checks to reject
+  // POST /chatbot/ask with 503 before chatbot.controller.ts or
+  // chatbot.service.ts ever run, so no chatbot_query_log row is ever
+  // written for a request while this is false. Flip back to true (or
+  // unset — defaults to true) to re-enable; no code change needed either
+  // way. z.enum(['true','false']), NOT z.coerce.boolean(): that coercion
+  // is a well-known Zod trap here — Boolean('false') is true in plain JS,
+  // so z.coerce.boolean() would treat CHATBOT_ENABLED=false as enabled.
+  CHATBOT_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
 });
 
 function loadEnv() {

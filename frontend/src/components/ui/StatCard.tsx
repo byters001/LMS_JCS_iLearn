@@ -1,15 +1,40 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { useCountUp } from '@/hooks/useCountUp'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
+// Soft & Organic phase — "circle icon chips in soft accent tones": the
+// accent chip used to be a smaller rounded-lg square (`size-8 rounded-lg`,
+// see this file's own git history) distinct from the plain iconClassName
+// path's circle; both now render as the same rounded-full circle so a
+// StatCard looks the same shape regardless of which icon-color path a
+// caller uses.
 const ACCENT_CHIP_CLASS = {
   indigo: 'bg-accent-indigo-bg text-accent-indigo-fg',
   teal: 'bg-accent-teal-bg text-accent-teal-fg',
   amber: 'bg-accent-amber-bg text-accent-amber-fg',
   coral: 'bg-accent-coral-bg text-accent-coral-fg',
+} as const
+
+// Ring stroke pairing for the `ring` variant below — the accent's own -fg
+// token for the progress arc, its -bg token for the track, so a ringed
+// StatCard reads as the same color family as its (now circular) icon chip
+// rather than a generic neutral ring.
+const ACCENT_RING_PROGRESS_CLASS = {
+  indigo: 'stroke-accent-indigo-fg',
+  teal: 'stroke-accent-teal-fg',
+  amber: 'stroke-accent-amber-fg',
+  coral: 'stroke-accent-coral-fg',
+} as const
+
+const ACCENT_RING_TRACK_CLASS = {
+  indigo: 'stroke-accent-indigo-bg',
+  teal: 'stroke-accent-teal-bg',
+  amber: 'stroke-accent-amber-bg',
+  coral: 'stroke-accent-coral-bg',
 } as const
 
 type StatCardAccent = keyof typeof ACCENT_CHIP_CLASS
@@ -33,7 +58,7 @@ interface StatCardProps {
   // required-but-ignored prop only exists to make new call sites pass a
   // throwaway value.
   iconClassName?: string
-  // Optional — new token-driven icon chip (32px, rounded-lg) used instead of
+  // Optional — new token-driven circular icon chip used instead of
   // iconClassName's free-form circle when set. Opt-in only, so no existing
   // caller changes appearance until it adopts this.
   accent?: StatCardAccent
@@ -59,6 +84,16 @@ interface StatCardProps {
   // than stretching edge-to-edge like a banner. Omitted entirely elsewhere,
   // so every other StatCard usage is unaffected.
   className?: string
+  // Soft & Organic phase — opt-in rounded-cap progress ring (ScoreRing)
+  // replacing the bare icon chip + number for stats that are genuinely a
+  // 0-100 percentage (avg score, pass rate, completion rate). Omitted
+  // (false/undefined) keeps every existing caller's plain-number rendering
+  // byte-for-byte, since most of this component's ~40 call sites are plain
+  // counts (student totals, batch counts, etc.) a ring would misrepresent —
+  // this is opt-in per caller, not a default, exactly like `accent`/
+  // `progress`/`trend` before it. Requires `accent` (the ring reuses that
+  // same color family for its stroke) — ignored otherwise.
+  ring?: boolean
 }
 
 const ACCENT_CHART_VAR = {
@@ -68,45 +103,82 @@ const ACCENT_CHART_VAR = {
   coral: 'var(--accent-coral-fg)',
 } as const
 
-export function StatCard({ label, value, icon: Icon, iconClassName, accent, delta, progress, trend, className }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, iconClassName, accent, delta, progress, trend, className, ring }: StatCardProps) {
   const displayValue = useCountUp(value)
+  // Narrowed separately from the plain `ring` boolean so TypeScript can
+  // actually narrow `accent` to non-undefined inside the ring branches below
+  // (indexing ACCENT_RING_*_CLASS[accent] off a merely-truthy-checked
+  // `ring && accent` expression doesn't narrow `accent` itself).
+  const ringAccent = ring ? accent : undefined
+  const useRing = ringAccent !== undefined
 
   return (
     <Card className={cn('p-3.5', className)}>
       <div className="flex items-center gap-2.5">
-        <div
-          className={cn(
-            'flex shrink-0 items-center justify-center',
-            accent ? 'size-8 rounded-lg' : 'size-10 rounded-full',
-            accent ? ACCENT_CHIP_CLASS[accent] : iconClassName,
-          )}
-        >
-          <Icon className={accent ? 'size-4' : 'size-5'} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <p className="font-mono text-2xl font-semibold text-foreground">
+        {ringAccent ? (
+          <div className="relative size-12 shrink-0">
+            <ScoreRing
+              percent={value ?? null}
+              size={48}
+              strokeWidth={5}
+              trackClassName={ACCENT_RING_TRACK_CLASS[ringAccent]}
+              progressClassName={ACCENT_RING_PROGRESS_CLASS[ringAccent]}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
               {value === undefined ? (
-                <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
-              ) : value === null ? (
-                <span className="text-muted-foreground">—</span>
-              ) : (
-                displayValue
-              )}
-            </p>
-            {delta !== undefined && value !== undefined && value !== null && (
-              <span
-                className={cn(
-                  'flex items-center gap-0.5 font-mono text-xs font-medium',
-                  delta >= 0 ? 'text-status-success-fg' : 'text-status-danger-fg',
-                )}
-              >
-                {delta >= 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
-                {Math.abs(delta)}%
-              </span>
-            )}
+                <span className="inline-block size-5 animate-pulse rounded-full bg-muted" />
+              ) : value !== null ? (
+                <span className="font-mono text-[11px] font-bold text-foreground">{Math.round(value)}</span>
+              ) : null}
+            </div>
           </div>
-          <p className="truncate text-sm text-muted-foreground">{label}</p>
+        ) : (
+          <div
+            className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-full',
+              accent ? ACCENT_CHIP_CLASS[accent] : iconClassName,
+            )}
+          >
+            <Icon className={accent ? 'size-4' : 'size-5'} />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          {!useRing && (
+            <div className="flex items-baseline gap-2">
+              <p className="font-mono text-2xl font-semibold text-foreground">
+                {value === undefined ? (
+                  <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
+                ) : value === null ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : (
+                  displayValue
+                )}
+              </p>
+              {delta !== undefined && value !== undefined && value !== null && (
+                <span
+                  className={cn(
+                    'flex items-center gap-0.5 font-mono text-xs font-medium',
+                    delta >= 0 ? 'text-status-success-fg' : 'text-status-danger-fg',
+                  )}
+                >
+                  {delta >= 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+                  {Math.abs(delta)}%
+                </span>
+              )}
+            </div>
+          )}
+          <p className={cn('truncate text-sm text-muted-foreground', useRing && 'font-medium text-foreground')}>{label}</p>
+          {useRing && delta !== undefined && value !== undefined && value !== null && (
+            <span
+              className={cn(
+                'mt-0.5 flex items-center gap-0.5 font-mono text-xs font-medium',
+                delta >= 0 ? 'text-status-success-fg' : 'text-status-danger-fg',
+              )}
+            >
+              {delta >= 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+              {Math.abs(delta)}%
+            </span>
+          )}
         </div>
         {trend && trend.length >= 2 && (
           <Sparkline
@@ -118,9 +190,21 @@ export function StatCard({ label, value, icon: Icon, iconClassName, accent, delt
         )}
       </div>
       {progress && progress.total > 0 && (
+        // Bug fix — this used to read `bg-brand-accent`, the same static
+        // pre-Ember hex (#4A44C4, tailwind.config.js) already found and
+        // fixed once in card.tsx's CARD_GRADIENT; it survived here as a
+        // separate, unrelated leftover. `primary` is the correct token —
+        // already the app's Ember accent everywhere else (Card's own
+        // gradient tint, the sidebar's active pill, hero panels), and it
+        // already resolves through `.app-shell` in both light and dark.
+        // Kept as a thin bar with rounded ends (not converted to a
+        // ScoreRing) — this is a "part of a whole" strip sitting beneath
+        // an already-primary count, not a standalone percentage; a ring
+        // would compete with the count for attention and force a bigger
+        // layout change than the reported bug (a wrong color) calls for.
         <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-brand-accent"
+            className="h-full rounded-full bg-primary"
             style={{ width: `${Math.min(100, (progress.value / progress.total) * 100)}%` }}
           />
         </div>

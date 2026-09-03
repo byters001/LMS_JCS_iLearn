@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { Combobox } from '@/components/Combobox'
+import { Bar3DShapeTop } from '@/components/charts/Bar3DShape'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -140,7 +141,7 @@ export default function SuperAdminAnalyticsPage() {
             {/* Segmented toggle, not a dropdown — same pattern
                 DownloadCsvDialog.tsx's Format control already established
                 for a small, fixed set of mutually-exclusive options. */}
-            <div className="inline-flex rounded-md border border-input p-0.5">
+            <div className="inline-flex rounded-full border border-input p-0.5">
               {PROCTORING_WINDOW_OPTIONS.map((option) => (
                 <button
                   key={option.days}
@@ -148,7 +149,7 @@ export default function SuperAdminAnalyticsPage() {
                   onClick={() => setProctoringDays(option.days)}
                   aria-pressed={proctoringDays === option.days}
                   className={cn(
-                    'rounded px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    'rounded-full px-3 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     proctoringDays === option.days
                       ? 'bg-shell-accent text-white'
                       : 'text-muted-foreground hover:text-primary',
@@ -193,7 +194,7 @@ export default function SuperAdminAnalyticsPage() {
       >
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-4xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-md lg:col-span-3"
         >
           {(proctoringActivity.data?.totalEvents ?? 0) > 0 && (
             <div
@@ -274,7 +275,7 @@ export default function SuperAdminAnalyticsPage() {
             {proctoringActivity.data && recentEventsPreview.length > 0 && (
               <ul className="mt-2.5 space-y-1.5">
                 {recentEventsPreview.map((event) => (
-                  <li key={event.id} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+                  <li key={event.id} className="flex items-center justify-between gap-2 rounded-xl bg-muted/40 p-2">
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium text-primary">{event.studentName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{event.assessmentTitle}</p>
@@ -343,7 +344,7 @@ export default function SuperAdminAnalyticsPage() {
                   ]
                 }}
               />
-              <Bar dataKey="averageScorePercent" fill={SCORE_COLOR} radius={[4, 4, 0, 0]} maxBarSize={56} />
+              <Bar dataKey="averageScorePercent" fill={SCORE_COLOR} shape={Bar3DShapeTop} maxBarSize={56} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -406,14 +407,14 @@ export default function SuperAdminAnalyticsPage() {
                 dataKey="firstAttemptAvgPercent"
                 name="firstAttemptAvgPercent"
                 fill={SCORE_COLOR}
-                radius={[4, 4, 0, 0]}
+                shape={Bar3DShapeTop}
                 maxBarSize={40}
               />
               <Bar
                 dataKey="latestAttemptAvgPercent"
                 name="latestAttemptAvgPercent"
                 fill={IMPROVEMENT_COLOR}
-                radius={[4, 4, 0, 0]}
+                shape={Bar3DShapeTop}
                 maxBarSize={40}
               />
             </BarChart>

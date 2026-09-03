@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import {
   Table,
@@ -82,9 +83,9 @@ function TypeCard({
       aria-expanded={isSelected}
       onClick={onSelect}
       className={cn(
-        'rounded-xl border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
+        'rounded-3xl bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
         CARD_GRADIENT,
-        isSelected ? 'border-shell-accent ring-2 ring-shell-accent/20' : 'border-border',
+        isSelected && 'ring-2 ring-shell-accent shadow-md',
       )}
     >
       <div className="flex items-center gap-3">
@@ -131,9 +132,9 @@ function DifficultySubCard({
       aria-expanded={isSelected}
       onClick={onSelect}
       className={cn(
-        'rounded-lg border bg-card px-3.5 py-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
+        'rounded-2xl bg-card px-3.5 py-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
         CARD_GRADIENT,
-        isSelected ? 'border-shell-accent ring-2 ring-shell-accent/20' : 'border-border',
+        isSelected && 'ring-2 ring-shell-accent shadow-md',
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -334,7 +335,7 @@ export default function QuestionListPage() {
               )}
 
               {!questions.isPending && !questions.isError && (
-                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                <Card className="gap-0 overflow-hidden p-0">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -394,7 +395,7 @@ export default function QuestionListPage() {
                       </Button>
                     </div>
                   </div>
-                </div>
+                </Card>
               )}
             </div>
           )}
