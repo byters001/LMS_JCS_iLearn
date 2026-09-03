@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -99,21 +100,20 @@ export function StudentRosterTable({
   const toggleError = archiveStudentProfile.error ?? updateStudentProfile.error
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
-        <input
-          type="checkbox"
+        <Switch
+          size="sm"
           checked={includeArchived}
-          onChange={(event) => onIncludeArchivedChange(event.target.checked)}
-          className="accent-brand-accent"
+          onCheckedChange={onIncludeArchivedChange}
         />
         Show archived students
       </label>
 
       {studentsQuery.isPending && (
-        <div className="space-y-2" role="status" aria-label="Loading students">
+        <div className="space-y-1.5" role="status" aria-label="Loading students">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
+            <div key={i} className="h-8 animate-pulse rounded-md bg-muted" />
           ))}
         </div>
       )}
@@ -149,7 +149,7 @@ export function StudentRosterTable({
               ) : (
                 studentsQuery.data.items.map((student) => (
                   <TableRow key={student.id} className="hover:bg-muted/30">
-                    <TableCell className="pl-4 font-medium text-brand-primary">
+                    <TableCell className="pl-4 font-medium text-foreground">
                       {student.fullName ?? '—'}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -165,7 +165,7 @@ export function StudentRosterTable({
                       <StatusBadge status={student.status} />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
                         <Button variant="outline" size="sm" onClick={() => setEditingStudent(student)}>
                           Edit
                         </Button>
@@ -177,7 +177,7 @@ export function StudentRosterTable({
                           className={
                             student.status === 'active'
                               ? 'border-destructive text-destructive hover:bg-destructive/5'
-                              : 'border-brand-primary text-brand-primary hover:bg-brand-primary/5'
+                              : 'border-primary text-primary hover:bg-primary/5'
                           }
                         >
                           {student.status === 'active' ? 'Archive' : 'Reactivate'}
@@ -198,7 +198,7 @@ export function StudentRosterTable({
             </p>
           ) : null}
 
-          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2.5">
+          <div className="flex items-center justify-between border-t border-border bg-muted/10 px-3.5 py-2">
             <p className="text-sm text-muted-foreground">
               Page {studentsQuery.data.page} of {totalPages} &middot; {studentsQuery.data.total}{' '}
               student
@@ -209,7 +209,7 @@ export function StudentRosterTable({
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || studentsQuery.isFetching}
                 onClick={() => onPageChange(Math.max(1, page - 1))}
               >
@@ -218,7 +218,7 @@ export function StudentRosterTable({
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || studentsQuery.isFetching}
                 onClick={() => onPageChange(Math.min(totalPages, page + 1))}
               >

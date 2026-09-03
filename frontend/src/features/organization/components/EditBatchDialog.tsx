@@ -84,17 +84,17 @@ export function EditBatchDialog({ batch, open, onOpenChange }: EditBatchDialogPr
           <DialogDescription>Update {batch.name}&apos;s name or capacity.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="batchName" className="text-sm font-medium text-brand-primary">
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+          <div className="space-y-1">
+            <label htmlFor="batchName" className="text-sm font-medium text-foreground">
               Name
             </label>
             <Input id="batchName" {...register('name')} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="batchMaxStudents" className="text-sm font-medium text-brand-primary">
+          <div className="space-y-1">
+            <label htmlFor="batchMaxStudents" className="text-sm font-medium text-foreground">
               Max Students <span className="text-muted-foreground">(optional)</span>
             </label>
             <Input id="batchMaxStudents" type="number" min={1} {...register('maxStudents')} />

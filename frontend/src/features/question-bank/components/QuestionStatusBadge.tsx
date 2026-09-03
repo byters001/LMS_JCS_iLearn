@@ -12,14 +12,19 @@ const STATUS_LABELS: Record<QuestionStatus, string> = {
   archived: 'Archived',
 }
 
-const STATUS_STYLES: Record<QuestionStatus, string> = {
-  draft: 'bg-muted text-muted-foreground',
-  pending_review: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  approved: 'bg-green-600/10 text-green-700 dark:text-green-400',
-  rejected: 'bg-destructive/10 text-destructive',
-  archived: 'bg-muted text-muted-foreground/60',
+// Badge's own semantic variants (status-*/accent-* tokens, theme-aware) —
+// draft/archived read as neutral, pending_review as warning, approved as
+// success, rejected as danger. Replaces the old hand-rolled green-600/
+// amber-500/destructive Tailwind-gray classes with the shared token set
+// every other status pill in the app now uses.
+const STATUS_VARIANTS: Record<QuestionStatus, 'neutral' | 'warning' | 'success' | 'danger'> = {
+  draft: 'neutral',
+  pending_review: 'warning',
+  approved: 'success',
+  rejected: 'danger',
+  archived: 'neutral',
 }
 
 export function QuestionStatusBadge({ status }: { status: QuestionStatus }) {
-  return <Badge className={STATUS_STYLES[status]}>{STATUS_LABELS[status]}</Badge>
+  return <Badge variant={STATUS_VARIANTS[status]}>{STATUS_LABELS[status]}</Badge>
 }

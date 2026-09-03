@@ -28,6 +28,9 @@ const STATUS_OPTIONS: Array<{ value: StudentStatus | ''; label: string }> = [
   { value: 'archived', label: 'Archived only' },
 ]
 
+const selectClassName =
+  'w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+
 // Columns are full_name/email/reg_no/department/status, fixed server-side
 // (see students.service.ts's toCsv) — this dialog only controls which ROWS
 // go in the file (first N / department / status, combinable), not which
@@ -80,46 +83,48 @@ export function DownloadCsvDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="space-y-1.5">
-            <label htmlFor="csvLimit" className="text-sm font-medium text-brand-primary">
-              First N students <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <Input
-              id="csvLimit"
-              type="number"
-              min={1}
-              placeholder="All matching students"
-              value={limit}
-              onChange={(event) => setLimit(event.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="csvLimit" className="text-sm font-medium text-foreground">
+                First N students <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Input
+                id="csvLimit"
+                type="number"
+                min={1}
+                placeholder="All matching"
+                value={limit}
+                onChange={(event) => setLimit(event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="csvDepartment" className="text-sm font-medium text-foreground">
+                Department
+              </label>
+              <select
+                id="csvDepartment"
+                className={selectClassName}
+                value={departmentId}
+                onChange={(event) => setDepartmentId(event.target.value)}
+              >
+                <option value="">Any department</option>
+                {departmentOptions.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="csvDepartment" className="text-sm font-medium text-brand-primary">
-              Department <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <select
-              id="csvDepartment"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-              value={departmentId}
-              onChange={(event) => setDepartmentId(event.target.value)}
-            >
-              <option value="">Any department</option>
-              {departmentOptions.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="csvStatus" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="csvStatus" className="text-sm font-medium text-foreground">
               Status
             </label>
             <select
               id="csvStatus"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+              className={selectClassName}
               value={status}
               onChange={(event) => setStatus(event.target.value as StudentStatus | '')}
             >
@@ -132,7 +137,7 @@ export function DownloadCsvDialog({
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-brand-primary">Format</p>
+            <p className="text-sm font-medium text-foreground">Format</p>
             {/* Two-button toggle, not a dropdown — only two options, and a
                 toggle makes the current selection visible at a glance
                 without an extra click to open it. */}
@@ -143,10 +148,10 @@ export function DownloadCsvDialog({
                   type="button"
                   onClick={() => setFormat(option)}
                   className={cn(
-                    'rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                    'rounded px-3 py-1 text-sm font-medium transition-colors',
                     format === option
-                      ? 'bg-brand-accent text-white'
-                      : 'text-muted-foreground hover:text-brand-primary',
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {option === 'csv' ? 'CSV' : 'Excel'}

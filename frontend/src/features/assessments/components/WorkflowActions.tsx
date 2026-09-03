@@ -13,7 +13,7 @@ import {
 import type { AssessmentStatus } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 const notesFormSchema = z.object({ notes: z.string().optional() })
 type NotesFormValues = z.infer<typeof notesFormSchema>
@@ -130,7 +130,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
       >
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-brand-primary">Start</label>
+            <label className="text-xs font-medium text-foreground">Start</label>
             <input type="datetime-local" className={inputClassName} {...scheduleForm.register('startAt')} />
             {scheduleForm.formState.errors.startAt && (
               <p className="text-xs text-destructive">
@@ -139,7 +139,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
             )}
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-brand-primary">End</label>
+            <label className="text-xs font-medium text-foreground">End</label>
             <input type="datetime-local" className={inputClassName} {...scheduleForm.register('endAt')} />
             {scheduleForm.formState.errors.endAt && (
               <p className="text-xs text-destructive">{scheduleForm.formState.errors.endAt.message}</p>
@@ -164,11 +164,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
         className="space-y-3"
       >
         <NotesField form={notesForm} />
-        <Button
-          type="submit"
-          disabled={publishAssessment.isPending}
-          className="bg-brand-accent text-white hover:bg-brand-accent/90"
-        >
+        <Button type="submit" disabled={publishAssessment.isPending}>
           {publishAssessment.isPending ? 'Publishing…' : 'Publish'}
         </Button>
         <ActionError error={activeError} />
@@ -186,7 +182,7 @@ export function WorkflowActions({ assessmentId, status }: WorkflowActionsProps) 
 function NotesField({ form }: { form: ReturnType<typeof useForm<NotesFormValues>> }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-brand-primary">
+      <label className="text-xs font-medium text-foreground">
         Notes <span className="text-muted-foreground">(optional)</span>
       </label>
       <textarea rows={2} className={inputClassName} {...form.register('notes')} />

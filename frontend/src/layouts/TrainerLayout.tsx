@@ -1,12 +1,15 @@
 import { BarChart3, ClipboardList, HelpCircle, Layers } from 'lucide-react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserAvatarMenu } from '@/components/UserAvatarMenu'
 import { useLogout } from '@/features/auth/api'
 import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { GlobalSearch } from '@/features/search/components/GlobalSearch'
 import { Sidebar, type SidebarNavItem } from '@/layouts/components/Sidebar'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
+import { useUIStore } from '@/store/uiStore'
 
 // Backend role slug for this layout is 'faculty' (see routes/roles.ts).
 //
@@ -54,13 +57,14 @@ function TrainerLayout() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const logout = useLogout()
+  const theme = useUIStore((state) => state.theme)
 
   function handleLogout() {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
   }
 
   return (
-    <div className="theme-faculty flex min-h-screen bg-background text-foreground">
+    <div className={cn('app-shell flex min-h-screen bg-background text-foreground', theme === 'dark' && 'dark')}>
       <Sidebar navItems={NAV_ITEMS} />
 
       {/* min-w-0 is load-bearing here: without it, this flex child refuses
@@ -81,6 +85,7 @@ function TrainerLayout() {
               per-category rather than erroring the whole widget. */}
           <GlobalSearch basePath="/trainer" />
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationBell />
             <UserAvatarMenu
               name={user?.fullName ?? ''}

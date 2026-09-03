@@ -20,7 +20,7 @@ import { TagFilterChips } from './TagFilterChips'
 const PICKER_PAGE_SIZE = 100
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 const DIFFICULTY_OPTIONS: Array<{ value: QuestionDifficulty; label: string }> = [
   { value: 'easy', label: 'Easy' },
@@ -140,7 +140,7 @@ export function EditCriterionDialog({
             <div className="space-y-1.5">
               <label
                 htmlFor="editCriterionDifficulty"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Difficulty
               </label>
@@ -159,7 +159,7 @@ export function EditCriterionDialog({
             <div className="space-y-1.5">
               <label
                 htmlFor="editCriterionCountRequired"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Count Required
               </label>
@@ -175,7 +175,7 @@ export function EditCriterionDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary" htmlFor="editCriterionTopic">
+            <label className="text-sm font-medium text-foreground" htmlFor="editCriterionTopic">
               Topic <span className="text-muted-foreground">(optional)</span>
             </label>
             <Combobox
@@ -192,7 +192,7 @@ export function EditCriterionDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary">
+            <label className="text-sm font-medium text-foreground">
               Tag Filter{' '}
               <span className="text-muted-foreground">(optional — matches ANY listed tag)</span>
             </label>

@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Layers, UserCheck, Users } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
 import {
   Table,
   TableBody,
@@ -16,19 +21,42 @@ import type { TrainerOverviewNamedRef } from '../types'
 
 const PAGE_SIZE = 20
 const NAMED_REF_TRUNCATE_COUNT = 2
+// GET /trainers/overview only ever returns one page of rows (never fetch-
+// all-then-slice client-side), so this chart can only ever be a page-local
+// "top N of the visible 20" breakdown, not a global ranking — capped at 8
+// bars so it stays a glanceable read alongside the table, not a second
+// near-duplicate of it.
+const TOP_TRAINERS_CHART_COUNT = 8
+
+interface TrainerBatchChartPoint {
+  name: string
+  batches: number
+}
+
+interface ChartTooltipProps {
+  active?: boolean
+  label?: string
+  payload?: Array<{ value: number }>
+}
+
+// Themed replacement for Recharts' unstyled default tooltip box (renders
+// broken-looking in dark mode) — bg-popover/border-border/text-popover-
+// foreground, the same tokens every other themed popover surface uses.
+function BatchCountTooltip({ active, label, payload }: ChartTooltipProps) {
+  if (!active || !payload?.length) return null
+  const value = payload[0].value
+  return (
+    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      <p className="font-medium text-popover-foreground">{label}</p>
+      <p className="text-muted-foreground">
+        {value} batch{value === 1 ? '' : 'es'}
+      </p>
+    </div>
+  )
+}
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
-  return (
-    <span
-      className={
-        isActive
-          ? 'rounded-full bg-brand-accent/10 px-2 py-0.5 text-xs font-medium text-brand-accent'
-          : 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'
-      }
-    >
-      {isActive ? 'active' : 'inactive'}
-    </span>
-  )
+  return <Badge variant={isActive ? 'success' : 'neutral'}>{isActive ? 'active' : 'inactive'}</Badge>
 }
 
 // Named refs (colleges/departments) render as a comma-joined list, capped
@@ -50,15 +78,6 @@ function NamedRefList({ refs }: { refs: TrainerOverviewNamedRef[] }) {
   )
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={cn('rounded-lg border border-border bg-background p-3.5', CARD_GRADIENT)}>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
-    </div>
-  )
-}
-
 // Super Admin only — the route this page lives on is already gated by
 // RequireRole (routes/index.tsx), same as every other /admin page. "Trainer"
 // here means a user holding the 'faculty' role (see the backend's own
@@ -71,32 +90,58 @@ export default function TrainersDashboardPage() {
   const items = trainers.data?.items ?? []
   const total = trainers.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const activeCount = items.filter((trainer) => trainer.isActive).length
+  const batchSum = items.reduce((sum, trainer) => sum + trainer.batchCount, 0)
+
+  // Real per-trainer data (batchCount — the same number shown in the
+  // table's own "Batches" column), just resorted and capped for a
+  // glanceable chart, never invented. Scoped to the current page only —
+  // same page-local-aggregate caveat as the two "(this page)" stat cards
+  // below, since no endpoint returns a cross-page ranking to chart instead.
+  const chartData: TrainerBatchChartPoint[] = [...items]
+    .sort((a, b) => b.batchCount - a.batchCount)
+    .slice(0, TOP_TRAINERS_CHART_COUNT)
+    .map((trainer) => ({ name: trainer.fullName, batches: trainer.batchCount }))
 
   return (
-    <div className="space-y-3 p-4">
-      <div>
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Trainers</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Which trainer works in which college, department, and batch — click a trainer for their
-          performance trend.
-        </p>
-      </div>
+    <div className="space-y-4 p-4">
+      <PageHeader
+        title="Trainers"
+        description="Which trainer works in which college, department, and batch — click a trainer for their performance trend."
+      />
 
-      {/* Headline number before the table, same "stat tiles precede detail"
-          pattern as BatchPerformancePage — only the server-reported total is
-          shown here (not a page-scoped sum), since a page-local aggregate
-          presented without that caveat would misleadingly read as global. */}
+      {/* Headline numbers before the table/chart, same "stat tiles precede
+          detail" pattern as BatchPerformancePage. Total Trainers is the one
+          server-reported global count (trainers.data.total); the other two
+          are explicitly labeled "(this page)" since GET /trainers/overview
+          only ever returns one page of rows at a time — presenting a
+          page-local sum as if it were global would misrepresent it (same
+          reasoning this page's original single-stat version already
+          documented). */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile label="Total Trainers" value={String(total)} />
+        <StatCard
+          label="Total Trainers"
+          value={trainers.isPending ? undefined : total}
+          icon={Users}
+          iconClassName="bg-accent-indigo-bg text-accent-indigo-fg"
+          accent="indigo"
+        />
+        <StatCard
+          label="Active (this page)"
+          value={trainers.isPending ? undefined : activeCount}
+          icon={UserCheck}
+          iconClassName="bg-accent-teal-bg text-accent-teal-fg"
+          accent="teal"
+          progress={items.length > 0 ? { value: activeCount, total: items.length } : undefined}
+        />
+        <StatCard
+          label="Batches (this page)"
+          value={trainers.isPending ? undefined : batchSum}
+          icon={Layers}
+          iconClassName="bg-accent-amber-bg text-accent-amber-fg"
+          accent="amber"
+        />
       </div>
-
-      {trainers.isPending && (
-        <div className="space-y-2" role="status" aria-label="Loading trainers">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
-          ))}
-        </div>
-      )}
 
       {trainers.isError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
@@ -104,6 +149,50 @@ export default function TrainersDashboardPage() {
             ? trainers.error.message
             : 'Failed to load trainers. Please try again.'}
         </div>
+      )}
+
+      {trainers.isPending && (
+        <div className="space-y-2" role="status" aria-label="Loading trainers">
+          <div className="h-48 animate-pulse rounded-lg bg-muted" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />
+          ))}
+        </div>
+      )}
+
+      {!trainers.isPending && !trainers.isError && chartData.length > 0 && (
+        <Card className="space-y-3 p-3.5">
+          <div>
+            <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              Top Trainers by Batch Count
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Current page only, sorted by assigned batch count.
+            </p>
+          </div>
+          <ResponsiveContainer width="100%" height={Math.max(160, chartData.length * 32)}>
+            <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid horizontal={false} stroke="var(--border)" />
+              <XAxis
+                type="number"
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={{ stroke: 'var(--border)' }}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={140}
+                tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip content={<BatchCountTooltip />} cursor={{ fill: 'var(--muted)' }} />
+              <Bar dataKey="batches" fill="var(--chart-1)" radius={[0, 4, 4, 0]} maxBarSize={18} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
       )}
 
       {!trainers.isPending && !trainers.isError && (
@@ -130,10 +219,7 @@ export default function TrainersDashboardPage() {
                 items.map((trainer) => (
                   <TableRow key={trainer.trainerId} className="hover:bg-muted/30">
                     <TableCell className="pl-4 font-medium">
-                      <Link
-                        to={trainer.trainerId}
-                        className="text-brand-primary hover:underline"
-                      >
+                      <Link to={trainer.trainerId} className="text-primary hover:underline">
                         {trainer.fullName}
                       </Link>
                     </TableCell>
@@ -166,7 +252,7 @@ export default function TrainersDashboardPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || trainers.isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -175,7 +261,7 @@ export default function TrainersDashboardPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || trainers.isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >

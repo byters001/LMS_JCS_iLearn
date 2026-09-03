@@ -146,7 +146,7 @@ export function BatchesEditor({ assessmentId, status, batchIds }: BatchesEditorP
                 return (
                   <li
                     key={id}
-                    className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-brand-primary"
+                    className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground"
                   >
                     {/* College name shown automatically alongside the batch,
                         read-only, derived from the batch's own

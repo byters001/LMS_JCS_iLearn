@@ -31,7 +31,7 @@ const attachQuestionFormSchema = z.object({
 type AttachQuestionFormValues = z.infer<typeof attachQuestionFormSchema>
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 // A small, bounded page — this feeds AttachQuestionForm's combobox, which
 // enriches every row with a per-question detail fetch to get real text (see
@@ -189,7 +189,7 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
             {categoryId && (
               <button
                 type="button"
-                className="text-xs font-medium text-brand-accent hover:underline"
+                className="text-xs font-medium text-primary hover:underline"
                 onClick={() => setCategoryId('')}
               >
                 Clear
@@ -213,7 +213,7 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
             {topicId && (
               <button
                 type="button"
-                className="text-xs font-medium text-brand-accent hover:underline"
+                className="text-xs font-medium text-primary hover:underline"
                 onClick={() => setTopicId('')}
               >
                 Clear
@@ -278,8 +278,8 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
             attempt-taker will be offered for THIS assessment only — the
             question's own supportedLanguages is never modified. */}
         {questionVersionId && questionSupportedLanguages.length > 0 && (
-          <div className="space-y-1.5 rounded-md border border-dashed border-input p-3">
-            <p className="text-xs font-medium text-brand-primary">
+          <div className="space-y-1.5 rounded-lg border border-dashed border-input p-2.5">
+            <p className="text-xs font-medium text-foreground">
               Restrict Languages <span className="text-muted-foreground">(optional)</span>
             </p>
             <p className="text-xs text-muted-foreground">
@@ -287,7 +287,7 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
             </p>
             <div className="flex flex-wrap gap-3">
               {questionSupportedLanguages.map((lang) => (
-                <label key={lang} className="flex items-center gap-1.5 text-xs text-brand-primary">
+                <label key={lang} className="flex items-center gap-1.5 text-xs text-foreground">
                   <input
                     type="checkbox"
                     checked={allowedLanguages.includes(lang)}

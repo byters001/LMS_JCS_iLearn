@@ -37,14 +37,47 @@ const NEEDS_ATTENTION_SHOWN = 6
 // codebase has a built-in "all" option).
 const ALL_BATCHES_VALUE = '__all__'
 
-// Same brand-accent/green pair Phase 2 already established (BatchPerformancePage's
-// HISTOGRAM_COLOR / PASS_COLOR) — no new hues on this page either.
-const SCORE_COLOR = '#4F46E5'
+// Obsidian & Ember phase — SCORE_COLOR was a hardcoded '#4F46E5', the old
+// indigo shell-accent hex baked directly into a JS constant instead of
+// deriving from a token. Recharts fill/stroke props accept a live CSS
+// custom-property string same as Sparkline.tsx already relies on, so this
+// now tracks the theme's own chart-1 (ember in both light and dark) instead
+// of a frozen old-palette color. IMPROVEMENT_COLOR stays green — a
+// semantic "positive change" encoding (same pair BatchPerformancePage's
+// PASS_COLOR/HISTOGRAM_COLOR use), not part of the rejected brand identity.
+const SCORE_COLOR = 'var(--chart-1)'
 const IMPROVEMENT_COLOR = '#16a34a'
 
 function formatPercent(value: number | null | undefined): number | null | undefined {
   if (value === null || value === undefined) return value
   return Math.round(value)
+}
+
+// Themed Tooltip content — Recharts' default Tooltip renders unstyled white,
+// which breaks in dark mode (mandatory design-system rule). Token classes
+// only (bg-popover/text-popover-foreground/border-border), so it repaints
+// correctly in both .app-shell states with zero props needed per caller.
+// Payload/value typed loosely (`any`), not against recharts' own generic
+// TooltipContentProps — that type is parameterized over ValueType/NameType
+// in a way that fights a plain spread into a narrowly-typed local component;
+// this is the standard pragmatic escape hatch for a Recharts custom
+// tooltip, scoped to this one small formatter, not a project-wide loosening.
+function RadarTooltipContent({ active, payload }: { active?: boolean; payload?: any }) {
+  if (!active || !payload || payload.length === 0) return null
+  return (
+    <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      {payload.map((entry: any, i: number) => (
+        <p key={i} className="flex items-center gap-1.5 text-popover-foreground">
+          <span
+            className="size-2 shrink-0 rounded-full"
+            style={{ backgroundColor: entry.color }}
+            aria-hidden="true"
+          />
+          {entry.name}: {Math.round(Number(entry.value))}%
+        </p>
+      ))}
+    </div>
+  )
 }
 
 const ASSESSMENT_STATUS_BADGE: Record<string, 'live' | 'scheduled'> = {
@@ -147,13 +180,19 @@ export default function FacultyAnalyticsPage() {
 
       </PageHeader>
 
-      {/* Structural language shared with StudentDashboardPage's Parchment &
-          Emerald redesign, adapted to Faculty's own real numbers. Now on
-          Faculty's own "Slate & Amber" scoped theme (.theme-faculty in
-          globals.css, applied on TrainerLayout's root) — faculty-* tokens
-          in tailwind.config.js drive the hero gradient/rail; shell-accent
-          resolves per-scope automatically (see globals.css's .theme-faculty
-          comment), so the corner badge below needed no code change at all.
+      {/* Structural language shared with StudentDashboardPage's own hero card
+          — same brand-gradient-from/to token pair (a solid brand-colored
+          block with white text is one of the cases those static hex tokens
+          stay correct for, unlike body/label text on bg-background/bg-card).
+          The old per-role .theme-faculty scope this used to read
+          faculty-gradient-from/to from is gone (superseded by the shared
+          .app-shell system) — those classes were never re-wired into
+          tailwind.config.js after that migration, so the gradient was
+          silently painting nothing (transparent bg, invisible white text on
+          it). Fixed to the same real, still-wired brand-gradient-from/to
+          pair StudentDashboardPage's hero already uses. shell-accent (the
+          corner badge/progress-bar color below) is unaffected — that token
+          is still defined per-scope in globals.css's .app-shell block.
           Avg Score is the hero: the one number a Faculty
           member most wants at a glance (are my students actually learning),
           rendered as the same bespoke ring StudentDashboardPage uses rather
@@ -172,7 +211,7 @@ export default function FacultyAnalyticsPage() {
       >
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-gradient-to-br from-faculty-gradient-from to-faculty-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-sm lg:col-span-3"
         >
           {!needsAttentionPending && needsAttentionRows.length > 0 && (
             <div
@@ -465,7 +504,7 @@ export default function FacultyAnalyticsPage() {
                 fillOpacity={0.25}
               />
               <Legend />
-              <Tooltip formatter={(value) => `${Math.round(Number(value))}%`} />
+              <Tooltip content={(props) => <RadarTooltipContent {...props} />} />
             </RadarChart>
           </ResponsiveContainer>
         )}

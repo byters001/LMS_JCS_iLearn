@@ -119,7 +119,7 @@ export default function DepartmentListPage() {
               ) : (
                 departments.data.items.map((department) => (
                   <TableRow key={department.id} className="hover:bg-muted/30">
-                    <TableCell className="pl-4 font-medium text-brand-primary">
+                    <TableCell className="pl-4 font-medium text-primary">
                       {department.name}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -161,7 +161,7 @@ export default function DepartmentListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || departments.isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -170,7 +170,7 @@ export default function DepartmentListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || departments.isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { isFullscreenSupported } from '@/lib/fullscreen'
 import { checkCameraAccess, checkMicrophoneAccess } from '@/lib/mediaPermissions'
 import { checkNetworkStability } from '@/lib/networkCheck'
@@ -53,7 +54,7 @@ function StatusIcon({ status }: { status: CheckStatus }) {
     return <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
   }
   if (status === 'success') {
-    return <CheckCircle2 className="size-4 shrink-0 text-green-600 dark:text-green-500" aria-hidden="true" />
+    return <CheckCircle2 className="size-4 shrink-0 text-status-success-fg" aria-hidden="true" />
   }
   return <XCircle className="size-4 shrink-0 text-destructive" aria-hidden="true" />
 }
@@ -144,13 +145,13 @@ export function SystemCheckCard({ onAllChecksPassedChange }: SystemCheckCardProp
   }, [allPassed, onAllChecksPassedChange])
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
-      <h2 className="font-heading text-xl font-semibold text-brand-primary">System Check</h2>
+    <Card className="gap-0 p-4">
+      <h2 className="font-heading text-xl font-semibold text-foreground">System Check</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         We check your camera, microphone, connection, and browser before you begin.
       </p>
 
-      <ul className="mt-4 space-y-2.5">
+      <ul className="mt-4 space-y-2">
         {CHECK_ORDER.map((id) => {
           const meta = CHECK_META[id]
           const state = checks[id]
@@ -158,14 +159,14 @@ export function SystemCheckCard({ onAllChecksPassedChange }: SystemCheckCardProp
             <li
               key={id}
               className={cn(
-                'flex items-start justify-between gap-3 rounded-md border p-3',
+                'flex items-start justify-between gap-3 rounded-lg border p-2.5',
                 state.status === 'failure' ? 'border-destructive/30 bg-destructive/5' : 'border-border',
               )}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <StatusIcon status={state.status} />
-                  <span className="text-sm font-medium text-brand-primary">{meta.label}</span>
+                  <span className="text-sm font-medium text-foreground">{meta.label}</span>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
                 {state.status === 'failure' && (
@@ -186,6 +187,6 @@ export function SystemCheckCard({ onAllChecksPassedChange }: SystemCheckCardProp
           )
         })}
       </ul>
-    </div>
+    </Card>
   )
 }

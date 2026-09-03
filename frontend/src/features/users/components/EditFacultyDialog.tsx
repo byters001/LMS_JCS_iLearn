@@ -86,16 +86,16 @@ export function EditFacultyDialog({ user, open, onOpenChange }: EditFacultyDialo
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-brand-primary">Email</p>
-            <p className="rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <p className="text-sm font-medium text-foreground">Email</p>
+            <p className="rounded-md border border-input bg-muted px-2.5 py-1.5 text-sm text-muted-foreground">
               {user.email}
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="facultyEditFullName" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="facultyEditFullName" className="text-sm font-medium text-foreground">
               Full Name
             </label>
             <Input id="facultyEditFullName" {...register('fullName')} />

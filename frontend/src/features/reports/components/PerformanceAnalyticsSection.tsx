@@ -35,11 +35,13 @@ const MAX_CHART_POINTS = 20
 // emerald) automatically instead of needing a hardcoded student-specific
 // hex that Tailwind's static color config isn't involved in at all.
 const SCORE_LINE_COLOR = 'var(--primary)'
-// Phase 4 (AttemptReportPage.tsx's highlightAttemptId dot) — same green
-// this codebase already uses for "this is the positive/highlighted one"
-// elsewhere (BatchPerformancePage.tsx's PASS_COLOR, the Super Admin/Faculty
-// analytics pages' own IMPROVEMENT_COLOR) — no new hue introduced.
-const IMPROVEMENT_DOT_COLOR = '#16a34a'
+// Phase 4 (AttemptReportPage.tsx's highlightAttemptId dot) — the same
+// success/positive meaning this codebase's status-success token already
+// carries elsewhere (BatchPerformancePage.tsx's PASS_COLOR, the Super
+// Admin/Faculty analytics pages' own IMPROVEMENT_COLOR), now resolved via
+// the theme-aware CSS var instead of a hardcoded hex so the highlighted dot
+// repaints correctly in dark mode too.
+const IMPROVEMENT_DOT_COLOR = 'var(--status-success-fg)'
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short' })
 
@@ -90,6 +92,29 @@ function toCompletedAttempts(items: MyAttemptSummary[]): { attempt: MyAttemptSum
     .filter((row): row is { attempt: MyAttemptSummary; score: number } => row.score !== null)
 }
 
+// Themed replacement for Recharts' default Tooltip (which renders unstyled
+// white and looks broken against a dark card) — same bg-popover/
+// text-popover-foreground/border-border shape BatchPerformancePage.tsx's
+// own chart tooltips already establish, so this repaints correctly in both
+// .app-shell states instead of shipping the raw default.
+function ScoreTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: { payload?: ChartPoint }[]
+}) {
+  if (!active || !payload || payload.length === 0) return null
+  const point = payload[0]?.payload
+  if (!point) return null
+  return (
+    <div className="max-w-48 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      <p className="truncate font-medium text-popover-foreground">{point.assessmentTitle}</p>
+      <p className="text-popover-foreground">{formatScore(point.score)} points &middot; {point.label}</p>
+    </div>
+  )
+}
+
 function DeltaCallout({ diff }: { diff: number }) {
   if (diff === 0) {
     return <p className="text-sm font-medium text-muted-foreground">No change vs last attempt</p>
@@ -97,7 +122,7 @@ function DeltaCallout({ diff }: { diff: number }) {
   const isUp = diff > 0
   return (
     <p
-      className={`flex items-center gap-1.5 text-sm font-medium ${isUp ? 'text-emerald-600' : 'text-destructive'}`}
+      className={`flex items-center gap-1.5 text-sm font-medium ${isUp ? 'text-status-success-fg' : 'text-destructive'}`}
     >
       <Triangle className={cn('size-4', !isUp && 'rotate-180')} fill="currentColor" />
       {isUp ? '+' : '-'}
@@ -250,12 +275,7 @@ export default function PerformanceAnalyticsSection({
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} label={{ value: 'Points', angle: -90, position: 'insideLeft', fontSize: 12 }} />
-            <Tooltip
-              formatter={(value) => [formatScore(Number(value)), 'Score']}
-              labelFormatter={(_label, payload) =>
-                payload?.[0]?.payload ? (payload[0].payload as ChartPoint).assessmentTitle : ''
-              }
-            />
+            <Tooltip content={<ScoreTooltipContent />} />
             <Area
               type="monotone"
               dataKey="score"

@@ -29,7 +29,7 @@ import type { CodingLanguageKey, CreateQuestionVersionInput, QuestionType } from
 // uses it as-is.
 
 export const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 // Same "validated string, converted once in onSubmit" convention as
 // CreateAssessmentPage.tsx — see that file's comment for why
@@ -261,7 +261,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
   return (
     <>
       <div className="space-y-1.5">
-        <label htmlFor="questionText" className="text-sm font-medium text-brand-primary">
+        <label htmlFor="questionText" className="text-sm font-medium text-foreground">
           Question Text
         </label>
         <textarea
@@ -276,7 +276,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-brand-primary">
+        <p className="text-sm font-medium text-foreground">
           Question Image <span className="text-muted-foreground">(optional)</span>
         </p>
         <ImageUploadField
@@ -287,7 +287,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
       </div>
 
       <div className="w-40 space-y-1.5">
-        <label htmlFor="marks" className="text-sm font-medium text-brand-primary">
+        <label htmlFor="marks" className="text-sm font-medium text-foreground">
           Marks <span className="text-muted-foreground">(default 1)</span>
         </label>
         <input id="marks" type="number" min={0} step="0.01" className={inputClassName} {...register('marks')} />
@@ -308,7 +308,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
                 aria-label={`Mark option ${index + 1} as correct`}
                 checked={watch(`options.${index}.isCorrect`)}
                 onChange={() => setCorrectOption(index)}
-                className="size-4 shrink-0 accent-brand-accent"
+                className="size-4 shrink-0 accent-primary"
               />
               <input
                 placeholder={`Option ${index + 1}`}
@@ -350,7 +350,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
       {type === 'coding' && (
         <div className="space-y-4 rounded-lg border border-border p-4">
           <div className="space-y-1.5">
-            <label htmlFor="problemStatement" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="problemStatement" className="text-sm font-medium text-foreground">
               Problem Statement
             </label>
             <textarea
@@ -366,22 +366,22 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">Input Format</label>
+              <label className="text-xs font-medium text-foreground">Input Format</label>
               <textarea rows={2} className={inputClassName} {...register('inputFormat')} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">Output Format</label>
+              <label className="text-xs font-medium text-foreground">Output Format</label>
               <textarea rows={2} className={inputClassName} {...register('outputFormat')} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">Constraints</label>
+              <label className="text-xs font-medium text-foreground">Constraints</label>
               <textarea rows={2} className={inputClassName} {...register('constraints')} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">
+              <label className="text-xs font-medium text-foreground">
                 Time Limit (ms) <span className="text-muted-foreground">(optional)</span>
               </label>
               <input type="number" min={1} className={inputClassName} {...register('timeLimitMs')} />
@@ -390,7 +390,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
               )}
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">
+              <label className="text-xs font-medium text-foreground">
                 Memory Limit (KB) <span className="text-muted-foreground">(optional)</span>
               </label>
               <input type="number" min={1} className={inputClassName} {...register('memoryLimitKb')} />
@@ -401,7 +401,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-brand-primary">
+            <p className="text-xs font-medium text-foreground">
               Supported Languages <span className="text-muted-foreground">(optional)</span>
             </p>
             <div className="flex flex-wrap gap-3">
@@ -411,7 +411,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
                     type="checkbox"
                     checked={supportedLanguages.includes(language)}
                     onChange={() => toggleLanguage(language)}
-                    className="accent-brand-accent"
+                    className="accent-primary"
                   />
                   {CODING_LANGUAGE_LABELS[language]}
                 </label>
@@ -448,7 +448,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
                     <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
-                        className="accent-brand-accent"
+                        className="accent-primary"
                         {...register(`testCases.${index}.isHidden`)}
                       />
                       Hidden
@@ -459,7 +459,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
                         type="number"
                         min={0}
                         step="0.01"
-                        className="w-24 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+                        className="w-24 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                         {...register(`testCases.${index}.points`)}
                       />
                     </div>
@@ -500,13 +500,13 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">
+              <label className="text-xs font-medium text-foreground">
                 Trait Category <span className="text-muted-foreground">(optional)</span>
               </label>
               <input className={inputClassName} {...register('traitCategory')} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-brand-primary">
+              <label className="text-xs font-medium text-foreground">
                 Scale Type <span className="text-muted-foreground">(optional)</span>
               </label>
               <select className={inputClassName} {...register('scaleType')}>
@@ -526,7 +526,7 @@ export function QuestionContentFields<TFieldValues extends QuestionContentFields
             </p>
             {psychometricOptionsArray.fields.map((field, index) => (
               <div key={field.id} className="flex items-center gap-2">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border text-xs font-semibold text-brand-primary">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-border text-xs font-semibold text-foreground">
                   {index + 1}
                 </span>
                 <input

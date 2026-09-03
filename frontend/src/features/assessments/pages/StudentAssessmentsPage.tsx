@@ -103,7 +103,7 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
       className={cn(
         'group flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-shell-accent/50 hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
         CARD_GRADIENT,
-        'from-student-primary/8',
+        'from-primary/8',
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -131,22 +131,16 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
           instead of the same solid CTA color every clickable action state
           uses, so it reads at a glance as "done", not "here's another thing
           to click." Still a real link to the results page — only the
-          styling branches, not the behavior.
-          Parchment & Emerald rollout — bg-brand-accent (navy-scoped)
-          promoted to student-accent/student-accent-foreground, the same
-          vivid-fill-needs-a-dark-not-white-foreground pairing the dashboard
-          hero's ring/medallion already use. Known seam: AssessmentDetailPage.tsx's
-          own Start/Continue/Retake button still explicitly matches the OLD
-          bg-brand-accent this comment used to describe — that page wasn't
-          in this phase's scope, so the two now visually disagree until it
-          gets the same promotion. */}
+          styling branches, not the behavior. Uses the plain default Button
+          variant's own bg-primary/text-primary-foreground (token-driven,
+          same pairing AssessmentDetailPage.tsx's Start/Continue/Retake
+          button uses) rather than a dead per-role student-accent color. */}
       <span
         className={cn(
           buttonVariants({ variant: buttonState.kind === 'completed' ? 'outline' : 'default' }),
           'mt-1 h-9 w-full',
-          buttonState.kind === 'completed'
-            ? 'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground'
-            : 'bg-student-accent text-student-accent-foreground group-hover:bg-student-accent/90',
+          buttonState.kind === 'completed' &&
+            'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground',
         )}
       >
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
@@ -193,10 +187,10 @@ function FeaturedAssessmentCard({ assessment }: { assessment: AvailableAssessmen
   return (
     <Link
       to={`/student/assessments/${assessment.id}`}
-      className="group mb-2.5 flex items-center justify-between gap-4 rounded-xl border border-border border-l-4 border-l-student-accent bg-card p-3.5 shadow-sm transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2"
+      className="group mb-2.5 flex items-center justify-between gap-4 rounded-xl border border-border border-l-4 border-l-primary bg-card p-3.5 shadow-sm transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2"
     >
       <div className="min-w-0">
-        <p className="font-mono text-[10px] font-semibold tracking-widest text-student-primary uppercase">
+        <p className="font-mono text-[10px] font-semibold tracking-widest text-primary uppercase">
           Up next
         </p>
         <h3 className="mt-0.5 truncate font-heading text-lg font-semibold text-foreground">{assessment.title}</h3>
@@ -208,12 +202,7 @@ function FeaturedAssessmentCard({ assessment }: { assessment: AvailableAssessmen
           </span>
         </div>
       </div>
-      <span
-        className={cn(
-          buttonVariants({ variant: 'default' }),
-          'h-9 shrink-0 bg-student-accent px-4 text-student-accent-foreground group-hover:bg-student-accent/90',
-        )}
-      >
+      <span className={cn(buttonVariants({ variant: 'default' }), 'h-9 shrink-0 px-4')}>
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
       </span>
     </Link>

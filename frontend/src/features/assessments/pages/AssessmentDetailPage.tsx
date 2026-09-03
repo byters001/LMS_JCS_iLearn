@@ -1,10 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Lock } from 'lucide-react'
+import { ArrowLeft, Clock, Lock, RotateCcw } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
-import type { ListAvailableAssessmentsResponse } from '../types'
+import type { Assessment, ListAvailableAssessmentsResponse } from '../types'
 
 function formatStartDate(startAt: string | null): string | null {
   if (!startAt) return null
@@ -16,6 +18,18 @@ const TEST_CATEGORY_LABELS: Record<string, string> = {
   coding: 'Coding',
   psychometric: 'Psychometric',
   mixed: 'Mixed',
+}
+
+// Same 'live'/'scheduled' Badge variants StudentAssessmentsPage.tsx's card
+// already establishes as the right meaning for these two statuses — kept as
+// its own small local copy rather than a cross-file import, matching this
+// codebase's existing convention of a page owning its own tiny status-badge
+// helper (see MyAttemptsListPage.tsx's STATUS_BADGE_VARIANT for the same
+// pattern) rather than reaching into a sibling page's component.
+function StatusBadge({ status }: { status: Assessment['status'] }) {
+  if (status === 'live') return <Badge variant="live">Live</Badge>
+  if (status === 'scheduled') return <Badge variant="scheduled">Scheduled</Badge>
+  return <Badge variant="secondary">{status}</Badge>
 }
 
 export default function AssessmentDetailPage() {
@@ -42,14 +56,16 @@ export default function AssessmentDetailPage() {
 
   if (!assessment) {
     return (
-      <div className="p-5">
-        <p className="text-sm text-muted-foreground">
-          Couldn&apos;t load this assessment&apos;s details directly.{' '}
-          <Link to="/student/assessments" className="text-brand-accent underline">
-            Go back to your assessments
-          </Link>
-          .
-        </p>
+      <div className="p-4">
+        <Card className="mx-auto max-w-xl gap-0 p-4">
+          <p className="text-sm text-muted-foreground">
+            Couldn&apos;t load this assessment&apos;s details directly.{' '}
+            <Link to="/student/assessments" className="text-primary underline">
+              Go back to your assessments
+            </Link>
+            .
+          </p>
+        </Card>
       </div>
     )
   }
@@ -61,31 +77,44 @@ export default function AssessmentDetailPage() {
   const buttonState = getAttemptButtonState(assessment)
 
   return (
-    <div className="p-5">
-      <Link to="/student/assessments" className="text-sm text-brand-accent hover:underline">
-        &larr; Back to assessments
+    <div className="space-y-3 p-4">
+      <Link
+        to="/student/assessments"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back to assessments
       </Link>
 
-      <div className="mt-3 max-w-xl rounded-lg border border-border bg-background p-4 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">{assessment.title}</h1>
-        <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+      <Card className="mx-auto max-w-xl gap-0 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-heading text-xl font-semibold text-foreground">{assessment.title}</h1>
+          <StatusBadge status={assessment.status} />
+        </div>
+        <Badge variant="secondary" className="mt-2">
           {TEST_CATEGORY_LABELS[assessment.testCategory] ?? assessment.testCategory}
-        </p>
+        </Badge>
 
         {assessment.description && (
           <p className="mt-3 text-sm text-muted-foreground">{assessment.description}</p>
         )}
 
-        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt className="text-muted-foreground">Timer</dt>
-            <dd className="font-medium text-brand-primary">
-              {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
-            </dd>
+        <dl className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Clock className="size-4 shrink-0 text-muted-foreground" />
+            <div>
+              <dt className="text-xs text-muted-foreground">Timer</dt>
+              <dd className="font-medium text-foreground">
+                {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
+              </dd>
+            </div>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Max attempts</dt>
-            <dd className="font-medium text-brand-primary">{assessment.maxAttempts}</dd>
+          <div className="flex items-center gap-2">
+            <RotateCcw className="size-4 shrink-0 text-muted-foreground" />
+            <div>
+              <dt className="text-xs text-muted-foreground">Max attempts</dt>
+              <dd className="font-medium text-foreground">{assessment.maxAttempts}</dd>
+            </div>
           </div>
         </dl>
 
@@ -100,7 +129,7 @@ export default function AssessmentDetailPage() {
             comment for the full reasoning): a real "opens at X" message,
             not a disabled button that still literally says "Start Test". */}
         {buttonState.kind === 'scheduled' ? (
-          <div className="mt-4 flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/40 p-3 text-sm text-muted-foreground">
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 p-3 text-sm text-muted-foreground">
             <Lock className="size-4 shrink-0" />
             {formatStartDate(buttonState.startAt)
               ? `Opens ${formatStartDate(buttonState.startAt)}`
@@ -111,15 +140,12 @@ export default function AssessmentDetailPage() {
           // report page (Phase 4, final — was the bare results page
           // before; StudentAssessmentsPage.tsx's card was repointed the
           // same way, same reasoning) — there's nothing left here to
-          // start. Item 1 fix — same distinct muted/outline treatment as
-          // the card, not the solid student-accent fill every clickable
-          // action state uses. Label now reads from the shared
-          // ATTEMPT_BUTTON_LABELS map (previously hardcoded text here,
-          // out of step with every other branch already reading from it).
+          // start. Same distinct muted/outline treatment as the card, not
+          // the solid primary fill every clickable action state uses.
           <Link
             to={`/student/attempts/${buttonState.resultsAttemptId}/report`}
             className={cn(
-              buttonVariants({ variant: 'outline' }),
+              buttonVariants({ variant: 'outline', size: 'lg' }),
               'mt-4 w-full border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
@@ -133,14 +159,15 @@ export default function AssessmentDetailPage() {
           // new one when one exists, so this click handler doesn't need to
           // know which case it is).
           <Button
-            className="mt-4 w-full bg-student-accent text-student-accent-foreground hover:bg-student-accent/90"
+            size="lg"
+            className="mt-4 w-full"
             disabled={buttonState.kind === 'not-live'}
             onClick={() => navigate(`/student/assessments/${assessment.id}/instructions`)}
           >
             {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
           </Button>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

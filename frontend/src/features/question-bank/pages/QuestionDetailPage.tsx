@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useQuestionDetail } from '../api'
 import { DeleteQuestionDialog } from '../components/DeleteQuestionDialog'
@@ -20,6 +22,12 @@ const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
+}
+
+const DIFFICULTY_VARIANTS: Record<QuestionDifficulty, 'success' | 'warning' | 'danger'> = {
+  easy: 'success',
+  medium: 'warning',
+  hard: 'danger',
 }
 
 function formatDate(value: string): string {
@@ -43,7 +51,7 @@ export default function QuestionDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-5">
+      <div className="p-4">
         <p className="text-sm text-muted-foreground">Loading question…</p>
       </div>
     )
@@ -51,7 +59,7 @@ export default function QuestionDetailPage() {
 
   if (isError || !question) {
     return (
-      <div className="p-5">
+      <div className="p-4">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load this question."}
         </p>
@@ -60,22 +68,20 @@ export default function QuestionDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
+    <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <Link to=".." className="text-sm text-primary hover:underline">
         &larr; Back to questions
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <Card className="p-3.5">
         <div className="flex items-start justify-between gap-4">
-          <p className="text-base text-brand-primary">
-            {question.currentVersion?.questionText ?? '—'}
-          </p>
+          <p className="text-base text-foreground">{question.currentVersion?.questionText ?? '—'}</p>
           <div className="flex shrink-0 items-center gap-2">
             <QuestionStatusBadge status={question.status} />
           </div>
         </div>
 
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
             Edit
           </Button>
@@ -87,39 +93,36 @@ export default function QuestionDetailPage() {
           <Button variant="outline" size="sm" asChild>
             <Link to="edit-content">Edit Content</Link>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-destructive text-destructive hover:bg-destructive/5"
-            onClick={() => setIsDeleteOpen(true)}
-          >
+          <Button variant="destructive" size="sm" onClick={() => setIsDeleteOpen(true)}>
             Delete
           </Button>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-4">
+        <dl className="mt-3.5 grid grid-cols-2 gap-3 border-t border-border pt-3.5 text-sm sm:grid-cols-4">
           <div>
-            <dt className="text-muted-foreground">Type</dt>
-            <dd className="font-medium text-brand-primary">{TYPE_LABELS[question.type]}</dd>
+            <dt className="text-xs text-muted-foreground">Type</dt>
+            <dd className="mt-0.5 font-medium text-foreground">{TYPE_LABELS[question.type]}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Difficulty</dt>
-            <dd className="font-medium text-brand-primary">
-              {DIFFICULTY_LABELS[question.difficulty]}
+            <dt className="text-xs text-muted-foreground">Difficulty</dt>
+            <dd className="mt-0.5">
+              <Badge variant={DIFFICULTY_VARIANTS[question.difficulty]}>
+                {DIFFICULTY_LABELS[question.difficulty]}
+              </Badge>
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Marks</dt>
-            <dd className="font-medium text-brand-primary">
+            <dt className="text-xs text-muted-foreground">Marks</dt>
+            <dd className="mt-0.5 font-medium text-foreground">
               {question.currentVersion?.marks ?? '—'}
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Created</dt>
-            <dd className="font-medium text-brand-primary">{formatDate(question.createdAt)}</dd>
+            <dt className="text-xs text-muted-foreground">Created</dt>
+            <dd className="mt-0.5 font-medium text-foreground">{formatDate(question.createdAt)}</dd>
           </div>
         </dl>
-      </div>
+      </Card>
 
       {/* Item 2 — this section didn't exist before: QuestionDetailPage was
           minimal by design (see this file's module comment), which meant an
@@ -130,70 +133,73 @@ export default function QuestionDetailPage() {
       {question.currentVersion &&
         (question.currentVersion.images.length > 0 ||
           question.currentVersion.options.length > 0) && (
-          <div className="mt-6 rounded-xl border border-border bg-background p-4 shadow-sm">
-            <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-              Content
-            </h2>
-
-            {question.currentVersion.images.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-3">
-                {question.currentVersion.images.map((image) => (
-                  <figure key={image.id} className="w-32">
-                    <img
-                      src={image.imageUrl}
-                      alt={image.caption ?? ''}
-                      className="h-24 w-32 rounded-md object-cover"
-                    />
-                    {image.caption && (
-                      <figcaption className="mt-1 text-xs text-muted-foreground">
-                        {image.caption}
-                      </figcaption>
-                    )}
-                  </figure>
-                ))}
-              </div>
-            )}
-
-            {question.currentVersion.options.length > 0 && (
-              <ul className="mt-4 space-y-2">
-                {question.currentVersion.options.map((option) => (
-                  <li
-                    key={option.id}
-                    className={cn(
-                      'flex items-center gap-3 rounded-md border p-2.5 text-sm',
-                      option.isCorrect
-                        ? 'border-green-600/30 bg-green-600/5'
-                        : 'border-border',
-                    )}
-                  >
-                    <span className="flex-1 text-brand-primary">{option.optionText}</span>
-                    {option.imageUrl && (
+          <Card className="p-3.5">
+            <CardHeader className="px-0 pt-0 pb-0">
+              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Content
+              </h2>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              {question.currentVersion.images.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {question.currentVersion.images.map((image) => (
+                    <figure key={image.id} className="w-32">
                       <img
-                        src={option.imageUrl}
-                        alt=""
-                        className="size-12 shrink-0 rounded object-cover"
+                        src={image.imageUrl}
+                        alt={image.caption ?? ''}
+                        className="h-24 w-32 rounded-md object-cover"
                       />
-                    )}
-                    {option.isCorrect && (
-                      <span className="shrink-0 text-xs font-medium text-green-700 dark:text-green-400">
-                        Correct
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                      {image.caption && (
+                        <figcaption className="mt-1 text-xs text-muted-foreground">
+                          {image.caption}
+                        </figcaption>
+                      )}
+                    </figure>
+                  ))}
+                </div>
+              )}
+
+              {question.currentVersion.options.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {question.currentVersion.options.map((option) => (
+                    <li
+                      key={option.id}
+                      className={cn(
+                        'flex items-center gap-3 rounded-md border p-2.5 text-sm',
+                        option.isCorrect
+                          ? 'border-status-success-fg/30 bg-status-success-bg'
+                          : 'border-border',
+                      )}
+                    >
+                      <span className="flex-1 text-foreground">{option.optionText}</span>
+                      {option.imageUrl && (
+                        <img
+                          src={option.imageUrl}
+                          alt=""
+                          className="size-12 shrink-0 rounded object-cover"
+                        />
+                      )}
+                      {option.isCorrect && (
+                        <span className="shrink-0 text-xs font-medium text-status-success-fg">
+                          Correct
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         )}
 
-      <div className="mt-6 rounded-xl border border-border bg-background p-4 shadow-sm">
-        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+      <Card className="p-3.5">
+        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           Workflow
         </h2>
-        <div className="mt-4">
+        <div className="mt-3">
           <QuestionWorkflowActions questionId={question.id} status={question.status} />
         </div>
-      </div>
+      </Card>
 
       <EditQuestionDialog question={question} open={isEditOpen} onOpenChange={setIsEditOpen} />
 

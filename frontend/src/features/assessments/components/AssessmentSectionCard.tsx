@@ -79,10 +79,10 @@ export function AssessmentSectionCard({
       {/* rounded-t-lg here (not overflow-hidden on the parent) — see
           AssessmentEditPage.tsx's original comment on why: clipping would
           also clip the Attach forms' Combobox dropdowns. */}
-      <div className="flex items-center justify-between gap-3 rounded-t-lg bg-muted/30 px-4 py-2.5">
-        <h3 className="font-medium text-primary">{section.title}</h3>
+      <div className="flex items-center justify-between gap-3 rounded-t-lg bg-muted/30 px-3.5 py-2">
+        <h3 className="text-sm font-medium text-foreground">{section.title}</h3>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">
+          <span className="rounded-full bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm">
             {section.selectionMode === 'manual' ? 'Manual' : 'Pool'}
           </span>
           {isContentEditable && (
@@ -103,7 +103,7 @@ export function AssessmentSectionCard({
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-3.5">
         {section.resolvedQuestions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No questions yet.</p>
         ) : (

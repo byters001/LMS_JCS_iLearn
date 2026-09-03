@@ -76,7 +76,7 @@ export function ImageUploadField({
           <div className="flex flex-col gap-1">
             <button
               type="button"
-              className="text-xs font-medium text-brand-accent hover:underline"
+              className="text-xs font-medium text-primary hover:underline"
               disabled={disabled || upload.isPending}
               onClick={() => inputRef.current?.click()}
             >
@@ -95,7 +95,7 @@ export function ImageUploadField({
       ) : (
         <button
           type="button"
-          className="rounded-md border border-dashed border-input px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:border-brand-accent hover:text-brand-accent disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md border border-dashed border-input px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           disabled={disabled || upload.isPending}
           onClick={() => inputRef.current?.click()}
         >

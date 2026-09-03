@@ -99,17 +99,17 @@ export function DepartmentFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="departmentName" className="text-sm font-medium text-brand-primary">
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+          <div className="space-y-1">
+            <label htmlFor="departmentName" className="text-sm font-medium text-foreground">
               Name
             </label>
             <Input id="departmentName" {...register('name')} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="departmentCode" className="text-sm font-medium text-brand-primary">
+          <div className="space-y-1">
+            <label htmlFor="departmentCode" className="text-sm font-medium text-foreground">
               Code <span className="text-muted-foreground">(optional)</span>
             </label>
             <Input id="departmentCode" {...register('code')} />

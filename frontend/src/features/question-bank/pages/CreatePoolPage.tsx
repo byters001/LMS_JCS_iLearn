@@ -1,15 +1,19 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { ArrowLeft } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
-import { Button } from '@/components/ui/button'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { useCategories, useCreatePool } from '../api'
 import type { CreatePoolInput, QuestionType } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 const PICKER_PAGE_SIZE = 100
 
@@ -67,90 +71,89 @@ export default function CreatePoolPage() {
   })
 
   return (
-    <div className="mx-auto max-w-2xl p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
-        &larr; Back to pools
+    <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <Link to=".." className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <ArrowLeft className="size-3.5" />
+        Back to pools
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Question Pool</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Creates an empty pool — add criteria rows on the next screen to define what it draws.
-        </p>
+      <PageHeader
+        title="Create Question Pool"
+        description="Creates an empty pool — add criteria rows on the next screen to define what it draws."
+      />
 
-        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="name" className="text-sm font-medium text-brand-primary">
-              Name
-            </label>
-            <input id="name" className={inputClassName} {...register('name')} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-          </div>
+      <Card>
+        <CardContent className="py-4">
+          <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+            <div className="space-y-1.5">
+              <label htmlFor="name" className="text-sm font-medium text-foreground">
+                Name
+              </label>
+              <Input id="name" {...register('name')} />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="description" className="text-sm font-medium text-brand-primary">
-              Description <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <textarea
-              id="description"
-              rows={2}
-              className={inputClassName}
-              {...register('description')}
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label htmlFor="description" className="text-sm font-medium text-foreground">
+                Description <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                id="description"
+                rows={2}
+                className={inputClassName}
+                {...register('description')}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="type" className="text-sm font-medium text-brand-primary">
-              Type
-            </label>
-            <select id="type" className={inputClassName} {...register('type')}>
-              {TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              Every criterion added to this pool draws only from questions of this type — it can't
-              be changed once criteria exist.
-            </p>
-          </div>
+            <div className="space-y-1.5">
+              <label htmlFor="type" className="text-sm font-medium text-foreground">
+                Type
+              </label>
+              <select id="type" className={inputClassName} {...register('type')}>
+                {TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Every criterion added to this pool draws only from questions of this type — it can't
+                be changed once criteria exist.
+              </p>
+            </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary" htmlFor="categoryId">
-              Category{' '}
-              <span className="text-muted-foreground">(optional — any category if unset)</span>
-            </label>
-            <Combobox
-              id="categoryId"
-              options={categoryOptions}
-              value={categoryId || null}
-              onSelect={(value) => setValue('categoryId', value)}
-              placeholder="Search categories…"
-              isLoading={categories.isPending}
-              isError={categories.isError}
-              errorMessage="Failed to load categories."
-              emptyMessage={categories.isPending ? 'Loading…' : 'No categories found.'}
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground" htmlFor="categoryId">
+                Category{' '}
+                <span className="text-muted-foreground">(optional — any category if unset)</span>
+              </label>
+              <Combobox
+                id="categoryId"
+                options={categoryOptions}
+                value={categoryId || null}
+                onSelect={(value) => setValue('categoryId', value)}
+                placeholder="Search categories…"
+                isLoading={categories.isPending}
+                isError={categories.isError}
+                errorMessage="Failed to load categories."
+                emptyMessage={categories.isPending ? 'Loading…' : 'No categories found.'}
+              />
+            </div>
 
-          {createPool.isError && (
-            <p className="text-sm text-destructive">
-              {createPool.error instanceof ApiError
-                ? createPool.error.message
-                : 'Failed to create pool. Please try again.'}
-            </p>
-          )}
+            {createPool.isError && (
+              <p className="text-sm text-destructive">
+                {createPool.error instanceof ApiError
+                  ? createPool.error.message
+                  : 'Failed to create pool. Please try again.'}
+              </p>
+            )}
 
-          <Button
-            type="submit"
-            disabled={createPool.isPending}
-            className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          >
-            {createPool.isPending ? 'Creating…' : 'Create Pool'}
-          </Button>
-        </form>
-      </div>
+            <Button type="submit" disabled={createPool.isPending} className="w-full">
+              {createPool.isPending ? 'Creating…' : 'Create Pool'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -16,7 +16,7 @@ import { useCreateTopic } from '../api'
 import type { QuestionTopic } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 const createTopicFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -86,7 +86,7 @@ export function CreateTopicDialog({
 
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="newTopicName" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="newTopicName" className="text-sm font-medium text-foreground">
               Name
             </label>
             <input id="newTopicName" className={inputClassName} autoFocus {...register('name')} />

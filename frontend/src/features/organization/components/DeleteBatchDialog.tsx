@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -73,24 +74,31 @@ export function DeleteBatchDialog({ batch, open, onOpenChange }: DeleteBatchDial
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete {batch.name}?</DialogTitle>
-          {hasDependents ? (
-            <DialogDescription>
-              This batch still has {batch.studentCount} enrolled student
-              {batch.studentCount === 1 ? '' : 's'} — remove or transfer{' '}
-              {batch.studentCount === 1 ? 'it' : 'them'} first. Deleting a batch with active
-              enrollment would silently hide it from every batch list while those students'
-              records still point at it.
-            </DialogDescription>
-          ) : (
-            <DialogDescription>
-              This removes {batch.name} from every batch list (Admin and Trainer views alike).
-              {trainerCount !== undefined && trainerCount > 0
-                ? ` ${trainerCount} trainer${trainerCount === 1 ? ' is' : 's are'} still assigned to it — they'll stop seeing it in My Batches.`
-                : ''}{' '}
-              This action cannot be undone from the UI.
-            </DialogDescription>
-          )}
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-danger-bg">
+              <AlertTriangle className="size-4.5 text-status-danger-fg" />
+            </div>
+            <div className="space-y-1 pt-0.5">
+              <DialogTitle>Delete {batch.name}?</DialogTitle>
+              {hasDependents ? (
+                <DialogDescription>
+                  This batch still has {batch.studentCount} enrolled student
+                  {batch.studentCount === 1 ? '' : 's'} — remove or transfer{' '}
+                  {batch.studentCount === 1 ? 'it' : 'them'} first. Deleting a batch with active
+                  enrollment would silently hide it from every batch list while those students'
+                  records still point at it.
+                </DialogDescription>
+              ) : (
+                <DialogDescription>
+                  This removes {batch.name} from every batch list (Admin and Trainer views alike).
+                  {trainerCount !== undefined && trainerCount > 0
+                    ? ` ${trainerCount} trainer${trainerCount === 1 ? ' is' : 's are'} still assigned to it — they'll stop seeing it in My Batches.`
+                    : ''}{' '}
+                  This action cannot be undone from the UI.
+                </DialogDescription>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
         {deleteBatch.isError && (

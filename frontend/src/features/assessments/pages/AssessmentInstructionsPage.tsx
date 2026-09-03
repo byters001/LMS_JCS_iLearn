@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { requestFullscreen } from '@/lib/fullscreen'
 import { useStartAttempt } from '@/features/attempts/api'
 import { SystemCheckCard } from '../components/SystemCheckCard'
@@ -67,14 +69,16 @@ export default function AssessmentInstructionsPage() {
 
   if (!assessment) {
     return (
-      <div className="p-5">
-        <p className="text-sm text-muted-foreground">
-          Couldn&apos;t load this assessment&apos;s details directly.{' '}
-          <Link to="/student/assessments" className="text-brand-accent underline">
-            Go back to your assessments
-          </Link>
-          .
-        </p>
+      <div className="p-4">
+        <Card className="mx-auto max-w-xl gap-0 p-4">
+          <p className="text-sm text-muted-foreground">
+            Couldn&apos;t load this assessment&apos;s details directly.{' '}
+            <Link to="/student/assessments" className="text-primary underline">
+              Go back to your assessments
+            </Link>
+            .
+          </p>
+        </Card>
       </div>
     )
   }
@@ -132,12 +136,13 @@ export default function AssessmentInstructionsPage() {
   }
 
   return (
-    <div className="p-5">
+    <div className="space-y-3 p-4">
       <Link
         to={`/student/assessments/${assessment.id}`}
-        className="text-sm text-brand-accent hover:underline"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"
       >
-        &larr; Back to assessment details
+        <ArrowLeft className="size-3.5" />
+        Back to assessment details
       </Link>
 
       {/* Centering wrapper around the card PAIR as a unit (mx-auto here, not
@@ -152,9 +157,9 @@ export default function AssessmentInstructionsPage() {
             would fight the two cards' genuinely different content lengths
             (a fixed bullet list vs. four independently-resolving check rows)
             for no real benefit, so this only equalizes width. */}
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
-            <h1 className="font-heading text-xl font-semibold text-brand-primary">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <Card className="gap-0 p-4">
+            <h1 className="font-heading text-xl font-semibold text-foreground">
               Before you start: {assessment.title}
             </h1>
 
@@ -179,14 +184,14 @@ export default function AssessmentInstructionsPage() {
                 </>
               )}
             </ul>
-          </div>
+          </Card>
 
           <SystemCheckCard onAllChecksPassedChange={setSystemChecksPassed} />
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3">
           {startAttempt.isError && (
-            <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {describeStartAttemptError(startAttempt.error)}
             </p>
           )}
@@ -202,7 +207,8 @@ export default function AssessmentInstructionsPage() {
             </p>
           )}
           <Button
-            className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
+            size="lg"
+            className="w-full"
             disabled={startAttempt.isPending || !systemChecksPassed}
             onClick={handleStart}
           >

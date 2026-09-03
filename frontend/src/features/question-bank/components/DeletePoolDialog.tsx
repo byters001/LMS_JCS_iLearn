@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -72,27 +73,34 @@ export function DeletePoolDialog({ pool, open, onOpenChange, onDeleted }: Delete
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete {pool.name}?</DialogTitle>
-          {usage.isPending ? (
-            <DialogDescription>Checking for assessments using this pool…</DialogDescription>
-          ) : usage.isError ? (
-            <DialogDescription className="text-destructive">
-              Couldn't verify whether any assessment uses this pool — try again before deleting.
-            </DialogDescription>
-          ) : hasDependents ? (
-            <DialogDescription>
-              This pool is still used by {usageCount} assessment{usageCount === 1 ? '' : 's'}
-              {': '}
-              {usage.data?.map((row) => row.assessmentTitle).join(', ')}. Remove it from{' '}
-              {usageCount === 1 ? 'that assessment' : 'those assessments'} first — deleting it now
-              would break attempt-start for any section that draws from this pool.
-            </DialogDescription>
-          ) : (
-            <DialogDescription>
-              This removes {pool.name} from the question bank. No assessment currently references
-              it, so this is safe. This action cannot be undone from the UI.
-            </DialogDescription>
-          )}
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-danger-bg">
+              <AlertTriangle className="size-4.5 text-status-danger-fg" />
+            </div>
+            <div className="space-y-1 pt-0.5">
+              <DialogTitle>Delete {pool.name}?</DialogTitle>
+              {usage.isPending ? (
+                <DialogDescription>Checking for assessments using this pool…</DialogDescription>
+              ) : usage.isError ? (
+                <DialogDescription className="text-destructive">
+                  Couldn't verify whether any assessment uses this pool — try again before deleting.
+                </DialogDescription>
+              ) : hasDependents ? (
+                <DialogDescription>
+                  This pool is still used by {usageCount} assessment{usageCount === 1 ? '' : 's'}
+                  {': '}
+                  {usage.data?.map((row) => row.assessmentTitle).join(', ')}. Remove it from{' '}
+                  {usageCount === 1 ? 'that assessment' : 'those assessments'} first — deleting it now
+                  would break attempt-start for any section that draws from this pool.
+                </DialogDescription>
+              ) : (
+                <DialogDescription>
+                  This removes {pool.name} from the question bank. No assessment currently references
+                  it, so this is safe. This action cannot be undone from the UI.
+                </DialogDescription>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
         {deletePool.isError && (

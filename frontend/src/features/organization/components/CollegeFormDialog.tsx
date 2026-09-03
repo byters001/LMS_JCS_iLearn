@@ -17,7 +17,7 @@ import { useCreateCollege, useUpdateCollege } from '../api'
 import type { College, CollegeStatus } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 // Same "validated-but-blankable optional string" convention CreateQuestionPage.tsx's
 // optionalPositiveNumberString established — react-hook-form's registered
@@ -171,17 +171,17 @@ export function CollegeFormDialog({ college, open, onOpenChange }: CollegeFormDi
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label htmlFor="collegeName" className="text-sm font-medium text-brand-primary">
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label htmlFor="collegeName" className="text-sm font-medium text-foreground">
                 Name
               </label>
               <Input id="collegeName" {...register('name')} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="collegeCode" className="text-sm font-medium text-brand-primary">
+            <div className="space-y-1">
+              <label htmlFor="collegeCode" className="text-sm font-medium text-foreground">
                 Code
               </label>
               <Input id="collegeCode" {...register('code')} />
@@ -190,8 +190,8 @@ export function CollegeFormDialog({ college, open, onOpenChange }: CollegeFormDi
           </div>
 
           {isEditMode && (
-            <div className="space-y-1.5">
-              <label htmlFor="collegeStatus" className="text-sm font-medium text-brand-primary">
+            <div className="space-y-1">
+              <label htmlFor="collegeStatus" className="text-sm font-medium text-foreground">
                 Status
               </label>
               <select id="collegeStatus" className={inputClassName} {...register('status')}>
@@ -204,16 +204,16 @@ export function CollegeFormDialog({ college, open, onOpenChange }: CollegeFormDi
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <label htmlFor="collegeAddress" className="text-sm font-medium text-brand-primary">
+          <div className="space-y-1">
+            <label htmlFor="collegeAddress" className="text-sm font-medium text-foreground">
               Address <span className="text-muted-foreground">(optional)</span>
             </label>
             <Input id="collegeAddress" {...register('address')} />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label htmlFor="collegeContactEmail" className="text-sm font-medium text-brand-primary">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label htmlFor="collegeContactEmail" className="text-sm font-medium text-foreground">
                 Contact Email <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input id="collegeContactEmail" type="email" {...register('contactEmail')} />
@@ -221,34 +221,34 @@ export function CollegeFormDialog({ college, open, onOpenChange }: CollegeFormDi
                 <p className="text-xs text-destructive">{errors.contactEmail.message}</p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="collegeContactPhone" className="text-sm font-medium text-brand-primary">
+            <div className="space-y-1">
+              <label htmlFor="collegeContactPhone" className="text-sm font-medium text-foreground">
                 Contact Phone <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input id="collegeContactPhone" {...register('contactPhone')} />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="collegeLogoUrl" className="text-sm font-medium text-brand-primary">
+          <div className="space-y-1">
+            <label htmlFor="collegeLogoUrl" className="text-sm font-medium text-foreground">
               Logo URL <span className="text-muted-foreground">(optional)</span>
             </label>
             <Input id="collegeLogoUrl" type="url" {...register('logoUrl')} />
             {errors.logoUrl && <p className="text-xs text-destructive">{errors.logoUrl.message}</p>}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
               <label
                 htmlFor="collegeContractStart"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Contract Start <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input id="collegeContractStart" type="date" {...register('contractStartDate')} />
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="collegeContractEnd" className="text-sm font-medium text-brand-primary">
+            <div className="space-y-1">
+              <label htmlFor="collegeContractEnd" className="text-sm font-medium text-foreground">
                 Contract End <span className="text-muted-foreground">(optional)</span>
               </label>
               <Input id="collegeContractEnd" type="date" {...register('contractEndDate')} />

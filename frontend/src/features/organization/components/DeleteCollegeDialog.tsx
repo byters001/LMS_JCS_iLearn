@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -66,24 +67,31 @@ export function DeleteCollegeDialog({ college, open, onOpenChange }: DeleteColle
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete {college.name}?</DialogTitle>
-          {departments.isPending ? (
-            <DialogDescription>Checking for departments under this college…</DialogDescription>
-          ) : hasDependents ? (
-            <DialogDescription>
-              This college still has {departmentCount} department
-              {departmentCount === 1 ? '' : 's'} — remove or reassign{' '}
-              {departmentCount === 1 ? 'it' : 'them'} first. Deleting a college with active
-              departments would silently hide it from every picker across the platform while
-              those departments (and anything built on them) still point at it.
-            </DialogDescription>
-          ) : (
-            <DialogDescription>
-              This removes {college.name} from every college picker across the platform (batch
-              creation, faculty assignment, analytics, etc.). This action cannot be undone from
-              the UI.
-            </DialogDescription>
-          )}
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-danger-bg">
+              <AlertTriangle className="size-4.5 text-status-danger-fg" />
+            </div>
+            <div className="space-y-1 pt-0.5">
+              <DialogTitle>Delete {college.name}?</DialogTitle>
+              {departments.isPending ? (
+                <DialogDescription>Checking for departments under this college…</DialogDescription>
+              ) : hasDependents ? (
+                <DialogDescription>
+                  This college still has {departmentCount} department
+                  {departmentCount === 1 ? '' : 's'} — remove or reassign{' '}
+                  {departmentCount === 1 ? 'it' : 'them'} first. Deleting a college with active
+                  departments would silently hide it from every picker across the platform while
+                  those departments (and anything built on them) still point at it.
+                </DialogDescription>
+              ) : (
+                <DialogDescription>
+                  This removes {college.name} from every college picker across the platform
+                  (batch creation, faculty assignment, analytics, etc.). This action cannot be
+                  undone from the UI.
+                </DialogDescription>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
         {deleteCollege.isError && (

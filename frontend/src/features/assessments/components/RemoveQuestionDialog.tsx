@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -52,11 +53,18 @@ export function RemoveQuestionDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Remove this question from the section?</DialogTitle>
-          <DialogDescription>
-            &quot;{questionText}&quot; will no longer appear in this section. The question itself
-            stays in the question bank, untouched — you can attach it again later if needed.
-          </DialogDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-warning-bg">
+              <AlertTriangle className="size-4.5 text-status-warning-fg" />
+            </div>
+            <div className="space-y-1 pt-0.5">
+              <DialogTitle>Remove this question from the section?</DialogTitle>
+              <DialogDescription>
+                &quot;{questionText}&quot; will no longer appear in this section. The question itself
+                stays in the question bank, untouched — you can attach it again later if needed.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {removeQuestion.isError && (

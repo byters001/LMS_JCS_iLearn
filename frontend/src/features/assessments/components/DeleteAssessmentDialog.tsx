@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -93,12 +94,19 @@ export function DeleteAssessmentDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete {assessment.title}?</DialogTitle>
-          <DialogDescription>
-            This assessment is still a draft, so nothing has ever been able to attempt it — no
-            attempts exist and none can be orphaned by this. Its sections, questions, and attached
-            pools go with it. This action cannot be undone from the UI.
-          </DialogDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-danger-bg">
+              <AlertTriangle className="size-4.5 text-status-danger-fg" />
+            </div>
+            <div className="space-y-1 pt-0.5">
+              <DialogTitle>Delete {assessment.title}?</DialogTitle>
+              <DialogDescription>
+                This assessment is still a draft, so nothing has ever been able to attempt it — no
+                attempts exist and none can be orphaned by this. Its sections, questions, and attached
+                pools go with it. This action cannot be undone from the UI.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {deleteAssessment.isError && (

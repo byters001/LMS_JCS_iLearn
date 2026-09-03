@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -16,7 +17,7 @@ import { useCreateStudentsInBatch } from '../api'
 import type { StudentRowInput } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
 
 const CSV_TEMPLATE = 'full_name,email,roll_number\nJane Doe,jane.doe@example.com,CSE-001\n'
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -319,8 +320,18 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
 
         {step === 'preview' && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {validCount} of {rows.length} rows valid.
+                {hasErrors && ' Fix the flagged rows (or go back and re-upload) before submitting.'}
+              </p>
+              <Badge variant={hasErrors ? 'warning' : 'live'}>
+                {hasErrors ? `${rowErrors.size} flagged` : 'All valid'}
+              </Badge>
+            </div>
+
             {parseErrors.length > 0 && (
-              <div className="rounded-md bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+              <div className="rounded-md bg-status-warning-bg p-3 text-xs text-status-warning-fg">
                 {parseErrors.map((error, i) => (
                   <p key={i}>{error}</p>
                 ))}
@@ -332,12 +343,20 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
             ) : (
               <div className="max-h-72 overflow-y-auto rounded-md border border-border">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-muted/40">
+                  <thead className="sticky top-0 bg-muted/60 backdrop-blur-sm">
                     <tr>
-                      <th className="px-3 py-2 font-medium">Name</th>
-                      <th className="px-3 py-2 font-medium">Email</th>
-                      <th className="px-3 py-2 font-medium">Roll #</th>
-                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Name
+                      </th>
+                      <th className="px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Email
+                      </th>
+                      <th className="px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Roll #
+                      </th>
+                      <th className="px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -345,14 +364,14 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
                       const errors = rowErrors.get(index)
                       return (
                         <tr key={index} className="border-t border-border">
-                          <td className="px-3 py-2">{row.fullName}</td>
-                          <td className="px-3 py-2">{row.email}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{row.rollNumber ?? '—'}</td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-1.5">{row.fullName}</td>
+                          <td className="px-3 py-1.5">{row.email}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{row.rollNumber ?? '—'}</td>
+                          <td className="px-3 py-1.5">
                             {errors ? (
                               <span className="text-xs text-destructive">{errors.join('; ')}</span>
                             ) : (
-                              <span className="text-xs text-brand-accent">Valid</span>
+                              <span className="text-xs text-status-success-fg">Valid</span>
                             )}
                           </td>
                         </tr>
@@ -362,11 +381,6 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
                 </table>
               </div>
             )}
-
-            <p className="text-xs text-muted-foreground">
-              {validCount} of {rows.length} rows valid.
-              {hasErrors && ' Fix the flagged rows (or go back and re-upload) before submitting.'}
-            </p>
 
             {createStudents.isError && (
               <p className="text-sm text-destructive">
@@ -380,7 +394,7 @@ export function AddStudentsDialog({ batchId, batchName, open, onOpenChange }: Ad
 
         {step === 'done' && (
           <div className="space-y-2">
-            <p className="text-sm text-brand-primary">
+            <p className="text-sm font-medium text-foreground">
               {createStudents.data?.created.length ?? 0} student
               {createStudents.data?.created.length === 1 ? '' : 's'} created successfully.
             </p>

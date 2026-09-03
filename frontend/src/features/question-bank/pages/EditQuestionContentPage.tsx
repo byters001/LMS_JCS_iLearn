@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { useEditQuestionContent, useQuestionDetail } from '../api'
 import {
   applyQuestionContentRefinements,
@@ -106,22 +107,25 @@ function EditQuestionContentForm({
   })
 
   return (
-    <div className="mx-auto max-w-3xl p-5">
-      <Link to={`../${question.id}`} className="text-sm text-brand-accent hover:underline">
+    <div className="mx-auto max-w-3xl space-y-3 p-4">
+      <Link to={`../${question.id}`} className="text-sm text-primary hover:underline">
         &larr; Back to question
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Edit Content</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Question content is versioned, never edited in place — saving here creates a NEW version
-          pre-filled from the current one and immediately makes it current. The version you're
-          editing from stays in history, exactly as it was; any attempt already frozen on it (a
-          student mid-assessment or already graded) is entirely unaffected, since attempts reference
-          a specific version id, never "whichever version is current."
-        </p>
+      <Card className="p-3.5">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-xl">Edit Content</CardTitle>
+          <CardDescription>
+            Question content is versioned, never edited in place — saving here creates a NEW version
+            pre-filled from the current one and immediately makes it current. The version you're
+            editing from stays in history, exactly as it was; any attempt already frozen on it (a
+            student mid-assessment or already graded) is entirely unaffected, since attempts
+            reference a specific version id, never "whichever version is current."
+          </CardDescription>
+        </CardHeader>
 
-        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
+        <CardContent className="px-0 pb-0">
+        <form onSubmit={onSubmit} noValidate className="space-y-4">
           <QuestionContentFields
             type={question.type}
             register={register}
@@ -140,15 +144,12 @@ function EditQuestionContentForm({
             </p>
           )}
 
-          <Button
-            type="submit"
-            disabled={editContent.isPending}
-            className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          >
+          <Button type="submit" disabled={editContent.isPending} className="w-full">
             {editContent.isPending ? 'Saving…' : 'Save New Version'}
           </Button>
         </form>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -173,7 +174,7 @@ export default function EditQuestionContentPage() {
 
   if (isLoading) {
     return (
-      <div className="p-5">
+      <div className="p-4">
         <p className="text-sm text-muted-foreground">Loading question…</p>
       </div>
     )
@@ -181,7 +182,7 @@ export default function EditQuestionContentPage() {
 
   if (isError || !question) {
     return (
-      <div className="p-5">
+      <div className="p-4">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load this question."}
         </p>

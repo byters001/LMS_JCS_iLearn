@@ -26,7 +26,7 @@ const DIFFICULTY_OPTIONS: Array<{ value: QuestionDifficulty; label: string }> = 
 ]
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 const editQuestionFormSchema = z.object({
   categoryId: z.string(),
@@ -146,7 +146,7 @@ export function EditQuestionDialog({ question, open, onOpenChange }: EditQuestio
 
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="editQuestionDifficulty" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="editQuestionDifficulty" className="text-sm font-medium text-foreground">
               Difficulty
             </label>
             <select
@@ -163,7 +163,7 @@ export function EditQuestionDialog({ question, open, onOpenChange }: EditQuestio
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary" htmlFor="editQuestionCategory">
+            <label className="text-sm font-medium text-foreground" htmlFor="editQuestionCategory">
               Category <span className="text-muted-foreground">(optional — global if unset)</span>
             </label>
             <Combobox
@@ -180,7 +180,7 @@ export function EditQuestionDialog({ question, open, onOpenChange }: EditQuestio
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary" htmlFor="editQuestionCollege">
+            <label className="text-sm font-medium text-foreground" htmlFor="editQuestionCollege">
               College <span className="text-muted-foreground">(optional — global if unset)</span>
             </label>
             <Combobox

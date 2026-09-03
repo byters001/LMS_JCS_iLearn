@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -23,7 +24,7 @@ import { TagFilterChips } from '../components/TagFilterChips'
 import type { QuestionDifficulty, QuestionPoolCriterion, QuestionType } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 const PICKER_PAGE_SIZE = 100
 
@@ -117,7 +118,7 @@ function AddCriterionForm({ poolId, poolType }: { poolId: string; poolType: Ques
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor="difficulty" className="text-sm font-medium text-brand-primary">
+          <label htmlFor="difficulty" className="text-sm font-medium text-primary">
             Difficulty
           </label>
           <select id="difficulty" className={inputClassName} {...register('difficulty')}>
@@ -129,7 +130,7 @@ function AddCriterionForm({ poolId, poolType }: { poolId: string; poolType: Ques
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="countRequired" className="text-sm font-medium text-brand-primary">
+          <label htmlFor="countRequired" className="text-sm font-medium text-primary">
             Count Required
           </label>
           <input
@@ -147,7 +148,7 @@ function AddCriterionForm({ poolId, poolType }: { poolId: string; poolType: Ques
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-brand-primary" htmlFor="topicId">
+        <label className="text-sm font-medium text-primary" htmlFor="topicId">
           Topic <span className="text-muted-foreground">(optional)</span>
         </label>
         <Combobox
@@ -164,7 +165,7 @@ function AddCriterionForm({ poolId, poolType }: { poolId: string; poolType: Ques
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-brand-primary">
+        <label className="text-sm font-medium text-primary">
           Tag Filter{' '}
           <span className="text-muted-foreground">(optional — matches ANY listed tag)</span>
         </label>
@@ -240,15 +241,16 @@ export default function PoolDetailPage() {
   const tagNameById = new Map((tags.data?.items ?? []).map((t) => [t.id, t.name]))
 
   return (
-    <div className="mx-auto max-w-3xl p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
-        &larr; Back to pools
+    <div className="mx-auto max-w-3xl space-y-3 p-4">
+      <Link to=".." className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <ArrowLeft className="size-3.5" />
+        Back to pools
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
+      <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-heading text-xl font-semibold text-brand-primary">
+            <h1 className="font-heading text-xl font-semibold text-primary">
               {pool.data.name}
             </h1>
             {pool.data.description && (
@@ -272,11 +274,11 @@ export default function PoolDetailPage() {
         <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-muted-foreground">Type</dt>
-            <dd className="font-medium text-brand-primary">{TYPE_LABELS[pool.data.type]}</dd>
+            <dd className="font-medium text-primary">{TYPE_LABELS[pool.data.type]}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Scope</dt>
-            <dd className="font-medium text-brand-primary">
+            <dd className="font-medium text-primary">
               {pool.data.collegeId ? 'College-specific' : 'Global'}
             </dd>
           </div>
@@ -305,7 +307,7 @@ export default function PoolDetailPage() {
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-border px-4 py-2.5 text-sm"
                 >
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span className="font-medium text-brand-primary">
+                    <span className="font-medium text-primary">
                       {DIFFICULTY_LABELS[criterion.difficulty]}
                     </span>
                     <span className="text-muted-foreground">
@@ -348,7 +350,7 @@ export default function PoolDetailPage() {
         )}
 
         <div className="mt-4 border-t border-border pt-4">
-          <h3 className="text-sm font-semibold text-brand-primary">Add Criterion</h3>
+          <h3 className="text-sm font-semibold text-primary">Add Criterion</h3>
           <div className="mt-3">
             <AddCriterionForm poolId={pool.data.id} poolType={pool.data.type} />
           </div>
@@ -407,7 +409,7 @@ export default function PoolDetailPage() {
                 return (
                   <div key={criterion.id} className="rounded-lg border border-border p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-brand-primary">
+                      <p className="text-sm font-medium text-primary">
                         {DIFFICULTY_LABELS[criterion.difficulty]}
                         {criterion.topicId && (
                           <span className="ml-2 font-normal text-muted-foreground">
@@ -443,7 +445,7 @@ export default function PoolDetailPage() {
                             key={question.questionVersionId}
                             className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-1.5 text-sm"
                           >
-                            <span className="text-brand-primary">
+                            <span className="text-primary">
                               {truncate(question.questionText)}
                             </span>
                             <span className="shrink-0 text-xs text-muted-foreground">

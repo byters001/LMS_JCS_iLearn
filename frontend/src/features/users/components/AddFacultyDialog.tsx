@@ -88,9 +88,9 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
           <div className="space-y-1.5">
-            <label htmlFor="facultyFullName" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="facultyFullName" className="text-sm font-medium text-foreground">
               Full Name
             </label>
             <Input id="facultyFullName" {...register('fullName')} />
@@ -100,7 +100,7 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="facultyEmail" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="facultyEmail" className="text-sm font-medium text-foreground">
               Email
             </label>
             <Input id="facultyEmail" type="email" {...register('email')} />
@@ -108,7 +108,7 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="facultyPassword" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="facultyPassword" className="text-sm font-medium text-foreground">
               Password
             </label>
             {/* Plain text, not masked — same reasoning as CreateBatchPage's
@@ -121,8 +121,8 @@ export function AddFacultyDialog({ open, onOpenChange }: AddFacultyDialogProps) 
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-brand-primary">
-              College <span className="text-muted-foreground">(optional)</span>
+            <p className="text-sm font-medium text-foreground">
+              College <span className="font-normal text-muted-foreground">(optional)</span>
             </p>
             <Combobox
               id="facultyCollegePicker"

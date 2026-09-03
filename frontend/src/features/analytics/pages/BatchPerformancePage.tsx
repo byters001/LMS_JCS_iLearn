@@ -58,10 +58,12 @@ const PASS_COLOR = '#16a34a'
 const FAIL_COLOR = '#dc2626'
 // Single series (a count-per-bucket histogram), not a categorical
 // comparison — dataviz skill's color-formula: one hue for a magnitude
-// encoding, no legend needed for a lone series. Reuses the app's own
-// brand-accent value (tailwind.config.js) rather than inventing a new
-// color, matching CLAUDE1.md's "never invent brand colors" rule.
-const HISTOGRAM_COLOR = '#4A44C4'
+// encoding, no legend needed for a lone series. Theme-aware chart token
+// (mandatory design-system rule for genuine trend/breakdown charts), not a
+// static hex — repaints correctly across both .app-shell states, unlike a
+// fixed brand-accent value which would stay light-mode-indigo even against
+// the dark theme's near-black card background.
+const HISTOGRAM_COLOR = 'var(--chart-1)'
 
 interface ScoreHistogramBucket {
   bucket: string
@@ -181,6 +183,63 @@ function StatTile({
         </div>
       </div>
     </Card>
+  )
+}
+
+// Themed Tooltip content — Recharts' default Tooltip renders unstyled
+// white, which breaks in dark mode (mandatory design-system rule). Token
+// classes only, so both charts below repaint correctly in both .app-shell
+// states. Two small variants rather than one shared shape: the Pie's
+// payload value is a 0-1 ratio (formatted as a %), the Bar's is a raw
+// student count — different enough formatting that forcing one generic
+// formatter prop through would be less readable than just writing both.
+// `payload: any` — Recharts v3's own TooltipContentProps generic (a
+// readonly, deeply-generic payload array) doesn't structurally match a
+// narrow inline shape here, and fighting its generics for a small
+// internal-only tooltip renderer isn't worth it — the standard pragmatic
+// approach for a Recharts custom tooltip content component.
+function PassFailTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: any
+}) {
+  if (!active || !payload || payload.length === 0) return null
+  return (
+    <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      {payload.map((entry: any, i: number) => (
+        <p key={i} className="flex items-center gap-1.5 text-popover-foreground">
+          <span
+            className="size-2 shrink-0 rounded-full"
+            style={{ backgroundColor: entry.color }}
+            aria-hidden="true"
+          />
+          {entry.name}: {Math.round(Number(entry.value) * 100)}%
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function HistogramTooltipContent({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean
+  payload?: any
+  label?: string | number
+}) {
+  if (!active || !payload || payload.length === 0) return null
+  const count = payload[0]?.value ?? 0
+  return (
+    <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      <p className="font-medium text-popover-foreground">{label}</p>
+      <p className="text-popover-foreground">
+        {count} student{count === 1 ? '' : 's'}
+      </p>
+    </div>
   )
 }
 
@@ -574,7 +633,7 @@ export default function BatchPerformancePage() {
                     <Cell fill={FAIL_COLOR} />
                   </Pie>
                   <Legend />
-                  <Tooltip formatter={(value) => `${Math.round(Number(value) * 100)}%`} />
+                  <Tooltip content={(props) => <PassFailTooltipContent {...props} />} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -609,7 +668,7 @@ export default function BatchPerformancePage() {
                   />
                   <Tooltip
                     cursor={{ fill: 'var(--muted)' }}
-                    formatter={(value) => [`${value} student${value === 1 ? '' : 's'}`, 'Count']}
+                    content={(props) => <HistogramTooltipContent {...props} />}
                   />
                   <Bar dataKey="count" fill={HISTOGRAM_COLOR} radius={[4, 4, 0, 0]} maxBarSize={56} />
                 </BarChart>

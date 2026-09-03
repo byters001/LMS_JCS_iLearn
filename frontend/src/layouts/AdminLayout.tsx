@@ -1,12 +1,15 @@
 import { BarChart3, BookOpen, Building2, ClipboardList, HelpCircle, Layers, Library, Presentation, ShieldAlert, UserCog, Users } from 'lucide-react'
 import { Outlet, useNavigate } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserAvatarMenu } from '@/components/UserAvatarMenu'
 import { useLogout } from '@/features/auth/api'
 import { ChatbotWidget } from '@/features/chatbot/components/ChatbotWidget'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { GlobalSearch } from '@/features/search/components/GlobalSearch'
 import { Sidebar, type SidebarNavItem } from '@/layouts/components/Sidebar'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
+import { useUIStore } from '@/store/uiStore'
 
 // super_admin holds question_pools.manage/manage_global (granted directly —
 // see backend/drizzle/migrations/0009_add-question-pools-permissions.sql),
@@ -51,13 +54,14 @@ function AdminLayout() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const logout = useLogout()
+  const theme = useUIStore((state) => state.theme)
 
   function handleLogout() {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
   }
 
   return (
-    <div className="theme-admin flex min-h-screen bg-background text-foreground">
+    <div className={cn('app-shell flex min-h-screen bg-background text-foreground', theme === 'dark' && 'dark')}>
       <Sidebar navItems={NAV_ITEMS} />
 
       {/* min-w-0 is load-bearing here: without it, this flex child refuses
@@ -66,15 +70,16 @@ function AdminLayout() {
           than the viewport instead of wrapping/scrolling within it. */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* justify-between (not justify-end): search now lives at the LEFT
-            edge, notification bell + account avatar at the right — the
-            avatar replaces the old sidebar bottom-block avatar/logout
-            entirely (see Sidebar.tsx's own comment). */}
+            edge, notification bell + theme toggle + account avatar at the
+            right — the avatar replaces the old sidebar bottom-block avatar/
+            logout entirely (see Sidebar.tsx's own comment). */}
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
           {/* Item 5a — was a bare, unwired <Input> (no value/onChange/
               onSubmit at all — confirmed a pure visual shell before this
               fix). GlobalSearch owns its own icon/input/dropdown now. */}
           <GlobalSearch basePath="/admin" />
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationBell />
             <UserAvatarMenu
               name={user?.fullName ?? ''}

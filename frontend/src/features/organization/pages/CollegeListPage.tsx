@@ -28,17 +28,22 @@ const PAGE_SIZE = 20
 
 // Same semantic-color-per-status convention as features/assessments/
 // components/AssessmentStatusBadge.tsx and question-bank's
-// QuestionStatusBadge — a custom className per status, not the Badge
-// component's generic default/secondary/outline variants, so 'expired'
-// reads as a real warning rather than just "muted."
-const STATUS_STYLES: Record<CollegeStatus, string> = {
-  active: 'bg-green-600/10 text-green-700 dark:text-green-400',
-  expired: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  archived: 'bg-muted text-muted-foreground',
+// QuestionStatusBadge — mapped onto Badge's own token-driven semantic
+// variants (live/warning/neutral) instead of a hand-rolled hex palette, so
+// 'expired' reads as a real warning rather than just "muted," and every
+// color repaints correctly in dark mode for free.
+const STATUS_VARIANT: Record<CollegeStatus, 'live' | 'warning' | 'neutral'> = {
+  active: 'live',
+  expired: 'warning',
+  archived: 'neutral',
 }
 
 function StatusBadge({ status }: { status: CollegeStatus }) {
-  return <Badge className={cn('shrink-0', STATUS_STYLES[status])}>{status}</Badge>
+  return (
+    <Badge variant={STATUS_VARIANT[status]} className="shrink-0">
+      {status}
+    </Badge>
+  )
 }
 
 // Card-based replacement for the old table row — same data, same three
@@ -76,7 +81,7 @@ function CollegeCard({
             {getInitials(college.name)}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-heading font-medium text-brand-primary">{college.name}</p>
+            <p className="truncate font-heading font-medium text-primary">{college.name}</p>
             <p className="truncate text-xs text-muted-foreground">{college.code}</p>
           </div>
         </div>
@@ -87,7 +92,7 @@ function CollegeCard({
               <button
                 type="button"
                 aria-label={`More actions for ${college.name}`}
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-brand-primary"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-primary"
               >
                 <MoreVertical className="size-4" />
               </button>
@@ -104,7 +109,7 @@ function CollegeCard({
 
       <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-2.5">
         <div className="flex items-center gap-2">
-          <Users className="size-4 shrink-0 text-brand-primary" />
+          <Users className="size-4 shrink-0 text-accent-indigo-fg" />
           <div className="min-w-0">
             <p className="font-heading text-sm leading-tight font-semibold text-foreground">
               {studentCount === undefined ? (
@@ -117,7 +122,7 @@ function CollegeCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <BookOpen className="size-4 shrink-0 text-brand-accent" />
+          <BookOpen className="size-4 shrink-0 text-accent-teal-fg" />
           <div className="min-w-0">
             <p className="font-heading text-sm leading-tight font-semibold text-foreground">
               {batchCount === undefined ? (
@@ -149,12 +154,7 @@ function CollegeCard({
           <ChevronDown className={cn('size-4 transition-transform', isExpanded && 'rotate-180')} />
           View
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1 border-brand-primary text-brand-primary hover:bg-brand-primary/5"
-          onClick={onEdit}
-        >
+        <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
           Edit
         </Button>
       </div>
@@ -208,7 +208,8 @@ export default function CollegeListPage() {
           label="Total colleges"
           value={colleges.data?.total}
           icon={Building2}
-          iconClassName="bg-brand-primary/10 text-brand-primary"
+          iconClassName="bg-accent-indigo-bg text-accent-indigo-fg"
+          accent="indigo"
           className="max-w-64"
         />
       </PageHeader>
@@ -278,7 +279,6 @@ export default function CollegeListPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                     disabled={page <= 1 || colleges.isFetching}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
@@ -287,7 +287,6 @@ export default function CollegeListPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                     disabled={page >= totalPages || colleges.isFetching}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   >

@@ -1,6 +1,7 @@
 import { Braces, Brain, ListChecks, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import {
@@ -46,10 +47,10 @@ const DIFFICULTY_LABELS: Record<QuestionDifficulty, string> = {
 
 const DIFFICULTY_ORDER: QuestionDifficulty[] = ['easy', 'medium', 'hard']
 
-const DIFFICULTY_STYLES: Record<QuestionDifficulty, string> = {
-  easy: 'bg-green-600/10 text-green-700 dark:text-green-400',
-  medium: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-  hard: 'bg-destructive/10 text-destructive',
+const DIFFICULTY_VARIANTS: Record<QuestionDifficulty, 'success' | 'warning' | 'danger'> = {
+  easy: 'success',
+  medium: 'warning',
+  hard: 'danger',
 }
 
 function truncate(text: string): string {
@@ -136,9 +137,7 @@ function DifficultySubCard({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', DIFFICULTY_STYLES[difficulty])}>
-          {DIFFICULTY_LABELS[difficulty]}
-        </span>
+        <Badge variant={DIFFICULTY_VARIANTS[difficulty]}>{DIFFICULTY_LABELS[difficulty]}</Badge>
         <span className="font-heading text-lg font-semibold text-foreground">
           {count === undefined ? (
             <span className="inline-block h-5 w-6 animate-pulse rounded bg-muted align-middle" />

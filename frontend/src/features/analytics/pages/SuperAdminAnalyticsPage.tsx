@@ -32,12 +32,15 @@ const PICKER_PAGE_SIZE = 100
 // synthetic option rather than a change to the shared Combobox component.
 const ALL_COLLEGES_VALUE = '__all__'
 
-// Same brand-accent hex BatchPerformancePage.tsx's own HISTOGRAM_COLOR
-// already uses for a single-series magnitude chart, and the same green
+// Obsidian & Ember phase — SCORE_COLOR was a hardcoded '#4F46E5', the old
+// indigo shell-accent hex baked directly into a JS constant instead of
+// deriving from a token. Recharts fill/stroke props accept a live CSS
+// custom-property string same as Sparkline.tsx already relies on, so this
+// now tracks the theme's own chart-1 (ember in both light and dark) instead
+// of a frozen old-palette color. IMPROVEMENT_COLOR stays the same green
 // BatchPerformancePage.tsx's PASS_COLOR / TrainerDetailPage.tsx's
-// TREND_LINE_COLOR already use for "positive" — no new hues introduced
-// anywhere on this page.
-const SCORE_COLOR = '#4F46E5'
+// TREND_LINE_COLOR already use for "positive" — semantic, not brand-tied.
+const SCORE_COLOR = 'var(--chart-1)'
 const IMPROVEMENT_COLOR = '#16a34a'
 
 // Date-range half of the filter bar (Phase 2 brief's "filter bar
@@ -161,13 +164,13 @@ export default function SuperAdminAnalyticsPage() {
       </PageHeader>
 
       {/* Structural language shared with StudentDashboardPage/
-          FacultyAnalyticsPage, adapted to Admin's own numbers. Now on
-          Admin's own "Graphite & Steel" scoped theme (.theme-admin in
-          globals.css, applied on AdminLayout's root) — admin-* tokens in
-          tailwind.config.js drive the hero gradient/rail; shell-accent
-          resolves per-scope automatically, so the corner badge below needed
-          no code change. Total Students is the hero: the single number that
-          answers "how
+          FacultyAnalyticsPage, adapted to Admin's own numbers. Full UI
+          overhaul phase — the old per-role "Graphite & Steel" theme
+          (.theme-admin) is gone; every role now shares one `.app-shell`
+          light/dark scope (globals.css), with brand-gradient-from/to
+          driving this hero and shell-accent resolving the same way in every
+          scope, so the corner badge below needed no code change. Total
+          Students is the hero: the single number that answers "how
           big is this platform" at a glance, given genuine typographic
           display weight (Space Grotesk, ~60px) instead of a 4th equal-weight
           stat card — this is a plain count, not a percentage, so it gets
@@ -190,7 +193,7 @@ export default function SuperAdminAnalyticsPage() {
       >
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-gradient-to-br from-admin-gradient-from to-admin-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-sm lg:col-span-3"
         >
           {(proctoringActivity.data?.totalEvents ?? 0) > 0 && (
             <div

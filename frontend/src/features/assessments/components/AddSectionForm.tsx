@@ -23,7 +23,7 @@ const addSectionFormSchema = z.object({
 type AddSectionFormValues = z.infer<typeof addSectionFormSchema>
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 interface AddSectionFormProps {
   assessmentId: string
@@ -53,24 +53,24 @@ export function AddSectionForm({ assessmentId }: AddSectionFormProps) {
   })
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-3">
+    <form onSubmit={onSubmit} noValidate className="flex flex-wrap items-end gap-2.5">
       <div className="min-w-48 flex-1 space-y-1">
-        <label className="text-xs font-medium text-brand-primary">Section Title</label>
+        <label className="text-xs font-medium text-foreground">Section Title</label>
         <input className={inputClassName} {...register('title')} />
         {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-brand-primary">Selection Mode</label>
+        <label className="text-xs font-medium text-foreground">Selection Mode</label>
         <select className={inputClassName} {...register('selectionMode')}>
           <option value="manual">Manual</option>
           <option value="pool">Pool</option>
         </select>
       </div>
-      <div className="w-32 space-y-1">
-        <label className="text-xs font-medium text-brand-primary">Timer (min)</label>
+      <div className="w-28 space-y-1">
+        <label className="text-xs font-medium text-foreground">Timer (min)</label>
         <input type="number" min={1} className={inputClassName} {...register('timerMinutes')} />
       </div>
-      <Button type="submit" disabled={createSection.isPending}>
+      <Button type="submit" size="sm" disabled={createSection.isPending}>
         {createSection.isPending ? 'Adding…' : 'Add Section'}
       </Button>
       {createSection.isError && (

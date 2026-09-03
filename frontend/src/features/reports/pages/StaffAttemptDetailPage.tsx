@@ -1,5 +1,9 @@
+import { ArrowLeft } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { useStaffAttemptDetail } from '../api'
 import type { AttemptStatus } from '../types'
 
@@ -55,30 +59,31 @@ export default function StaffAttemptDetailPage() {
 
   if (!batchId) {
     return (
-      <div className="p-5">
-        <p className="text-sm text-destructive">
+      <div className="mx-auto max-w-2xl p-4">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           Missing batchId — open this page from a student row in Batch Performance.
-        </p>
+        </div>
       </div>
     )
   }
 
   if (isLoading) {
     return (
-      <div className="p-5">
-        <p className="text-sm text-muted-foreground">Loading attempt details…</p>
+      <div className="mx-auto max-w-2xl space-y-3 p-4" role="status" aria-label="Loading attempt details">
+        <div className="h-36 animate-pulse rounded-lg bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
     )
   }
 
   if (isError || !data) {
     return (
-      <div className="p-5">
-        <p className="text-sm text-destructive">
+      <div className="mx-auto max-w-2xl p-4">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">
           {error instanceof ApiError
             ? error.message
             : "Couldn't load this attempt's details. Please try again."}
-        </p>
+        </div>
       </div>
     )
   }
@@ -86,12 +91,12 @@ export default function StaffAttemptDetailPage() {
   const { attempt, questions } = data
 
   return (
-    <div className="mx-auto max-w-2xl p-5">
-      <div className="rounded-lg border border-border bg-background p-4 shadow-sm">
+    <div className="mx-auto max-w-2xl p-4">
+      <Card className="gap-0 p-4">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {studentName ?? 'Student'} &middot; Attempt Detail
         </p>
-        <h1 className="mt-1 font-heading text-xl font-semibold text-brand-primary">
+        <h1 className="mt-1 font-heading text-xl font-semibold text-primary">
           {attempt.assessmentTitle}
         </h1>
         <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -102,18 +107,18 @@ export default function StaffAttemptDetailPage() {
         <div className="mt-4 flex items-center gap-8">
           <div>
             <p className="text-sm text-muted-foreground">Status</p>
-            <p className="font-medium text-brand-primary">
+            <p className="font-medium text-primary">
               {STATUS_LABELS[attempt.status] ?? attempt.status}
             </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Score</p>
-            <p className="font-medium text-brand-primary">
+            <p className="font-medium text-primary">
               {attempt.status === 'pending_evaluation' ? 'Pending' : (attempt.totalScore ?? '—')}
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
       <div className="mt-4 space-y-3">
         <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -121,30 +126,21 @@ export default function StaffAttemptDetailPage() {
         </h2>
 
         {questions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No questions to show for this attempt.</p>
+          <EmptyState message="No questions to show for this attempt." />
         ) : (
           questions.map((question, index) => (
-            <div
-              key={question.questionVersionId}
-              className="rounded-lg border border-border bg-background p-4"
-            >
+            <Card key={question.questionVersionId} className="gap-0 p-4">
               <div className="flex items-start justify-between gap-4">
-                <p className="text-sm text-brand-primary">
+                <p className="text-sm text-primary">
                   {index + 1}. {question.questionText}
                 </p>
                 {/* Only for mcq/coding — psychometric has no "correct
                     answer" concept, so isCorrect is null and no badge
                     renders, same precedent as AttemptResultPage. */}
                 {question.isCorrect !== null && (
-                  <span
-                    className={
-                      question.isCorrect
-                        ? 'shrink-0 rounded-full bg-green-600/10 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400'
-                        : 'shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive'
-                    }
-                  >
+                  <Badge variant={question.isCorrect ? 'success' : 'danger'} className="shrink-0">
                     {question.isCorrect ? 'Correct' : 'Incorrect'}
-                  </span>
+                  </Badge>
                 )}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -160,7 +156,7 @@ export default function StaffAttemptDetailPage() {
                 &middot; Time spent:{' '}
                 {question.timeSpentSeconds !== null ? formatDuration(question.timeSpentSeconds) : '—'}
               </p>
-            </div>
+            </Card>
           ))
         )}
       </div>
@@ -168,9 +164,10 @@ export default function StaffAttemptDetailPage() {
       <Link
         to={{ pathname: '..', search: backSearch.toString() }}
         relative="path"
-        className="mt-6 inline-block text-sm text-brand-accent hover:underline"
+        className="mt-6 inline-flex items-center gap-1 text-sm text-primary hover:underline"
       >
-        &larr; Back to Batch Performance
+        <ArrowLeft className="size-3.5" />
+        Back to Batch Performance
       </Link>
     </div>
   )

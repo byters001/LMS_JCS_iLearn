@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -75,13 +76,20 @@ export function DeleteQuestionDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete this question?</DialogTitle>
-          <DialogDescription>
-            This removes it from the question bank's browse/search and from any pool it could
-            otherwise be drawn into. If any assessment already includes a version of this
-            question, that assessment is unaffected — its frozen content and any graded attempts
-            stay exactly as they are. This action cannot be undone from the UI.
-          </DialogDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-status-danger-bg">
+              <AlertTriangle className="size-4.5 text-status-danger-fg" />
+            </div>
+            <div className="space-y-1 pt-0.5">
+              <DialogTitle>Delete this question?</DialogTitle>
+              <DialogDescription>
+                This removes it from the question bank's browse/search and from any pool it could
+                otherwise be drawn into. If any assessment already includes a version of this
+                question, that assessment is unaffected — its frozen content and any graded attempts
+                stay exactly as they are. This action cannot be undone from the UI.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {deleteQuestion.isError && (

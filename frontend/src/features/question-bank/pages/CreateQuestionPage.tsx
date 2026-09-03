@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
 import { useCategories, useCreateQuestion, useTags, useTopics } from '../api'
 import { CreateCategoryDialog } from '../components/CreateCategoryDialog'
@@ -102,7 +103,7 @@ function MultiSelectChips({
   return (
     <div className="space-y-1.5">
       {!hideLabel && (
-        <label className="text-xs font-medium text-brand-primary">
+        <label className="text-xs font-medium text-foreground">
           {label} <span className="text-muted-foreground">(optional)</span>
         </label>
       )}
@@ -111,7 +112,7 @@ function MultiSelectChips({
           {selectedIds.map((id) => (
             <li
               key={id}
-              className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-brand-primary"
+              className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
             >
               <span>{optionsById.get(id) ?? id}</span>
               <button
@@ -263,23 +264,26 @@ export default function CreateQuestionPage() {
   })
 
   return (
-    <div className="mx-auto max-w-3xl p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
+    <div className="mx-auto max-w-3xl space-y-3 p-4">
+      <Link to=".." className="text-sm text-primary hover:underline">
         &larr; Back to questions
       </Link>
 
-      <div className="mt-3 rounded-xl border border-border bg-background p-4 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Question</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Creates the question and its first version in one step, as a draft — submitting it for
-          review and approval is a separate workflow.
-        </p>
+      <Card className="p-3.5">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-xl">Create Question</CardTitle>
+          <CardDescription>
+            Creates the question and its first version in one step, as a draft — submitting it for
+            review and approval is a separate workflow.
+          </CardDescription>
+        </CardHeader>
 
-        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
+        <CardContent className="px-0 pb-0">
+        <form onSubmit={onSubmit} noValidate className="space-y-4">
           {/* --- Shared fields, apply to every type --- */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label htmlFor="type" className="text-sm font-medium text-brand-primary">
+              <label htmlFor="type" className="text-sm font-medium text-foreground">
                 Type
               </label>
               <select id="type" className={inputClassName} {...register('type')}>
@@ -291,7 +295,7 @@ export default function CreateQuestionPage() {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="difficulty" className="text-sm font-medium text-brand-primary">
+              <label htmlFor="difficulty" className="text-sm font-medium text-foreground">
                 Difficulty
               </label>
               <select id="difficulty" className={inputClassName} {...register('difficulty')}>
@@ -316,12 +320,12 @@ export default function CreateQuestionPage() {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-brand-primary" htmlFor="categoryId">
+              <label className="text-sm font-medium text-foreground" htmlFor="categoryId">
                 Category
               </label>
               <button
                 type="button"
-                className="text-xs font-medium text-brand-accent hover:underline"
+                className="text-xs font-medium text-primary hover:underline"
                 onClick={() => setIsNewCategoryOpen(true)}
               >
                 + New Category
@@ -345,13 +349,13 @@ export default function CreateQuestionPage() {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-brand-primary">
+              <span className="text-xs font-medium text-foreground">
                 Topics <span className="text-muted-foreground">(optional)</span>
               </span>
               {categoryId && (
                 <button
                   type="button"
-                  className="text-xs font-medium text-brand-accent hover:underline"
+                  className="text-xs font-medium text-primary hover:underline"
                   onClick={() => setIsNewTopicOpen(true)}
                 >
                   + New Topic
@@ -410,15 +414,12 @@ export default function CreateQuestionPage() {
             </p>
           )}
 
-          <Button
-            type="submit"
-            disabled={createQuestion.isPending}
-            className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          >
+          <Button type="submit" disabled={createQuestion.isPending} className="w-full">
             {createQuestion.isPending ? 'Creating…' : 'Create Question'}
           </Button>
         </form>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

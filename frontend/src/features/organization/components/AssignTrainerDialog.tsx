@@ -110,9 +110,9 @@ export function AssignTrainerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-brand-primary">Currently assigned</p>
+            <p className="text-sm font-medium text-foreground">Currently assigned</p>
             {assignedTrainers.isPending ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (assignedTrainers.data?.items.length ?? 0) === 0 ? (
@@ -141,7 +141,7 @@ export function AssignTrainerDialog({
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-brand-primary">Add trainers</p>
+            <p className="text-sm font-medium text-foreground">Add trainers</p>
             <Combobox
               id="assignTrainerPicker"
               options={pickerOptions}
@@ -160,7 +160,7 @@ export function AssignTrainerDialog({
               {stagedTrainerIds.map((trainerId) => (
                 <li
                   key={trainerId}
-                  className="flex items-center gap-1 rounded-full bg-brand-accent/10 px-2.5 py-1 text-xs font-medium text-brand-accent"
+                  className="flex items-center gap-1 rounded-full bg-accent-indigo-bg px-2.5 py-1 text-xs font-medium text-accent-indigo-fg"
                 >
                   {trainerNameById.get(trainerId) ?? trainerId}
                   <button

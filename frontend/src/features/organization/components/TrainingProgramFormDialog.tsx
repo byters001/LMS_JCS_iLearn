@@ -110,11 +110,11 @@ export function TrainingProgramFormDialog({
           <DialogDescription>Adds a new training program under {collegeName}.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          <div className="space-y-1.5">
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+          <div className="space-y-1">
             <label
               htmlFor="trainingProgramDepartment"
-              className="text-sm font-medium text-brand-primary"
+              className="text-sm font-medium text-foreground"
             >
               Department
             </label>
@@ -136,10 +136,10 @@ export function TrainingProgramFormDialog({
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label
               htmlFor="trainingProgramName"
-              className="text-sm font-medium text-brand-primary"
+              className="text-sm font-medium text-foreground"
             >
               Name
             </label>

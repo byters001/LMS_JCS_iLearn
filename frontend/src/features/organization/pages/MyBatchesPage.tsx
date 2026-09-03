@@ -1,9 +1,12 @@
+import { motion } from 'framer-motion'
+import { BarChart3, CheckCircle2, Layers, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
 import {
   Table,
   TableBody,
@@ -20,6 +23,8 @@ import { AddStudentsDialog } from '@/features/students/components/AddStudentsDia
 import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { StudentRosterTable } from '@/features/students/components/StudentRosterTable'
 import { useStudentProfiles } from '@/features/students/api'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
 import { useMyBatches } from '../api'
 import { BatchCard } from '../components/BatchCard'
 import type { Batch } from '../types'
@@ -64,10 +69,34 @@ export default function MyBatchesPage() {
   const [studentsPage, setStudentsPage] = useState(1)
   const [includeArchivedStudents, setIncludeArchivedStudents] = useState(false)
   const batches = useMyBatches({ page, pageSize: PAGE_SIZE })
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const statVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_ITEM_VARIANTS
+  const containerVariants = prefersReducedMotion ? STATIC_VARIANTS : STAT_CONTAINER_VARIANTS
 
   const totalPages = batches.data
     ? Math.max(1, Math.ceil(batches.data.total / batches.data.pageSize))
     : 1
+
+  // Dashboard-weight stat row (Faculty landing page) — built entirely from
+  // this page's own useMyBatches fetch, no new query added. `total` is a
+  // real, page-independent count (pagination metadata), but the other three
+  // are summed over the currently loaded page's items only — same
+  // "bounded, class-sized cohort" scale assumption BatchPerformancePage's
+  // own HISTOGRAM_PAGE_SIZE comment already documents (a trainer realistically
+  // has well under PAGE_SIZE=20 batches, so page 1 covers them in practice).
+  const loadedBatches = batches.data?.items ?? []
+  const studentsInView = batches.data
+    ? loadedBatches.reduce((sum, batch) => sum + batch.studentCount, 0)
+    : undefined
+  const activeBatchesInView = batches.data
+    ? loadedBatches.filter((batch) => batch.status === 'active').length
+    : undefined
+  const avgBatchSize =
+    batches.data && loadedBatches.length > 0 && studentsInView !== undefined
+      ? Math.round(studentsInView / loadedBatches.length)
+      : batches.data
+        ? null
+        : undefined
 
   const selectedBatch = batches.data?.items.find((batch) => batch.id === selectedBatchId)
 
@@ -113,7 +142,53 @@ export default function MyBatchesPage() {
       <PageHeader
         title="My Batches"
         description="Batches you're currently assigned to as a trainer."
-      />
+      >
+        {!batches.isError && (
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={containerVariants}
+            className="grid grid-cols-2 gap-2.5 sm:grid-cols-4"
+          >
+            <motion.div variants={statVariants}>
+              <StatCard
+                label="My Batches"
+                value={batches.data?.total}
+                icon={Layers}
+                iconClassName="bg-accent-indigo-bg text-accent-indigo-fg"
+                accent="indigo"
+              />
+            </motion.div>
+            <motion.div variants={statVariants}>
+              <StatCard
+                label="My Students"
+                value={studentsInView}
+                icon={Users}
+                iconClassName="bg-accent-teal-bg text-accent-teal-fg"
+                accent="teal"
+              />
+            </motion.div>
+            <motion.div variants={statVariants}>
+              <StatCard
+                label="Active Batches"
+                value={activeBatchesInView}
+                icon={CheckCircle2}
+                iconClassName="bg-accent-amber-bg text-accent-amber-fg"
+                accent="amber"
+              />
+            </motion.div>
+            <motion.div variants={statVariants}>
+              <StatCard
+                label="Avg. Batch Size"
+                value={avgBatchSize}
+                icon={BarChart3}
+                iconClassName="bg-accent-coral-bg text-accent-coral-fg"
+                accent="coral"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </PageHeader>
 
       {batches.isPending && (
         <div

@@ -21,6 +21,9 @@ import type { LeaderboardEntry, LeaderboardTier } from '../types'
 // PLUS a distinct color per tier (never color alone for identity, dataviz
 // skill), each label spelled out next to the badge so nothing depends on
 // correctly distinguishing four similar-looking metallic hues either.
+// Token-driven (accent-*/status-neutral-* ramps from globals.css), not
+// hardcoded Tailwind grays — repaints correctly under both the light
+// .app-shell and dark .app-shell.dark scopes with zero per-component work.
 const TIER_CONFIG: Record<
   LeaderboardTier,
   { label: string; icon: ComponentType<{ className?: string }>; className: string }
@@ -28,22 +31,22 @@ const TIER_CONFIG: Record<
   platinum: {
     label: 'Platinum',
     icon: Crown,
-    className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',
+    className: 'bg-accent-indigo-bg text-accent-indigo-fg',
   },
   gold: {
     label: 'Gold',
     icon: Trophy,
-    className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    className: 'bg-accent-amber-bg text-accent-amber-fg',
   },
   silver: {
     label: 'Silver',
     icon: Medal,
-    className: 'bg-zinc-400/10 text-zinc-600 dark:text-zinc-300',
+    className: 'bg-status-neutral-bg text-status-neutral-fg',
   },
   bronze: {
     label: 'Bronze',
     icon: Award,
-    className: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
+    className: 'bg-accent-coral-bg text-accent-coral-fg',
   },
 }
 
@@ -61,6 +64,17 @@ export function TierBadge({ tier }: { tier: LeaderboardTier }) {
   )
 }
 
+// Two-letter initials for the row avatar chip — the only per-student visual
+// this endpoint's data actually supports (LeaderboardEntry carries no photo
+// URL), same "no fabricated data" discipline as the missing trend column
+// below.
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  const first = parts[0]?.[0] ?? ''
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : ''
+  return (first + last).toUpperCase() || '?'
+}
+
 function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
   return (
     <TableRow
@@ -69,19 +83,25 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
         // The logged-in student's own row: a tinted background PLUS a left
         // accent border PLUS a "(You)" label — three redundant signals, not
         // just a background tint someone could miss while scanning quickly.
-        entry.isSelf &&
-          'border-l-4 border-l-student-accent bg-student-accent/5 hover:bg-student-accent/10',
+        entry.isSelf && 'border-l-4 border-l-primary bg-primary/5 hover:bg-primary/10',
       )}
     >
-      <TableCell className="pl-4 font-medium text-primary">{entry.rank}</TableCell>
+      <TableCell className="pl-4 font-mono font-medium text-primary">
+        {entry.rank <= 3 ? `#${entry.rank}` : entry.rank}
+      </TableCell>
       <TableCell>
         <TierBadge tier={entry.tier} />
       </TableCell>
       <TableCell className="font-medium text-primary">
-        {entry.displayName}
-        {entry.isSelf && <span className="ml-1.5 text-xs font-normal text-student-accent">(You)</span>}
+        <div className="flex items-center gap-2">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary font-mono text-[10px] font-semibold text-secondary-foreground">
+            {getInitials(entry.displayName)}
+          </span>
+          <span className="truncate">{entry.displayName}</span>
+          {entry.isSelf && <span className="shrink-0 text-xs font-normal text-primary">(You)</span>}
+        </div>
       </TableCell>
-      <TableCell className="pr-4 text-right text-muted-foreground">
+      <TableCell className="pr-4 text-right font-mono text-muted-foreground">
         {entry.averageScorePercent}%
       </TableCell>
     </TableRow>

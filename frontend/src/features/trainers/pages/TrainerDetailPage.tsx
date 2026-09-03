@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ApiError } from '@/api'
@@ -24,7 +25,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
   return (
     <div className={cn('rounded-lg border border-border bg-background p-4', CARD_GRADIENT)}>
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</p>
-      <p className="mt-1.5 text-2xl font-semibold text-brand-primary">{value}</p>
+      <p className="mt-1.5 text-2xl font-semibold text-primary">{value}</p>
     </div>
   )
 }
@@ -71,8 +72,9 @@ export default function TrainerDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
-        &larr; Back to trainers
+      <Link to=".." className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        <ArrowLeft className="size-3.5" />
+        Back to trainers
       </Link>
 
       {performance.isPending && (
@@ -94,7 +96,7 @@ export default function TrainerDetailPage() {
       {performance.data && (
         <>
           <div>
-            <h1 className="font-heading text-xl font-semibold text-brand-primary">{performance.data.fullName}</h1>
+            <h1 className="font-heading text-xl font-semibold text-primary">{performance.data.fullName}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Assigned batches and performance trend across them.
             </p>
@@ -117,7 +119,7 @@ export default function TrainerDetailPage() {
               <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {performance.data.batches.map((batch) => (
                   <div key={batch.id} className="rounded-lg border border-border p-3">
-                    <dt className="font-medium text-brand-primary">{batch.name}</dt>
+                    <dt className="font-medium text-primary">{batch.name}</dt>
                     <dd className="mt-0.5 text-sm text-muted-foreground">
                       {batch.collegeName} &middot; {batch.departmentName}
                     </dd>
@@ -188,7 +190,7 @@ export default function TrainerDetailPage() {
                       key={`${point.batchId}-${point.assessmentId}`}
                       className="hover:bg-muted/30"
                     >
-                      <TableCell className="pl-4 font-medium text-brand-primary">
+                      <TableCell className="pl-4 font-medium text-primary">
                         {point.assessmentTitle}
                       </TableCell>
                       <TableCell className="text-muted-foreground">

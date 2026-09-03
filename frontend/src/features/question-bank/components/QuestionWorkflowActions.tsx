@@ -7,7 +7,7 @@ import { useApproveQuestion, useRejectQuestion, useSubmitQuestion } from '../api
 import type { QuestionStatus } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 const notesFormSchema = z.object({ notes: z.string().optional() })
 type NotesFormValues = z.infer<typeof notesFormSchema>
@@ -101,7 +101,7 @@ export function QuestionWorkflowActions({ questionId, status }: QuestionWorkflow
 function NotesField({ form }: { form: ReturnType<typeof useForm<NotesFormValues>> }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-brand-primary">
+      <label className="text-xs font-medium text-foreground">
         Notes <span className="text-muted-foreground">(optional)</span>
       </label>
       <textarea rows={2} className={inputClassName} {...form.register('notes')} />

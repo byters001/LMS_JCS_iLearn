@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { Sparkline } from '@/components/ui/Sparkline'
 import { useCountUp } from '@/hooks/useCountUp'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
@@ -27,9 +28,11 @@ interface StatCardProps {
   value: number | null | undefined
   icon: LucideIcon
   // Legacy per-caller icon chip color (e.g. "bg-blue-500/10 text-blue-600").
-  // Ignored when `accent` is passed — kept required so every existing call
-  // site (none of which pass `accent` yet) renders byte-for-byte the same.
-  iconClassName: string
+  // Ignored when `accent` is passed. Optional — the full UI overhaul phase
+  // moved every caller onto the token-driven `accent` prop instead, and a
+  // required-but-ignored prop only exists to make new call sites pass a
+  // throwaway value.
+  iconClassName?: string
   // Optional — new token-driven icon chip (32px, rounded-lg) used instead of
   // iconClassName's free-form circle when set. Opt-in only, so no existing
   // caller changes appearance until it adopts this.
@@ -46,6 +49,11 @@ interface StatCardProps {
     value: number
     total: number
   }
+  // Optional — a short trend series (e.g. last 7 days' counts) rendered as
+  // an inline sparkline to the right of the value, dense-dashboard style.
+  // Omitted entirely (no chart, no reserved space) unless a caller passes
+  // at least two points, so every existing StatCard usage is unaffected.
+  trend?: number[]
   // Optional — CollegeListPage's single "Total colleges" card uses this to
   // cap its width (a lone StatCard has no grid cell to size it), rather
   // than stretching edge-to-edge like a banner. Omitted entirely elsewhere,
@@ -53,7 +61,14 @@ interface StatCardProps {
   className?: string
 }
 
-export function StatCard({ label, value, icon: Icon, iconClassName, accent, delta, progress, className }: StatCardProps) {
+const ACCENT_CHART_VAR = {
+  indigo: 'var(--accent-indigo-fg)',
+  teal: 'var(--accent-teal-fg)',
+  amber: 'var(--accent-amber-fg)',
+  coral: 'var(--accent-coral-fg)',
+} as const
+
+export function StatCard({ label, value, icon: Icon, iconClassName, accent, delta, progress, trend, className }: StatCardProps) {
   const displayValue = useCountUp(value)
 
   return (
@@ -68,7 +83,7 @@ export function StatCard({ label, value, icon: Icon, iconClassName, accent, delt
         >
           <Icon className={accent ? 'size-4' : 'size-5'} />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <p className="font-mono text-2xl font-semibold text-foreground">
               {value === undefined ? (
@@ -91,8 +106,16 @@ export function StatCard({ label, value, icon: Icon, iconClassName, accent, delt
               </span>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="truncate text-sm text-muted-foreground">{label}</p>
         </div>
+        {trend && trend.length >= 2 && (
+          <Sparkline
+            data={trend}
+            className="w-16 shrink-0"
+            height={28}
+            colorVar={accent ? ACCENT_CHART_VAR[accent] : 'var(--chart-1)'}
+          />
+        )}
       </div>
       {progress && progress.total > 0 && (
         <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">

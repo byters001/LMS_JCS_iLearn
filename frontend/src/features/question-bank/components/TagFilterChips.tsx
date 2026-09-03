@@ -28,7 +28,7 @@ export function TagFilterChips({
           {selectedIds.map((id) => (
             <li
               key={id}
-              className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-brand-primary"
+              className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
             >
               <span>{optionsById.get(id) ?? id}</span>
               <button

@@ -16,7 +16,7 @@ import { useUpdatePool } from '../api'
 import type { QuestionPool } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 const editPoolFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -84,7 +84,7 @@ export function EditPoolDialog({ pool, open, onOpenChange }: EditPoolDialogProps
 
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="editPoolName" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="editPoolName" className="text-sm font-medium text-foreground">
               Name
             </label>
             <input id="editPoolName" className={inputClassName} {...register('name')} />
@@ -93,7 +93,7 @@ export function EditPoolDialog({ pool, open, onOpenChange }: EditPoolDialogProps
           <div className="space-y-1.5">
             <label
               htmlFor="editPoolDescription"
-              className="text-sm font-medium text-brand-primary"
+              className="text-sm font-medium text-foreground"
             >
               Description <span className="text-muted-foreground">(optional)</span>
             </label>

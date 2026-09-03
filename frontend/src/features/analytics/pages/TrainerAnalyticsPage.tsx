@@ -28,7 +28,7 @@ export default function TrainerAnalyticsPage() {
   // here would double-pad whichever tab is active.
   return (
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="m-4 mb-0">
+      <TabsList className="m-3 mb-0">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="batch-drilldown">Batch Drill-down</TabsTrigger>
       </TabsList>

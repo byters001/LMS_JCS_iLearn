@@ -88,7 +88,7 @@ function ChatExchange({ message }: { message: ChatMessage }) {
 
       {message.status === 'success' && message.result && (
         <div className="flex max-w-[85%] flex-col items-start gap-2 self-start">
-          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-brand-primary">{message.result.answer}</p>
+          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-foreground">{message.result.answer}</p>
           {isDownloadable(message.result) && <DownloadButton result={message.result} />}
         </div>
       )}

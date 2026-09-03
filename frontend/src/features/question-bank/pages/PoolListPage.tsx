@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/PageHeader'
 import {
   Table,
   TableBody,
@@ -43,19 +44,16 @@ export default function PoolListPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="p-4">
-      <div className="mb-4 flex items-baseline justify-between">
-        <div>
-          <h1 className="font-heading text-xl font-semibold text-primary">Question Pools</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Reusable, criteria-filtered buckets of approved questions for pool-based assessment
-            sections.
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="new">Create Pool</Link>
-        </Button>
-      </div>
+    <div className="space-y-3 p-4">
+      <PageHeader
+        title="Question Pools"
+        description="Reusable, criteria-filtered buckets of approved questions for pool-based assessment sections."
+        actions={
+          <Button asChild>
+            <Link to="new">Create Pool</Link>
+          </Button>
+        }
+      />
 
       {pools.isPending && (
         <div className="space-y-2" role="status" aria-label="Loading question pools">

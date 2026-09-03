@@ -186,7 +186,7 @@ export function GlobalSearch({ basePath }: GlobalSearchProps) {
                     instead of hiding students entirely. */}
                 {studentResults.map((student) => (
                   <div key={student.id} className="px-3.5 py-2">
-                    <p className="text-sm text-brand-primary">{student.fullName ?? '(no name)'}</p>
+                    <p className="text-sm font-medium text-foreground">{student.fullName ?? '(no name)'}</p>
                     <p className="text-xs text-muted-foreground">
                       {[student.rollNumber, student.collegeName].filter(Boolean).join(' · ') || '—'}
                     </p>
@@ -229,7 +229,7 @@ function ResultRow({
         'block w-full px-3.5 py-1.5 text-left transition-colors hover:bg-muted/50',
       )}
     >
-      <p className="truncate text-sm text-brand-primary">{title}</p>
+      <p className="truncate text-sm font-medium text-foreground">{title}</p>
       <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
     </button>
   )

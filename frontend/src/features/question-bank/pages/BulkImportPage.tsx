@@ -558,12 +558,12 @@ export default function BulkImportPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
+      <Link to=".." className="text-sm text-primary hover:underline">
         &larr; Back to questions
       </Link>
 
       <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">
+        <h1 className="font-heading text-xl font-semibold text-primary">
           Bulk Import Questions
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -571,13 +571,13 @@ export default function BulkImportPage() {
         </p>
 
         <div className="mt-4 space-y-1.5">
-          <label htmlFor="importType" className="text-sm font-medium text-brand-primary">
+          <label htmlFor="importType" className="text-sm font-medium text-primary">
             Question Type
           </label>
           <select
             id="importType"
             disabled={isImporting}
-            className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent disabled:opacity-50"
+            className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             value={importType}
             onChange={(event) => handleTypeChange(event.target.value as ImportType)}
           >
@@ -678,7 +678,7 @@ export default function BulkImportPage() {
                           {row.importStatus === 'importing' ? (
                             <span className="text-xs text-muted-foreground">Importing…</span>
                           ) : row.importStatus === 'success' ? (
-                            <span className="flex items-center gap-2 text-xs text-brand-accent">
+                            <span className="flex items-center gap-2 text-xs text-primary">
                               Created
                               {row.createdQuestionId && (
                                 <Link
@@ -706,7 +706,7 @@ export default function BulkImportPage() {
                               Possible duplicate — include anyway?
                             </label>
                           ) : (
-                            <span className="text-xs text-brand-accent">Valid</span>
+                            <span className="text-xs text-primary">Valid</span>
                           )}
                         </td>
                       </tr>
@@ -726,7 +726,7 @@ export default function BulkImportPage() {
           <div className="mt-4 flex items-center gap-3 border-t border-border pt-4">
             {importSummary ? (
               <>
-                <p className="text-sm text-brand-primary">
+                <p className="text-sm text-primary">
                   {importSummary.created} question{importSummary.created === 1 ? '' : 's'} created
                   {importSummary.failed > 0 && (
                     <span className="text-destructive">
@@ -736,7 +736,7 @@ export default function BulkImportPage() {
                     </span>
                   )}
                 </p>
-                <Link to=".." className="text-sm text-brand-accent hover:underline">
+                <Link to=".." className="text-sm text-primary hover:underline">
                   View in question bank
                 </Link>
                 <Button type="button" variant="outline" size="sm" onClick={reset}>

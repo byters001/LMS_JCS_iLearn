@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
-import { Building2, ChevronDown, Search, UserCheck, Users, UserX } from 'lucide-react'
+import { Building2, ChevronDown, Layers, Search, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -54,11 +55,9 @@ export default function StudentListPage() {
   // more than one college to compare, and only once every college's count
   // has actually loaded (rendering zeros while useStudentCountsByCollege's
   // per-college queries are still in flight would flash a misleading
-  // all-zero list before the real numbers pop in). Previously filtered out
-  // a set of known dev-DB test colleges by name heuristic; that's gone now
-  // that those rows (BYTER, Test College 54206b79, Test College c8572698)
-  // were actually deleted from the database — every college returned here
-  // is real, so it just shows all of them.
+  // all-zero list before the real numbers pop in). Every college returned
+  // here is real (known dev-DB test colleges were deleted from the
+  // database, not filtered client-side).
   const chartData = collegeItems
     .map((college) => ({ id: college.id, name: college.name, students: countsByCollegeId.get(college.id) }))
     .sort((a, b) => (b.students ?? 0) - (a.students ?? 0))
@@ -87,7 +86,7 @@ export default function StudentListPage() {
   )
 
   return (
-    <div className="space-y-3 p-4">
+    <div className="space-y-4 p-4">
       <PageHeader
         title="Students"
         description="Every student profile across your platform, browsable college by college."
@@ -103,7 +102,7 @@ export default function StudentListPage() {
               label="Total students"
               value={totalCount}
               icon={Users}
-              iconClassName="bg-brand-primary/10 text-brand-primary"
+              iconClassName="bg-primary/10 text-primary"
               accent="indigo"
               progress={
                 activeCount !== undefined && totalCount !== undefined
@@ -117,7 +116,7 @@ export default function StudentListPage() {
               label="Active"
               value={activeCount}
               icon={UserCheck}
-              iconClassName="bg-brand-accent/10 text-brand-accent"
+              iconClassName="bg-status-success-bg text-status-success-fg"
               accent="teal"
             />
           </motion.div>
@@ -136,30 +135,38 @@ export default function StudentListPage() {
       {/* Ranked list + inline mini-bar (GitHub language-breakdown style),
           not a full Recharts axis chart — this is 3-6 categories with a
           huge value disparity (real colleges in the 180s, next to
-          near-zero ones once test colleges are filtered out below). An
-          axis/gridline chart forces every bar to fight for legibility
-          against the same linear scale, so a real-but-small college would
-          STILL read as "basically zero, probably broken" even with a
-          correct domain — a plain number next to a proportional bar
-          doesn't have that problem, since the exact count is always
-          directly readable regardless of bar length. */}
+          near-zero ones). An axis/gridline chart forces every bar to fight
+          for legibility against the same linear scale, so a real-but-small
+          college would STILL read as "basically zero, probably broken"
+          even with a correct domain — a plain number next to a
+          proportional bar doesn't have that problem, since the exact count
+          is always directly readable regardless of bar length. */}
       {chartData.length > 1 && (
         <Card className="p-3.5">
-          <h2 className="font-heading text-sm font-semibold text-brand-primary">Students by college</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-heading text-sm font-semibold text-foreground">Students by college</h2>
+            <Badge variant="outline" className="gap-1">
+              <Layers className="size-3" />
+              {chartData.length} colleges
+            </Badge>
+          </div>
           {chartReady ? (
-            <div className="mt-3 space-y-2.5">
-              {chartData.map((row) => (
+            <div className="mt-3 space-y-2">
+              {chartData.map((row, index) => (
                 <div key={row.id} className="flex items-center gap-3">
+                  <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground">
+                    {index + 1}
+                  </span>
                   <p className="w-36 shrink-0 truncate text-sm text-foreground" title={row.name}>
                     {row.name}
                   </p>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-brand-accent"
+                      className="h-full rounded-full bg-primary"
                       style={{ width: `${((row.students ?? 0) / chartMax) * 100}%` }}
                     />
                   </div>
-                  <p className="w-8 shrink-0 text-right text-sm font-medium tabular-nums text-foreground">
+                  <p className="w-8 shrink-0 text-right font-mono text-sm font-medium tabular-nums text-foreground">
                     {row.students}
                   </p>
                 </div>
@@ -231,9 +238,9 @@ export default function StudentListPage() {
                   aria-expanded={isSelected}
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
-                    'rounded-lg border bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
+                    'rounded-lg border bg-card p-3 text-left shadow-sm transition-shadow hover:shadow-md',
                     CARD_GRADIENT,
-                    isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-border',
+                    isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border',
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -245,23 +252,25 @@ export default function StudentListPage() {
                       )}
                     />
                   </div>
-                  <p className="mt-2 font-heading text-2xl font-semibold text-foreground">
+                  <p className="mt-2 font-mono text-2xl font-semibold text-foreground">
                     {count === undefined ? (
                       <span className="inline-block h-7 w-10 animate-pulse rounded bg-muted align-middle" />
                     ) : (
                       count
                     )}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    student{count === 1 ? '' : 's'}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      student{count === 1 ? '' : 's'}
+                    </p>
                     {batchCount === undefined ? (
-                      <span className="inline-block h-3 w-16 animate-pulse rounded bg-muted align-middle" />
+                      <span className="inline-block h-4 w-14 animate-pulse rounded bg-muted" />
                     ) : (
-                      `${batchCount} batch${batchCount === 1 ? '' : 'es'}`
+                      <Badge variant="secondary" className="shrink-0">
+                        {batchCount} batch{batchCount === 1 ? '' : 'es'}
+                      </Badge>
                     )}
-                  </p>
+                  </div>
                 </button>
               )
             })}
@@ -279,7 +288,7 @@ export default function StudentListPage() {
           inline split panel; neither of those two referenced patterns
           exists yet, so this reuses the one that genuinely does). */}
       <Collapsible open={selectedCollegeId !== null}>
-        <CollapsibleContent className="space-y-4">
+        <CollapsibleContent className="space-y-3">
           {selectedCollege && (
             <>
               <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">

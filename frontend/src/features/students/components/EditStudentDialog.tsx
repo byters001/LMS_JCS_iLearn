@@ -116,19 +116,30 @@ export function EditStudentDialog({ student, open, onOpenChange }: EditStudentDi
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="studentRollNumber" className="text-sm font-medium text-brand-primary">
-              Roll Number <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <Input id="studentRollNumber" {...register('rollNumber')} />
+        <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor="studentRollNumber" className="text-sm font-medium text-foreground">
+                Roll Number <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Input id="studentRollNumber" {...register('rollNumber')} />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="studentContactPhone"
+                className="text-sm font-medium text-foreground"
+              >
+                Contact Phone <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Input id="studentContactPhone" {...register('contactPhone')} />
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label
                 htmlFor="studentContactEmailAlt"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Alternate Email <span className="text-muted-foreground">(optional)</span>
               </label>
@@ -138,24 +149,14 @@ export function EditStudentDialog({ student, open, onOpenChange }: EditStudentDi
               )}
             </div>
             <div className="space-y-1.5">
-              <label
-                htmlFor="studentContactPhone"
-                className="text-sm font-medium text-brand-primary"
-              >
-                Contact Phone <span className="text-muted-foreground">(optional)</span>
+              <label htmlFor="studentPhotoUrl" className="text-sm font-medium text-foreground">
+                Photo URL <span className="text-muted-foreground">(optional)</span>
               </label>
-              <Input id="studentContactPhone" {...register('contactPhone')} />
+              <Input id="studentPhotoUrl" type="url" {...register('photoUrl')} />
+              {errors.photoUrl && (
+                <p className="text-xs text-destructive">{errors.photoUrl.message}</p>
+              )}
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="studentPhotoUrl" className="text-sm font-medium text-brand-primary">
-              Photo URL <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <Input id="studentPhotoUrl" type="url" {...register('photoUrl')} />
-            {errors.photoUrl && (
-              <p className="text-xs text-destructive">{errors.photoUrl.message}</p>
-            )}
           </div>
 
           {updateStudentProfile.isError && (

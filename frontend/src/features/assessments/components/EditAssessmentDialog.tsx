@@ -51,7 +51,7 @@ const editAssessmentFormSchema = z.object({
 type EditAssessmentFormValues = z.infer<typeof editAssessmentFormSchema>
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 interface EditAssessmentDialogProps {
   assessment: Assessment
@@ -153,7 +153,7 @@ export function EditAssessmentDialog({ assessment, open, onOpenChange }: EditAss
 
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="editAssessmentTitle" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="editAssessmentTitle" className="text-sm font-medium text-foreground">
               Title
             </label>
             <input id="editAssessmentTitle" className={inputClassName} {...register('title')} />
@@ -163,7 +163,7 @@ export function EditAssessmentDialog({ assessment, open, onOpenChange }: EditAss
           <div className="space-y-1.5">
             <label
               htmlFor="editAssessmentDescription"
-              className="text-sm font-medium text-brand-primary"
+              className="text-sm font-medium text-foreground"
             >
               Description <span className="text-muted-foreground">(optional)</span>
             </label>
@@ -179,7 +179,7 @@ export function EditAssessmentDialog({ assessment, open, onOpenChange }: EditAss
             <div className="space-y-1.5">
               <label
                 htmlFor="editAssessmentTimerMinutes"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Timer (minutes) <span className="text-muted-foreground">(optional)</span>
               </label>
@@ -197,7 +197,7 @@ export function EditAssessmentDialog({ assessment, open, onOpenChange }: EditAss
             <div className="space-y-1.5">
               <label
                 htmlFor="editAssessmentMaxAttempts"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Max Attempts
               </label>
@@ -215,23 +215,23 @@ export function EditAssessmentDialog({ assessment, open, onOpenChange }: EditAss
           </div>
 
           <div className="space-y-2 rounded-md border border-border p-3">
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('shuffleQuestions')} />
               Shuffle questions
             </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('isPractice')} />
               Practice assessment (doesn&apos;t count toward real results)
             </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('proctoringCameraRequired')} />
               Require camera proctoring
             </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('proctoringFullscreenRequired')} />
               Require fullscreen proctoring
             </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('negativeMarking')} />
               Negative marking
             </label>
@@ -239,7 +239,7 @@ export function EditAssessmentDialog({ assessment, open, onOpenChange }: EditAss
               <div className="space-y-1.5 pl-6">
                 <label
                   htmlFor="editAssessmentNegativeMarkingValue"
-                  className="text-sm font-medium text-brand-primary"
+                  className="text-sm font-medium text-foreground"
                 >
                   Marks deducted per wrong answer
                 </label>

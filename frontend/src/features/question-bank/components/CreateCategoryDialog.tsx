@@ -17,7 +17,7 @@ import { useCategories, useCreateCategory } from '../api'
 import type { QuestionCategory, QuestionType } from '../types'
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
 
 const createCategoryFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -102,7 +102,7 @@ export function CreateCategoryDialog({
 
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="newCategoryName" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="newCategoryName" className="text-sm font-medium text-foreground">
               Name
             </label>
             <input
@@ -114,7 +114,7 @@ export function CreateCategoryDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-brand-primary">
+            <label className="text-sm font-medium text-foreground">
               Parent category <span className="text-muted-foreground">(optional)</span>
             </label>
             <Combobox

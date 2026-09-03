@@ -1,8 +1,9 @@
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAssessmentDetail } from '../api'
 import { AddSectionForm } from '../components/AddSectionForm'
 import { AssessmentSectionCard } from '../components/AssessmentSectionCard'
@@ -43,15 +44,17 @@ export default function AssessmentEditPage() {
 
   if (isLoading) {
     return (
-      <div className="p-5">
-        <p className="text-sm text-muted-foreground">Loading assessment…</p>
+      <div className="mx-auto max-w-3xl space-y-3 p-4">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+        <div className="h-32 animate-pulse rounded-lg bg-muted" />
+        <div className="h-48 animate-pulse rounded-lg bg-muted" />
       </div>
     )
   }
 
   if (isError || !assessment) {
     return (
-      <div className="p-5">
+      <div className="p-4">
         <p className="text-sm text-destructive">
           {error instanceof ApiError ? error.message : "Couldn't load this assessment."}
         </p>
@@ -63,15 +66,21 @@ export default function AssessmentEditPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-4">
-      <Link to=".." className="text-sm text-primary hover:underline">
-        &larr; Back to assessments
+      <Link
+        to=".."
+        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back to assessments
       </Link>
 
-      <Card className="p-4">
+      <Card className="p-3.5">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-xl font-semibold text-primary">{assessment.title}</h1>
-            <p className="mt-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          <div className="min-w-0">
+            <h1 className="truncate font-heading text-lg font-semibold text-foreground">
+              {assessment.title}
+            </h1>
+            <p className="mt-0.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {TEST_CATEGORY_LABELS[assessment.testCategory]}
             </p>
           </div>
@@ -88,95 +97,103 @@ export default function AssessmentEditPage() {
         {isContentEditable && (
           <div className="mt-3 flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
+              <Pencil className="size-3.5" />
               Edit
             </Button>
             <Button
-              variant="outline"
+              variant="destructive"
               size="sm"
-              className="border-destructive text-destructive hover:bg-destructive/5"
               onClick={() => setIsDeleteOpen(true)}
             >
+              <Trash2 className="size-3.5" />
               Delete
             </Button>
           </div>
         )}
 
-        <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4 text-sm">
+        <dl className="mt-3.5 grid grid-cols-3 gap-3 border-t border-border pt-3.5 text-sm">
           <div>
-            <dt className="text-muted-foreground">Timer</dt>
-            <dd className="font-medium text-primary">
+            <dt className="text-xs text-muted-foreground">Timer</dt>
+            <dd className="font-medium text-foreground">
               {assessment.timerMinutes ? `${assessment.timerMinutes} min` : 'No time limit'}
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Max Attempts</dt>
-            <dd className="font-medium text-primary">{assessment.maxAttempts}</dd>
+            <dt className="text-xs text-muted-foreground">Max Attempts</dt>
+            <dd className="font-medium text-foreground">{assessment.maxAttempts}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Created</dt>
-            <dd className="font-medium text-primary">{formatDate(assessment.createdAt)}</dd>
+            <dt className="text-xs text-muted-foreground">Created</dt>
+            <dd className="font-medium text-foreground">{formatDate(assessment.createdAt)}</dd>
           </div>
         </dl>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-          Sections
-        </h2>
-
-        {!isContentEditable && (
-          <p className="mt-3 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-            Content is locked — only a &quot;draft&quot; assessment can have sections, questions,
-            or pools added. This assessment&apos;s status is &quot;{assessment.status}&quot;.
-          </p>
-        )}
-
-        <div className="mt-4 space-y-4">
-          {assessment.sections.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No sections yet.</p>
-          ) : (
-            assessment.sections.map((section) => (
-              <AssessmentSectionCard
-                key={section.id}
-                assessmentId={assessment.id}
-                section={section}
-                testCategory={assessment.testCategory}
-                isContentEditable={isContentEditable}
-              />
-            ))
-          )}
-        </div>
-
-        {isContentEditable && (
-          <div className="mt-4 rounded-lg border-2 border-dashed border-border p-3.5">
-            <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Add a new section
+      <Card className="p-3.5">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Sections
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 px-0">
+          {!isContentEditable && (
+            <p className="rounded-lg bg-muted p-2.5 text-sm text-muted-foreground">
+              Content is locked — only a &quot;draft&quot; assessment can have sections, questions,
+              or pools added. This assessment&apos;s status is &quot;{assessment.status}&quot;.
             </p>
-            <AddSectionForm assessmentId={assessment.id} />
+          )}
+
+          <div className="space-y-3">
+            {assessment.sections.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No sections yet.</p>
+            ) : (
+              assessment.sections.map((section) => (
+                <AssessmentSectionCard
+                  key={section.id}
+                  assessmentId={assessment.id}
+                  section={section}
+                  testCategory={assessment.testCategory}
+                  isContentEditable={isContentEditable}
+                />
+              ))
+            )}
           </div>
-        )}
+
+          {isContentEditable && (
+            <div className="rounded-lg border-2 border-dashed border-border p-3">
+              <p className="mb-2.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Add a new section
+              </p>
+              <AddSectionForm assessmentId={assessment.id} />
+            </div>
+          )}
+        </CardContent>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-          Batches
-        </h2>
-        <div className="mt-4">
+      <Card className="p-3.5">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Batches
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
           <BatchesEditor
             assessmentId={assessment.id}
             status={assessment.status}
             batchIds={assessment.batchIds}
           />
-        </div>
+        </CardContent>
       </Card>
 
-      <Card className="p-4">
-        <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-          Workflow
-        </h2>
-        <div className="mt-4">
+      <Card className="p-3.5">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Workflow
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
           <WorkflowActions assessmentId={assessment.id} status={assessment.status} />
-        </div>
+        </CardContent>
       </Card>
 
       <EditAssessmentDialog assessment={assessment} open={isEditOpen} onOpenChange={setIsEditOpen} />

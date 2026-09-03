@@ -81,7 +81,7 @@ function ChangeCell({ change }: { change: number | null }) {
     <span
       className={cn(
         'flex items-center justify-end gap-1 font-medium',
-        isUp ? 'text-emerald-600' : 'text-destructive',
+        isUp ? 'text-status-success-fg' : 'text-destructive',
       )}
     >
       <Triangle className={cn('size-3.5', !isUp && 'rotate-180')} fill="currentColor" />

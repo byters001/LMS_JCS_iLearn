@@ -1,10 +1,13 @@
 import { ClipboardList, History, LayoutDashboard, LineChart, Trophy } from 'lucide-react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserAvatarMenu } from '@/components/UserAvatarMenu'
 import { useLogout } from '@/features/auth/api'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { StudentRail, type StudentRailNavItem } from '@/layouts/components/StudentRail'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
+import { useUIStore } from '@/store/uiStore'
 
 // Student Dashboard phase — Dashboard is now the /student index (was
 // StudentAssessmentsPage directly); "Your Assessments" moved to its own
@@ -50,13 +53,14 @@ function StudentLayout() {
   const navigate = useNavigate()
   const logout = useLogout()
   const pageTitle = useActivePageTitle()
+  const theme = useUIStore((state) => state.theme)
 
   function handleLogout() {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
   }
 
   return (
-    <div className="theme-parchment flex min-h-screen bg-background text-foreground">
+    <div className={cn('app-shell flex min-h-screen bg-background text-foreground', theme === 'dark' && 'dark')}>
       <StudentRail navItems={NAV_ITEMS} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -71,6 +75,7 @@ function StudentLayout() {
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80 print:hidden">
           <h1 className="truncate font-heading text-base font-semibold text-foreground">{pageTitle}</h1>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationBell />
             <UserAvatarMenu
               name={user?.fullName ?? ''}

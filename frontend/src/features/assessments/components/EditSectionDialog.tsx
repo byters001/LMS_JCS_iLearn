@@ -46,7 +46,7 @@ const editSectionFormSchema = z.object({
 type EditSectionFormValues = z.infer<typeof editSectionFormSchema>
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 interface EditSectionDialogProps {
   assessmentId: string
@@ -141,7 +141,7 @@ export function EditSectionDialog({
 
         <form onSubmit={onSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="editSectionTitle" className="text-sm font-medium text-brand-primary">
+            <label htmlFor="editSectionTitle" className="text-sm font-medium text-foreground">
               Title
             </label>
             <input id="editSectionTitle" className={inputClassName} {...register('title')} />
@@ -151,7 +151,7 @@ export function EditSectionDialog({
           <div className="space-y-1.5">
             <label
               htmlFor="editSectionInstructions"
-              className="text-sm font-medium text-brand-primary"
+              className="text-sm font-medium text-foreground"
             >
               Instructions <span className="text-muted-foreground">(optional)</span>
             </label>
@@ -167,7 +167,7 @@ export function EditSectionDialog({
             <div className="space-y-1.5">
               <label
                 htmlFor="editSectionOrder"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Sort Order
               </label>
@@ -185,7 +185,7 @@ export function EditSectionDialog({
             <div className="space-y-1.5">
               <label
                 htmlFor="editSectionTimerMinutes"
-                className="text-sm font-medium text-brand-primary"
+                className="text-sm font-medium text-foreground"
               >
                 Timer (minutes) <span className="text-muted-foreground">(optional)</span>
               </label>
@@ -205,7 +205,7 @@ export function EditSectionDialog({
           <div className="space-y-1.5">
             <label
               htmlFor="editSectionPassingMarks"
-              className="text-sm font-medium text-brand-primary"
+              className="text-sm font-medium text-foreground"
             >
               Passing Marks <span className="text-muted-foreground">(optional)</span>
             </label>
@@ -223,11 +223,11 @@ export function EditSectionDialog({
           </div>
 
           <div className="space-y-2 rounded-md border border-border p-3">
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('shuffleQuestions')} />
               Shuffle questions
             </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input type="checkbox" {...register('negativeMarking')} />
               Negative marking
             </label>
@@ -235,7 +235,7 @@ export function EditSectionDialog({
               <div className="space-y-1.5 pl-6">
                 <label
                   htmlFor="editSectionNegativeMarkingValue"
-                  className="text-sm font-medium text-brand-primary"
+                  className="text-sm font-medium text-foreground"
                 >
                   Marks deducted per wrong answer
                 </label>

@@ -194,12 +194,12 @@ export default function StudentDashboardPage() {
       <motion.div initial="hidden" animate="show" variants={containerVariants} className="grid grid-cols-1 gap-2.5 lg:grid-cols-5">
         <motion.div
           variants={statVariants}
-          className="relative overflow-visible rounded-xl bg-gradient-to-br from-student-gradient-from to-student-gradient-to p-4 text-white shadow-sm lg:col-span-3"
+          className="relative overflow-visible rounded-xl bg-linear-to-br from-hero-gradient-from to-hero-gradient-to p-4 text-white shadow-sm lg:col-span-3"
         >
           <div
             className={cn(
               'absolute -top-3 -right-3 flex size-14 items-center justify-center rounded-full border-4 border-background shadow-md',
-              TierIcon ? 'bg-student-accent text-student-accent-foreground' : 'bg-muted text-muted-foreground',
+              TierIcon ? 'bg-accent-amber-bg text-accent-amber-fg' : 'bg-muted text-muted-foreground',
             )}
             title={selfEntry?.tier ? `${selfEntry.tier} tier` : 'Not yet ranked'}
           >
@@ -276,7 +276,7 @@ export default function StudentDashboardPage() {
             hero and this table are now ONE dense row, not hero-then-cards
             underneath it. */}
         <motion.div variants={statVariants} className="lg:col-span-2">
-          <Card className="from-student-primary/8 h-full p-3.5">
+          <Card className="from-primary/8 h-full p-3.5">
             <div className="flex items-center justify-between gap-2.5">
               <div>
                 <h2 className="font-heading text-sm font-semibold text-primary">Upcoming Assessments</h2>
@@ -337,7 +337,7 @@ export default function StudentDashboardPage() {
           narrow single-column list wedged into the old 3-card row's leftover
           third — with RECENT_RESULTS_SHOWN capped at 3, this fills exactly
           one dense row with no leftover column instead of stacking tall. */}
-      <Card className="from-student-primary/8 p-3.5">
+      <Card className="from-primary/8 p-3.5">
         <div className="flex items-center justify-between gap-2.5">
           <div>
             <h2 className="font-heading text-sm font-semibold text-primary">Recent Results</h2>

@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { cn } from '@/lib/utils'
 import { useChatbotQueries } from '../api'
 import type { ChatbotQueryLogEntry } from '../types'
@@ -50,7 +51,7 @@ function ResolvedFunctionCell({ entry }: { entry: ChatbotQueryLogEntry }) {
       </span>
     )
   }
-  return <span className="font-medium text-brand-primary">{entry.resolvedFn}</span>
+  return <span className="font-medium text-primary">{entry.resolvedFn}</span>
 }
 
 // Super-Admin-only (routes/index.tsx's RequireRole, same as every other
@@ -70,15 +71,10 @@ export default function ChatbotAuditLogPage() {
 
   return (
     <div className="space-y-3 p-4">
-      <div>
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Chatbot Audit Log</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every question asked of the reporting chatbot, most recent first — including rejected or
-          unresolved attempts (an unallowlisted function, malformed arguments, or a question the
-          model couldn&apos;t resolve at all). Those are flagged below since they&apos;re the
-          security-relevant rows this log exists to catch.
-        </p>
-      </div>
+      <PageHeader
+        title="Chatbot Audit Log"
+        description="Every question asked of the reporting chatbot, most recent first — including rejected or unresolved attempts (an unallowlisted function, malformed arguments, or a question the model couldn't resolve at all). Those are flagged below since they're the security-relevant rows this log exists to catch."
+      />
 
       {queries.isPending && (
         <div className="space-y-2" role="status" aria-label="Loading chatbot audit log">
@@ -127,7 +123,7 @@ export default function ChatbotAuditLogPage() {
                     <TableCell className="pl-4">
                       {entry.askedByName ? (
                         <div>
-                          <p className="font-medium text-brand-primary">{entry.askedByName}</p>
+                          <p className="font-medium text-primary">{entry.askedByName}</p>
                           <p className="text-xs text-muted-foreground">{entry.askedByEmail}</p>
                         </div>
                       ) : (
@@ -162,7 +158,7 @@ export default function ChatbotAuditLogPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page <= 1 || queries.isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -171,7 +167,7 @@ export default function ChatbotAuditLogPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
+                className="border-primary text-primary hover:bg-primary/5"
                 disabled={page >= totalPages || queries.isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >

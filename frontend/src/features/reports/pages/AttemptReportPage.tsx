@@ -137,7 +137,7 @@ export default function AttemptReportPage() {
               label="Score (%)"
               value={attempt.scorePercent !== null ? Math.round(attempt.scorePercent) : null}
               icon={Target}
-              iconClassName="bg-student-accent/10 text-student-accent"
+              iconClassName="bg-accent-teal-bg text-accent-teal-fg"
               accent="teal"
               className="print:shadow-none"
             />
@@ -145,7 +145,7 @@ export default function AttemptReportPage() {
               label="Batch Rank"
               value={leaderboard.isPending ? undefined : (selfEntry?.rank ?? null)}
               icon={Trophy}
-              iconClassName="bg-student-primary/10 text-student-primary"
+              iconClassName="bg-accent-amber-bg text-accent-amber-fg"
               accent="amber"
               className="print:shadow-none"
             />

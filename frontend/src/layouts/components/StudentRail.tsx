@@ -13,18 +13,23 @@ interface StudentRailProps {
   navItems: StudentRailNavItem[]
 }
 
-// Parchment & Emerald hybrid nav — Student portal only. Unlike the shared
-// Sidebar.tsx (hover-to-expand, used by Admin/Trainer), this rail is
-// permanently icon-only at a fixed width: the brief calls for "no expand/
-// collapse needed at this width", so there's no useState toggle here at
-// all, just a static w-16 column. Tooltip-on-hover reuses the exact same
-// native `title` attribute Sidebar.tsx already relies on for its own
-// collapsed state, rather than pulling in a Radix Tooltip dependency for
-// one component.
+// Student portal's hybrid nav rail. Unlike the shared Sidebar.tsx
+// (hover-to-expand, used by Admin/Trainer), this rail is permanently
+// icon-only at a fixed width — no expand/collapse needed at this width, so
+// there's no useState toggle here at all, just a static w-16 column.
+// Tooltip-on-hover reuses the exact same native `title` attribute
+// Sidebar.tsx already relies on for its own collapsed state, rather than
+// pulling in a Radix Tooltip dependency for one component.
+//
+// Full UI overhaul phase — now themed with the same --sidebar-* tokens as
+// Sidebar.tsx (previously its own student-rail-* palette), so all three
+// roles share one permanently-dark nav rail, matching the reference
+// dashboard's dense dark-rail convention. The rail itself does NOT respond
+// to the light/dark content toggle, same as Sidebar.tsx.
 export function StudentRail({ navItems }: StudentRailProps) {
   return (
-    <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r border-student-rail-border bg-student-rail print:hidden">
-      <div className="flex h-14 shrink-0 items-center justify-center border-b border-student-rail-border">
+    <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r border-sidebar-border bg-sidebar print:hidden">
+      <div className="flex h-14 shrink-0 items-center justify-center border-b border-sidebar-border">
         <img src="/jcs-logo.png" alt="JCS iLearn" className="size-9 object-contain" />
       </div>
 
@@ -39,10 +44,10 @@ export function StudentRail({ navItems }: StudentRailProps) {
             className={({ isActive }) =>
               cn(
                 'flex items-center justify-center rounded-md px-0 py-2.5 outline-none transition-colors duration-150 ease-out',
-                'focus-visible:ring-2 focus-visible:ring-student-rail-active focus-visible:ring-offset-2 focus-visible:ring-offset-student-rail',
+                'focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--sidebar)]',
                 isActive
-                  ? 'bg-student-rail-active text-student-rail-active-foreground'
-                  : 'text-student-rail-foreground hover:bg-white/5 hover:text-white',
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
               )
             }
           >

@@ -1,9 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { ArrowLeft } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { useTrainingSessions } from '@/features/trainers/api'
 import { cn } from '@/lib/utils'
 import { useCreateAssessment } from '../api'
@@ -79,7 +82,31 @@ const TEST_CATEGORY_OPTIONS: Array<{ value: CreateAssessmentFormValues['testCate
 ]
 
 const inputClassName =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-accent'
+  'w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+
+const labelClassName = 'text-xs font-medium text-foreground'
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  label: string
+  description?: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="min-w-0">
+        <p className="text-sm text-foreground">{label}</p>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
+  )
+}
 
 export default function CreateAssessmentPage() {
   const navigate = useNavigate()
@@ -90,6 +117,7 @@ export default function CreateAssessmentPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateAssessmentFormValues>({
     resolver: zodResolver(createAssessmentFormSchema),
@@ -107,6 +135,10 @@ export default function CreateAssessmentPage() {
   })
 
   const negativeMarkingEnabled = watch('negativeMarking')
+  const shuffleQuestions = watch('shuffleQuestions')
+  const isPractice = watch('isPractice')
+  const proctoringCameraRequired = watch('proctoringCameraRequired')
+  const proctoringFullscreenRequired = watch('proctoringFullscreenRequired')
 
   const onSubmit = handleSubmit((values) => {
     createAssessment.mutate(
@@ -139,208 +171,215 @@ export default function CreateAssessmentPage() {
   })
 
   return (
-    <div className="mx-auto max-w-2xl p-5">
-      <Link to=".." className="text-sm text-brand-accent hover:underline">
-        &larr; Back to assessments
+    <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <Link
+        to=".."
+        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+      >
+        <ArrowLeft className="size-3.5" />
+        Back to assessments
       </Link>
 
-      <div className="mt-3 rounded-lg border border-border bg-background p-4 shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-brand-primary">Create Assessment</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Sections, questions, question pools, and batch assignment are all configured on the
-          next screen once this assessment exists as a draft.
-        </p>
+      <Card className="p-3.5">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle>Create Assessment</CardTitle>
+          <CardDescription>
+            Sections, questions, question pools, and batch assignment are all configured on the
+            next screen once this assessment exists as a draft.
+          </CardDescription>
+        </CardHeader>
 
-        <form onSubmit={onSubmit} noValidate className="mt-4 space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="title" className="text-sm font-medium text-brand-primary">
-              Title
-            </label>
-            <input id="title" className={inputClassName} {...register('title')} />
-            {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
-          </div>
+        <CardContent className="px-0">
+          <form onSubmit={onSubmit} noValidate className="space-y-3.5">
+            <div className="space-y-1">
+              <label htmlFor="title" className={labelClassName}>
+                Title
+              </label>
+              <input id="title" className={inputClassName} {...register('title')} />
+              {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="trainingSessionId" className="text-sm font-medium text-brand-primary">
-              Training Session <span className="text-muted-foreground">(optional)</span>
-            </label>
+            <div className="space-y-1">
+              <label htmlFor="trainingSessionId" className={labelClassName}>
+                Training Session <span className="text-muted-foreground">(optional)</span>
+              </label>
 
-            {trainingSessions.isPending && (
-              <div
-                role="status"
-                aria-label="Loading training sessions"
-                className={cn(inputClassName, 'animate-pulse text-muted-foreground')}
+              {trainingSessions.isPending && (
+                <div
+                  role="status"
+                  aria-label="Loading training sessions"
+                  className={cn(inputClassName, 'animate-pulse text-muted-foreground')}
+                >
+                  Loading sessions…
+                </div>
+              )}
+
+              {trainingSessions.isError && (
+                <p className="text-xs text-destructive">
+                  {trainingSessions.error instanceof ApiError
+                    ? trainingSessions.error.message
+                    : 'Failed to load training sessions. Please try again.'}
+                </p>
+              )}
+
+              {trainingSessions.data && (
+                // Never disabled — "No specific session" (value="") is always a
+                // real, selectable option, whether or not any sessions exist
+                // yet. assessment_batches, not training session, is what
+                // controls student visibility (item 8A's diagnosis), so there's
+                // no reason a missing session should block creation.
+                <select id="trainingSessionId" className={inputClassName} {...register('trainingSessionId')}>
+                  <option value="">No specific session</option>
+                  {trainingSessions.data.items.map((session) => (
+                    // "{title} — {date} ({program})" — two sessions from
+                    // DIFFERENT training programs can share the exact same
+                    // title (e.g. both called "Session 1"), so title + date
+                    // alone was ambiguous. trainingProgramName (backend now
+                    // joins training_programs for this) makes each option
+                    // distinguishable.
+                    <option key={session.id} value={session.id}>
+                      {session.title} — {session.sessionDate} ({session.trainingProgramName})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {trainingSessions.data?.items.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No training sessions exist yet — that&apos;s fine, this assessment can be created
+                  without one and linked to a session later if one becomes relevant.
+                </p>
+              )}
+
+              {errors.trainingSessionId && (
+                <p className="text-xs text-destructive">{errors.trainingSessionId.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="testCategory" className={labelClassName}>
+                Test Category
+              </label>
+              <select
+                id="testCategory"
+                className={inputClassName}
+                {...register('testCategory')}
               >
-                Loading sessions…
-              </div>
-            )}
-
-            {trainingSessions.isError && (
-              <p className="text-sm text-destructive">
-                {trainingSessions.error instanceof ApiError
-                  ? trainingSessions.error.message
-                  : 'Failed to load training sessions. Please try again.'}
-              </p>
-            )}
-
-            {trainingSessions.data && (
-              // Never disabled — "No specific session" (value="") is always a
-              // real, selectable option, whether or not any sessions exist
-              // yet. assessment_batches, not training session, is what
-              // controls student visibility (item 8A's diagnosis), so there's
-              // no reason a missing session should block creation.
-              <select id="trainingSessionId" className={inputClassName} {...register('trainingSessionId')}>
-                <option value="">No specific session</option>
-                {trainingSessions.data.items.map((session) => (
-                  // "{title} — {date} ({program})" — two sessions from
-                  // DIFFERENT training programs can share the exact same
-                  // title (e.g. both called "Session 1"), so title + date
-                  // alone was ambiguous. trainingProgramName (backend now
-                  // joins training_programs for this) makes each option
-                  // distinguishable.
-                  <option key={session.id} value={session.id}>
-                    {session.title} — {session.sessionDate} ({session.trainingProgramName})
+                {TEST_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
-            )}
+            </div>
 
-            {trainingSessions.data?.items.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No training sessions exist yet — that&apos;s fine, this assessment can be created
-                without one and linked to a session later if one becomes relevant.
+            <div className="space-y-1">
+              <label htmlFor="description" className={labelClassName}>
+                Description <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                id="description"
+                rows={3}
+                className={inputClassName}
+                {...register('description')}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label htmlFor="timerMinutes" className={labelClassName}>
+                  Timer (minutes) <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <input
+                  id="timerMinutes"
+                  type="number"
+                  min={1}
+                  className={inputClassName}
+                  {...register('timerMinutes')}
+                />
+                {errors.timerMinutes && (
+                  <p className="text-xs text-destructive">{errors.timerMinutes.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="maxAttempts" className={labelClassName}>
+                  Max Attempts <span className="text-muted-foreground">(default 1)</span>
+                </label>
+                <input
+                  id="maxAttempts"
+                  type="number"
+                  min={1}
+                  className={inputClassName}
+                  {...register('maxAttempts')}
+                />
+                {errors.maxAttempts && (
+                  <p className="text-xs text-destructive">{errors.maxAttempts.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="divide-y divide-border rounded-lg border border-border px-3">
+              <ToggleRow
+                label="Shuffle questions"
+                checked={shuffleQuestions}
+                onCheckedChange={(checked) => setValue('shuffleQuestions', checked)}
+              />
+              <ToggleRow
+                label="Practice assessment"
+                description="Doesn't count toward real results"
+                checked={isPractice}
+                onCheckedChange={(checked) => setValue('isPractice', checked)}
+              />
+              <ToggleRow
+                label="Require camera proctoring"
+                checked={proctoringCameraRequired}
+                onCheckedChange={(checked) => setValue('proctoringCameraRequired', checked)}
+              />
+              <ToggleRow
+                label="Require fullscreen proctoring"
+                checked={proctoringFullscreenRequired}
+                onCheckedChange={(checked) => setValue('proctoringFullscreenRequired', checked)}
+              />
+              <ToggleRow
+                label="Negative marking"
+                checked={negativeMarkingEnabled}
+                onCheckedChange={(checked) => setValue('negativeMarking', checked)}
+              />
+              {negativeMarkingEnabled && (
+                <div className="space-y-1 py-2.5 pl-1">
+                  <label htmlFor="negativeMarkingValue" className={labelClassName}>
+                    Marks deducted per wrong answer
+                  </label>
+                  <input
+                    id="negativeMarkingValue"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className={inputClassName}
+                    {...register('negativeMarkingValue')}
+                  />
+                  {errors.negativeMarkingValue && (
+                    <p className="text-xs text-destructive">{errors.negativeMarkingValue.message}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {createAssessment.isError && (
+              <p className="text-sm text-destructive">
+                {createAssessment.error instanceof ApiError
+                  ? createAssessment.error.message
+                  : 'Failed to create assessment. Please try again.'}
               </p>
             )}
 
-            {errors.trainingSessionId && (
-              <p className="text-sm text-destructive">{errors.trainingSessionId.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="testCategory" className="text-sm font-medium text-brand-primary">
-              Test Category
-            </label>
-            <select
-              id="testCategory"
-              className={inputClassName}
-              {...register('testCategory')}
-            >
-              {TEST_CATEGORY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="description" className="text-sm font-medium text-brand-primary">
-              Description <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <textarea
-              id="description"
-              rows={3}
-              className={inputClassName}
-              {...register('description')}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label htmlFor="timerMinutes" className="text-sm font-medium text-brand-primary">
-                Timer (minutes) <span className="text-muted-foreground">(optional)</span>
-              </label>
-              <input
-                id="timerMinutes"
-                type="number"
-                min={1}
-                className={inputClassName}
-                {...register('timerMinutes')}
-              />
-              {errors.timerMinutes && (
-                <p className="text-sm text-destructive">{errors.timerMinutes.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="maxAttempts" className="text-sm font-medium text-brand-primary">
-                Max Attempts <span className="text-muted-foreground">(default 1)</span>
-              </label>
-              <input
-                id="maxAttempts"
-                type="number"
-                min={1}
-                className={inputClassName}
-                {...register('maxAttempts')}
-              />
-              {errors.maxAttempts && (
-                <p className="text-sm text-destructive">{errors.maxAttempts.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2 rounded-md border border-border p-3">
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
-              <input type="checkbox" {...register('shuffleQuestions')} />
-              Shuffle questions
-            </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
-              <input type="checkbox" {...register('isPractice')} />
-              Practice assessment (doesn&apos;t count toward real results)
-            </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
-              <input type="checkbox" {...register('proctoringCameraRequired')} />
-              Require camera proctoring
-            </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
-              <input type="checkbox" {...register('proctoringFullscreenRequired')} />
-              Require fullscreen proctoring
-            </label>
-            <label className="flex items-center gap-2 text-sm text-brand-primary">
-              <input type="checkbox" {...register('negativeMarking')} />
-              Negative marking
-            </label>
-            {negativeMarkingEnabled && (
-              <div className="space-y-1.5 pl-6">
-                <label
-                  htmlFor="negativeMarkingValue"
-                  className="text-sm font-medium text-brand-primary"
-                >
-                  Marks deducted per wrong answer
-                </label>
-                <input
-                  id="negativeMarkingValue"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  className={inputClassName}
-                  {...register('negativeMarkingValue')}
-                />
-                {errors.negativeMarkingValue && (
-                  <p className="text-sm text-destructive">{errors.negativeMarkingValue.message}</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {createAssessment.isError && (
-            <p className="text-sm text-destructive">
-              {createAssessment.error instanceof ApiError
-                ? createAssessment.error.message
-                : 'Failed to create assessment. Please try again.'}
-            </p>
-          )}
-
-          <Button
-            type="submit"
-            disabled={createAssessment.isPending}
-            className="w-full bg-brand-accent text-white hover:bg-brand-accent/90"
-          >
-            {createAssessment.isPending ? 'Creating…' : 'Create Assessment'}
-          </Button>
-        </form>
-      </div>
+            <Button type="submit" disabled={createAssessment.isPending} className="w-full">
+              {createAssessment.isPending ? 'Creating…' : 'Create Assessment'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

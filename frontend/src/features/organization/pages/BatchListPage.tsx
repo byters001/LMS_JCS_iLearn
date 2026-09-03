@@ -1,3 +1,4 @@
+import { Layers, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
 import { AddStudentsDialog } from '@/features/students/components/AddStudentsDialog'
 import { DownloadCsvDialog } from '@/features/students/components/DownloadCsvDialog'
 import { useAuthStore } from '@/store/authStore'
@@ -70,32 +72,50 @@ export default function BatchListPage() {
         description="Training cohorts within a college, grouped by training program."
         actions={
           <Button asChild>
-            <Link to="/admin/batches/new">Create Batch</Link>
+            <Link to="/admin/batches/new">
+              <Plus className="size-4" />
+              Create Batch
+            </Link>
           </Button>
         }
-      />
-
-      {/* Temporary stand-in for a real top-bar college switcher — explicitly
-          deferred from Phase 1 (it depends on this exact scoping work, which
-          didn't exist until now). Once a shared switcher exists, this
-          in-page picker goes away and collegeId comes from that shared
-          context instead — not a permanent design. */}
-      <div className="max-w-sm">
-        <p className="mb-1 text-xs font-medium text-muted-foreground">College</p>
-        <Combobox
-          id="batchListCollegePicker"
-          options={collegeOptions}
-          value={collegeId}
-          onSelect={(value) => {
-            setCollegeId(value)
-            setPage(1)
-          }}
-          placeholder="Select a college to view its batches…"
-          isLoading={colleges.isPending}
-          isError={colleges.isError}
-          errorMessage="Failed to load colleges."
-        />
-      </div>
+      >
+        {/* Temporary stand-in for a real top-bar college switcher —
+            explicitly deferred from Phase 1 (it depends on this exact
+            scoping work, which didn't exist until now). Once a shared
+            switcher exists, this in-page picker goes away and collegeId
+            comes from that shared context instead — not a permanent
+            design. Total batches is the one number that's both real and
+            already fetched for the selected college (same reasoning as
+            CollegeListPage's single "Total colleges" card) — null (not 0)
+            while no college is picked yet, since that's genuinely no data
+            rather than a zero count. */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="max-w-sm min-w-56 flex-1">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">College</p>
+            <Combobox
+              id="batchListCollegePicker"
+              options={collegeOptions}
+              value={collegeId}
+              onSelect={(value) => {
+                setCollegeId(value)
+                setPage(1)
+              }}
+              placeholder="Select a college to view its batches…"
+              isLoading={colleges.isPending}
+              isError={colleges.isError}
+              errorMessage="Failed to load colleges."
+            />
+          </div>
+          <StatCard
+            label="Total batches"
+            value={collegeId === null ? null : batches.data?.total}
+            icon={Layers}
+            iconClassName="bg-accent-indigo-bg text-accent-indigo-fg"
+            accent="indigo"
+            className="max-w-64"
+          />
+        </div>
+      </PageHeader>
 
       {collegeId === null && <EmptyState message="Select a college above to view its batches." />}
 
@@ -162,7 +182,6 @@ export default function BatchListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                 disabled={page <= 1 || batches.isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -171,7 +190,6 @@ export default function BatchListPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="border-brand-primary text-brand-primary hover:bg-brand-primary/5"
                 disabled={page >= totalPages || batches.isFetching}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
