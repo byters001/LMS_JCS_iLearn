@@ -11,13 +11,14 @@
   --white: #fafaf7;
   --white-dim: #c7c4ee;
   --white-faint: #8b85d6;
+  --page-bg: #f2f2f2;
 
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
-  background: var(--white);
+  background: var(--page-bg);
   color: var(--black);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -27,10 +28,11 @@
    Sits behind both columns as one layer so there is no hard seam between the
    dark brand panel and the white form panel — it fades to transparent
    (revealing .wrap's white background) well before the form fields. */
-/* Fade curve samples an ease-in falloff (alpha = 1 - t^2across the fade
-   span) so opacity barely moves right after the solid zone, then curves
-   into a steep drop toward transparent — a parabolic dissolve rather than a
-   straight linear blend. */
+/* Fade curve samples an ease-in falloff (alpha = 1 - t^2 across the fade
+   span) at fine 2%-wide increments so the opacity ramp has no segment with
+   a sharply different slope from its neighbor — coarser stops here read as
+   visible banding (Mach bands) where the rate of change jumps at each
+   anchor, even though the underlying opacity itself is continuous. */
 .bgLayer {
   position: absolute;
   inset: 0;
@@ -39,46 +41,66 @@
   mask-image: linear-gradient(
     to right,
     black 0%,
-    black 48%,
-    rgba(0, 0, 0, 0.96) 51%,
-    rgba(0, 0, 0, 0.84) 54%,
-    rgba(0, 0, 0, 0.64) 57%,
-    rgba(0, 0, 0, 0.36) 60%,
-    rgba(0, 0, 0, 0.12) 63%,
-    transparent 66%
+    black 46%,
+    rgba(0, 0, 0, 0.99) 48%,
+    rgba(0, 0, 0, 0.97) 50%,
+    rgba(0, 0, 0, 0.93) 52%,
+    rgba(0, 0, 0, 0.87) 54%,
+    rgba(0, 0, 0, 0.79) 56%,
+    rgba(0, 0, 0, 0.70) 58%,
+    rgba(0, 0, 0, 0.60) 60%,
+    rgba(0, 0, 0, 0.47) 62%,
+    rgba(0, 0, 0, 0.33) 64%,
+    rgba(0, 0, 0, 0.17) 66%,
+    transparent 68%
   );
   -webkit-mask-image: linear-gradient(
     to right,
     black 0%,
-    black 48%,
-    rgba(0, 0, 0, 0.96) 51%,
-    rgba(0, 0, 0, 0.84) 54%,
-    rgba(0, 0, 0, 0.64) 57%,
-    rgba(0, 0, 0, 0.36) 60%,
-    rgba(0, 0, 0, 0.12) 63%,
-    transparent 66%
+    black 46%,
+    rgba(0, 0, 0, 0.99) 48%,
+    rgba(0, 0, 0, 0.97) 50%,
+    rgba(0, 0, 0, 0.93) 52%,
+    rgba(0, 0, 0, 0.87) 54%,
+    rgba(0, 0, 0, 0.79) 56%,
+    rgba(0, 0, 0, 0.70) 58%,
+    rgba(0, 0, 0, 0.60) 60%,
+    rgba(0, 0, 0, 0.47) 62%,
+    rgba(0, 0, 0, 0.33) 64%,
+    rgba(0, 0, 0, 0.17) 66%,
+    transparent 68%
   );
 }
+/* Same fine-stop treatment for the color ramp itself, and ends in a soft
+   light grey (never pure white) so the panel resolves into .wrap's own
+   --page-bg with no visible seam. */
 .bgGradient {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     120deg,
-    #050506 0%,
-    #111114 26%,
-    #222429 42%,
-    #45484e 54%,
-    #7d8288 60%,
-    #b7bbbe 64%,
-    #ffffff 68%
+    #050505 0%,
+    #0a0a0c 7%,
+    #121316 14%,
+    #1c1d21 21%,
+    #2a2c31 28%,
+    #3a3c42 35%,
+    #4b4d54 42%,
+    #63656c 49%,
+    #7d7f86 56%,
+    #97999f 63%,
+    #b4b6bb 70%,
+    #d3d4d6 77%,
+    #f2f2f2 84%,
+    #f2f2f2 100%
   );
 }
 .bgCanvas {
   position: absolute;
   inset: 0;
-  right: 34%;
-  top: 140px;
-  bottom: 190px;
+  right: 30%;
+  top: 110px;
+  bottom: 130px;
 }
 @media (max-width: 880px) {
   /* Stays fully opaque through the whole white-text block (heading, cube
@@ -92,19 +114,26 @@
   }
   .bgCanvas {
     right: 15%;
-    top: 205px;
-    bottom: 210px;
+    top: 190px;
+    bottom: 175px;
   }
   .bgGradient {
     background: linear-gradient(
       160deg,
-      #050506 0%,
-      #111114 30%,
-      #222429 46%,
-      #45484e 60%,
-      #7d8288 72%,
-      #b7bbbe 86%,
-      #ffffff 98%
+      #050505 0%,
+      #090a0b 8%,
+      #111216 16%,
+      #1b1c20 24%,
+      #2b2d32 33%,
+      #3a3c42 41%,
+      #4b4d54 49%,
+      #63656c 57%,
+      #7c7e85 65%,
+      #96989e 73%,
+      #b5b7bc 82%,
+      #d4d5d7 90%,
+      #f2f2f2 98%,
+      #f2f2f2 100%
     );
   }
 }
@@ -245,15 +274,6 @@
   font-weight: 400;
 }
 
-.leftFooter {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: var(--white);
-  display: flex;
-  justify-content: space-between;
-  padding-top: 18px;
-}
-
 /* ---------- RIGHT: form panel ---------- */
 .right {
   position: relative;
@@ -378,7 +398,7 @@
 
 .btnSignin {
   width: 100%;
-  background: var(--black);
+  background: #000000;
   color: var(--white);
   border: none;
   padding: 14px 0;
@@ -394,7 +414,7 @@
   transition: background 0.15s ease;
 }
 .btnSignin:hover:not(:disabled) {
-  background: #191571;
+  background: #262626;
 }
 .btnSignin:disabled {
   cursor: not-allowed;

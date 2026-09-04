@@ -161,7 +161,7 @@ function MirrorCube() {
   })
 
   return (
-    <group ref={orbitRef} rotation={[0.36, 0.62, 0]} scale={0.86}>
+    <group ref={orbitRef} rotation={[0.5, 0.78, 0]} scale={1.0}>
       <group ref={groupRef}>
         {cubies.map((c) => (
           <RoundedBox
@@ -188,7 +188,7 @@ function MirrorCubeSceneImpl() {
     <Canvas
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      camera={{ position: [0, 0, 6.2], fov: 34 }}
+      camera={{ position: [0, 0, 6.2], fov: 36 }}
       style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
     >
       <ambientLight intensity={0.6} />

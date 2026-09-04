@@ -255,10 +255,6 @@ export default function LoginPage() {
             MCQ, coding, and psychometric tests under live proctoring — with
             placement-readiness analytics the moment a test wraps up.
           </p>
-          <div className={styles.leftFooter}>
-            <span>© 2026 JCS iLearn</span>
-            <span>Secure assessment platform</span>
-          </div>
         </div>
       </div>
 
