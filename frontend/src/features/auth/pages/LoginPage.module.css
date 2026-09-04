@@ -12,6 +12,7 @@
   --white-dim: #c7c4ee;
   --white-faint: #8b85d6;
 
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
@@ -19,28 +20,106 @@
   background: var(--white);
   color: var(--black);
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ---------- Full-bleed background layer (metallic gradient + 3D cube) ----------
+   Sits behind both columns as one layer so there is no hard seam between the
+   dark brand panel and the white form panel — it fades to transparent
+   (revealing .wrap's white background) well before the form fields. */
+/* Fade curve samples an ease-in falloff (alpha = 1 - t^2across the fade
+   span) so opacity barely moves right after the solid zone, then curves
+   into a steep drop toward transparent — a parabolic dissolve rather than a
+   straight linear blend. */
+.bgLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 48%,
+    rgba(0, 0, 0, 0.96) 51%,
+    rgba(0, 0, 0, 0.84) 54%,
+    rgba(0, 0, 0, 0.64) 57%,
+    rgba(0, 0, 0, 0.36) 60%,
+    rgba(0, 0, 0, 0.12) 63%,
+    transparent 66%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 48%,
+    rgba(0, 0, 0, 0.96) 51%,
+    rgba(0, 0, 0, 0.84) 54%,
+    rgba(0, 0, 0, 0.64) 57%,
+    rgba(0, 0, 0, 0.36) 60%,
+    rgba(0, 0, 0, 0.12) 63%,
+    transparent 66%
+  );
+}
+.bgGradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    #050506 0%,
+    #111114 26%,
+    #222429 42%,
+    #45484e 54%,
+    #7d8288 60%,
+    #b7bbbe 64%,
+    #ffffff 68%
+  );
+}
+.bgCanvas {
+  position: absolute;
+  inset: 0;
+  right: 34%;
+  top: 140px;
+  bottom: 190px;
+}
+@media (max-width: 880px) {
+  /* Stays fully opaque through the whole white-text block (heading, cube
+     gap, paragraph, footer) and only softens at the very bottom edge, since
+     the text underneath needs a solid dark backdrop the entire way down. */
+  .bgLayer {
+    inset: 0 0 auto 0;
+    height: 560px;
+    mask-image: linear-gradient(to bottom, black 0%, black 98%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 98%, transparent 100%);
+  }
+  .bgCanvas {
+    right: 15%;
+    top: 205px;
+    bottom: 210px;
+  }
+  .bgGradient {
+    background: linear-gradient(
+      160deg,
+      #050506 0%,
+      #111114 30%,
+      #222429 46%,
+      #45484e 60%,
+      #7d8288 72%,
+      #b7bbbe 86%,
+      #ffffff 98%
+    );
+  }
 }
 
 /* ---------- LEFT: brand panel ---------- */
 .left {
-  background: var(--black);
-  color: var(--white);
   position: relative;
+  z-index: 1;
+  background: transparent;
+  color: var(--white);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 56px 64px;
   overflow: hidden;
-}
-.left::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(var(--line-soft) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.5;
-  mask-image: radial-gradient(circle at 30% 20%, black 0%, transparent 70%);
 }
 .brandRow {
   display: flex;
@@ -64,7 +143,7 @@
   filter: brightness(0) invert(1); /* renders the logo pure white to match the panel */
 }
 .brandName {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 600;
   font-size: 16px;
   letter-spacing: 0.02em;
@@ -72,7 +151,7 @@
 .brandTag {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: var(--white-faint);
+  color: var(--white);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -82,26 +161,8 @@
   z-index: 1;
   margin-top: 40px;
 }
-.eyebrow {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: var(--white-faint);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 22px;
-}
-.eyebrow::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  background: var(--white);
-  border-radius: 50%;
-}
 .hiLine {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 600;
   font-size: clamp(34px, 4vw, 46px);
   line-height: 1.12;
@@ -119,14 +180,6 @@
   animation: blink 1.1s steps(1) infinite;
   color: transparent;
   overflow: hidden;
-}
-.hero h1 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: clamp(34px, 4vw, 46px);
-  line-height: 1.12;
-  letter-spacing: -0.01em;
-  max-width: 9.5em;
 }
 @keyframes blink {
   50% {
@@ -175,34 +228,42 @@
   }
 }
 
-.hero p {
-  margin-top: 22px;
+.bottomBlock {
+  position: relative;
+  z-index: 1;
+}
+
+/* Kept out of .hero and pinned to the bottom of the panel (instead of
+   flowing right under the "HI" heading) so the cube's clear middle band is
+   never cut across by text while it turns. */
+.heroDesc {
+  margin-bottom: 22px;
   font-size: 15px;
   line-height: 1.65;
-  color: var(--white-dim);
-  max-width: 30em;
+  color: var(--white);
+  max-width: 26em;
   font-weight: 400;
 }
 
 .leftFooter {
-  position: relative;
-  z-index: 1;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: var(--white-faint);
+  color: var(--white);
   display: flex;
   justify-content: space-between;
-  border-top: 1px solid var(--line-soft);
   padding-top: 18px;
 }
 
 /* ---------- RIGHT: form panel ---------- */
 .right {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background: var(--white);
+  background: transparent;
+  color: #000;
 }
 .formCol {
   width: 100%;
@@ -214,21 +275,22 @@
 .eyebrowLight {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: var(--white-faint);
+  color: #000;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   margin-bottom: 10px;
 }
 .formHead h2 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: #000;
 }
 .formHead p {
   margin-top: 8px;
   font-size: 13.5px;
-  color: #6e6e68;
+  color: #000;
 }
 
 .field {
@@ -254,7 +316,7 @@
   padding: 10px 28px 10px 0;
   font-size: 14.5px;
   font-family: 'Inter', sans-serif;
-  color: var(--black);
+  color: #000;
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -293,7 +355,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #4b4b45;
+  color: #000;
 }
 .remember input {
   width: 15px;
@@ -301,10 +363,10 @@
   accent-color: var(--black);
 }
 .forgot {
-  color: var(--black);
+  color: #000;
   text-decoration: none;
   font-weight: 500;
-  border-bottom: 1px solid var(--black);
+  border-bottom: 1px solid #000;
   padding-bottom: 1px;
 }
 
@@ -320,7 +382,7 @@
   color: var(--white);
   border: none;
   padding: 14px 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 14.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -351,7 +413,7 @@
   text-align: center;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: #a9a9a2;
+  color: #000;
 }
 
 .foot {
@@ -359,9 +421,9 @@
   padding-top: 20px;
   border-top: 1px solid #ecece6;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   font-size: 11.5px;
-  color: #a9a9a2;
+  color: #000;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -371,7 +433,7 @@
   }
   .left {
     padding: 40px;
-    min-height: 340px;
+    min-height: 560px;
   }
   .right {
     padding: 40px 28px;

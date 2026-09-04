@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -7,6 +7,37 @@ import { ApiError } from '@/api'
 import { getRoleHomePath } from '@/routes/roles'
 import { useLogin } from '../api'
 import styles from './LoginPage.module.css'
+
+const MirrorCubeScene = lazy(() => import('../components/MirrorCubeScene'))
+
+// Static fallback: on slow connections, low-end devices, or when the user
+// prefers reduced motion, skip the WebGL scene entirely and let the CSS
+// gradient (already rendered underneath) stand alone as the background.
+function useCanRender3D() {
+  const [canRender, setCanRender] = useState(false)
+
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const saveData = nav.connection?.saveData
+    const slowConnection = ['slow-2g', '2g'].includes(nav.connection?.effectiveType ?? '')
+    const lowEndDevice = (navigator.hardwareConcurrency ?? 8) <= 2
+
+    if (reducedMotion || saveData || slowConnection || lowEndDevice) return
+
+    try {
+      const canvas = document.createElement('canvas')
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+      setCanRender(Boolean(gl))
+    } catch {
+      setCanRender(false)
+    }
+  }, [])
+
+  return canRender
+}
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -162,6 +193,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const login = useLogin()
   const [showPassword, setShowPassword] = useState(false)
+  const canRender3D = useCanRender3D()
 
   const leftRef = useRef<HTMLDivElement>(null)
   const ballRef = useRef<HTMLDivElement>(null)
@@ -185,6 +217,17 @@ export default function LoginPage() {
 
   return (
     <div className={styles.wrap}>
+      <div className={styles.bgLayer} aria-hidden="true">
+        <div className={styles.bgGradient} />
+        {canRender3D && (
+          <Suspense fallback={null}>
+            <div className={styles.bgCanvas}>
+              <MirrorCubeScene />
+            </div>
+          </Suspense>
+        )}
+      </div>
+
       <div className={styles.left} ref={leftRef}>
         <div className={styles.football} ref={ballRef} />
         <div>
@@ -201,27 +244,21 @@ export default function LoginPage() {
           </div>
 
           <div className={styles.hero}>
-            <div className={styles.eyebrow}>System status — operational</div>
             <div className={styles.hiLine}>
               H<span className={styles.iBlink}>I</span>
             </div>
-            <h1>
-              Proctored assessments,
-              <br />
-              graded the instant
-              <br />
-              they end
-            </h1>
-            <p>
-              MCQ, coding, and psychometric tests under live proctoring — with
-              placement-readiness analytics the moment a test wraps up.
-            </p>
           </div>
         </div>
 
-        <div className={styles.leftFooter}>
-          <span>© 2026 JCS iLearn</span>
-          <span>Secure assessment platform</span>
+        <div className={styles.bottomBlock}>
+          <p className={styles.heroDesc}>
+            MCQ, coding, and psychometric tests under live proctoring — with
+            placement-readiness analytics the moment a test wraps up.
+          </p>
+          <div className={styles.leftFooter}>
+            <span>© 2026 JCS iLearn</span>
+            <span>Secure assessment platform</span>
+          </div>
         </div>
       </div>
 
@@ -294,8 +331,7 @@ export default function LoginPage() {
           </form>
 
           <div className={styles.foot}>
-            <span>v2.1.0</span>
-            <span>Need help? Contact admin</span>
+            <span>Powered by JCS iLearn</span>
           </div>
         </div>
       </div>
