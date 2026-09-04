@@ -346,6 +346,22 @@
 .inputLine input:focus {
   border-bottom: 1px solid var(--black);
 }
+/* Chrome paints its own blue background/text on autofilled inputs; push it
+   back to the page's own tone via a huge inset shadow (the only way to
+   override autofill's UA styling) so autofilled fields look identical to
+   manually-typed ones, matching the Password field's untouched look. */
+.inputLine input:-webkit-autofill,
+.inputLine input:-webkit-autofill:hover,
+.inputLine input:-webkit-autofill:focus,
+.inputLine input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--page-bg) inset;
+  box-shadow: 0 0 0 30px var(--page-bg) inset;
+  -webkit-text-fill-color: #000;
+  caret-color: #000;
+  transition:
+    background-color 5000s ease-in-out 0s,
+    border-color 0.15s ease;
+}
 .inputLine .icon {
   position: absolute;
   right: 0;

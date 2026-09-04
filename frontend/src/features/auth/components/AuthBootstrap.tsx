@@ -43,14 +43,18 @@ function refreshSessionOnBoot() {
   return bootRefreshPromise
 }
 
+// Matches the login page's black -> dark grey -> light grey identity
+// (LoginPage.module.css's .bgGradient) rather than the old blue brand
+// gradient, which this screen briefly shows on every hard reload — before
+// the user ever reaches anything themed to the new look.
 function BootLoadingScreen() {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-brand-gradient-from to-brand-gradient-to">
+    <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-[#050505] via-[#4b4d54] to-[#f2f2f2]">
       <div className="flex flex-col items-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-black">
           <GraduationCap className="h-7 w-7 text-white" />
         </div>
-        <Loader2 className="h-6 w-6 animate-spin text-white/80" />
+        <Loader2 className="h-6 w-6 animate-spin text-white/90" />
       </div>
     </div>
   )
