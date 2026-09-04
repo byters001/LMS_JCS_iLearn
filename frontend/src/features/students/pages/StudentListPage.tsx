@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Building2, ChevronDown, Layers, Search, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
-import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
@@ -22,49 +22,110 @@ const PAGE_SIZE = 20
 // as BatchListPage.tsx's own COLLEGE_PICKER_PAGE_SIZE.
 const COLLEGE_PAGE_SIZE = 100
 
-// "Students by college" mini bar chart tuning. BAR_THICKNESS is the pill's
-// rendered height (also its rx/ry, since radius = height / 2 = a full pill
-// cap on both ends). The two MIN_ constants below are the minimum-visible-
-// bar floor described in detail on renderCollegeBar further down — both are
-// ABSOLUTE floors, independent of chartMax, so they hold the same way
-// whether the largest college in the dataset is 20 or 20,000.
-const BAR_THICKNESS = 8
-const MIN_BAR_PIXEL_WIDTH = BAR_THICKNESS
-const MIN_BAR_OPACITY = 0.55
-const BAR_GRADIENT_ID = 'students-by-college-bar-gradient'
+// "Students by college" two-panel chart tuning.
+//
+// Pie panel: 7 categorical hues (blue/aqua/yellow/magenta/green/violet/red —
+// the dataviz skill's default 8-hue categorical set with orange dropped per
+// this widget's "no orange anywhere in this chart" requirement, kept in its
+// original relative order). Re-validated with the skill's validator against
+// this app's card surfaces after dropping orange:
+//   node scripts/validate_palette.js "#2a78d6,#1baf7a,#eda100,#e87ba4,#008300,#4a3aa7,#e34948" --mode light
+//   node scripts/validate_palette.js "#3987e5,#199e70,#c98500,#d55181,#008300,#9085e9,#e66767" --mode dark
+// both report ALL CHECKS PASS (light carries a sub-3:1 contrast WARN on 3
+// slots, which is why every slice also gets a legend swatch + name + percent
+// label below — the "relief rule" mitigation the skill requires for that
+// WARN). More than 7 colleges cycles back to slot 0 — an acceptable
+// fallback for a named-entity list like colleges, not a filterable series.
+const PIE_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948']
+
+// Linear interpolation between two hex colors — used to derive each pie
+// slice's glossy highlight/shadow stops, and the bar gradients' highlight
+// stop, from a single base hex rather than hand-picking every shade.
+function mixHex(hex: string, target: string, ratio: number): string {
+  const a = Number.parseInt(hex.slice(1), 16)
+  const b = Number.parseInt(target.slice(1), 16)
+  const channel = (shift: number) => {
+    const from = (a >> shift) & 255
+    const to = (b >> shift) & 255
+    return Math.round(from + (to - from) * ratio)
+  }
+  return `#${[channel(16), channel(8), channel(0)].map((c) => c.toString(16).padStart(2, '0')).join('')}`
+}
+
+const pieGradientId = (index: number) => `students-by-college-pie-gradient-${index}`
+
+// Bar panel colors — literal hex per this widget's explicit "dark violet"
+// students bar / "light grey" batches bar spec, not theme tokens (same
+// reasoning BatchPerformancePage's PASS_COLOR/FAIL_COLOR already documents:
+// this is a fixed chart-data encoding, not a themed UI surface). Violet base
+// matches this app's own --chart-4 brand hex.
+const STUDENTS_BAR_GRADIENT_ID = 'students-by-college-students-bar-gradient'
+const BATCHES_BAR_GRADIENT_ID = 'students-by-college-batches-bar-gradient'
+const STUDENTS_BAR_BASE = '#332cad'
+const STUDENTS_BAR_HIGHLIGHT = mixHex(STUDENTS_BAR_BASE, '#ffffff', 0.45)
+const BATCHES_BAR_BASE = '#c7cad3'
+const BATCHES_BAR_HIGHLIGHT = mixHex(BATCHES_BAR_BASE, '#ffffff', 0.6)
 
 interface CollegeChartRow {
   id: string
   name: string
   students: number | undefined
+  batches: number | undefined
 }
 
-interface CollegeBarShapeProps {
-  x?: number
-  y?: number
-  width?: number
-  height?: number
-  payload?: CollegeChartRow
-}
-
-interface CollegeTooltipProps {
+interface CollegeShareTooltipProps {
   active?: boolean
   payload?: Array<{ payload: CollegeChartRow }>
+  total: number
 }
 
 // Themed replacement for Recharts' unstyled default tooltip box — same
 // bg-popover/border-border/text-popover-foreground tokens as
 // TrainersDashboardPage's BatchCountTooltip, the established pattern for
 // every themed Recharts tooltip in this codebase.
-function CollegeCountTooltip({ active, payload }: CollegeTooltipProps) {
+function CollegeShareTooltip({ active, payload, total }: CollegeShareTooltipProps) {
   if (!active || !payload?.length) return null
   const row = payload[0].payload
   const count = row.students ?? 0
+  const percent = total > 0 ? Math.round((count / total) * 100) : 0
   return (
     <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
       <p className="font-medium text-popover-foreground">{row.name}</p>
       <p className="text-muted-foreground">
-        {count} student{count === 1 ? '' : 's'}
+        {count} student{count === 1 ? '' : 's'} · {percent}%
+      </p>
+    </div>
+  )
+}
+
+interface CollegeCompareTooltipProps {
+  active?: boolean
+  payload?: Array<{ payload: CollegeChartRow }>
+}
+
+function CollegeCompareTooltip({ active, payload }: CollegeCompareTooltipProps) {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  const students = row.students ?? 0
+  const batches = row.batches ?? 0
+  return (
+    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      <p className="font-medium text-popover-foreground">{row.name}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-muted-foreground">
+        <span
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: STUDENTS_BAR_BASE }}
+          aria-hidden="true"
+        />
+        {students} student{students === 1 ? '' : 's'}
+      </p>
+      <p className="flex items-center gap-1.5 text-muted-foreground">
+        <span
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: BATCHES_BAR_BASE }}
+          aria-hidden="true"
+        />
+        {batches} batch{batches === 1 ? '' : 'es'}
       </p>
     </div>
   )
@@ -100,76 +161,23 @@ export default function StudentListPage() {
     ? collegeItems.filter((college) => college.name.toLowerCase().includes(normalizedSearch))
     : collegeItems
 
-  // "Students by college" ranked list — only worth showing once there's
-  // more than one college to compare, and only once every college's count
-  // has actually loaded (rendering zeros while useStudentCountsByCollege's
-  // per-college queries are still in flight would flash a misleading
-  // all-zero list before the real numbers pop in). Every college returned
-  // here is real (known dev-DB test colleges were deleted from the
-  // database, not filtered client-side).
+  // "Students by college" pie + bar comparison — only worth showing once
+  // there's more than one college to compare, and only once every college's
+  // student AND batch count has actually loaded (rendering zeros while
+  // useStudentCountsByCollege/useBatchCountsByCollege's per-college queries
+  // are still in flight would flash a misleading all-zero chart before the
+  // real numbers pop in). Every college returned here is real (known dev-DB
+  // test colleges were deleted from the database, not filtered client-side).
   const chartData = collegeItems
-    .map((college) => ({ id: college.id, name: college.name, students: countsByCollegeId.get(college.id) }))
+    .map((college) => ({
+      id: college.id,
+      name: college.name,
+      students: countsByCollegeId.get(college.id),
+      batches: batchCountsByCollegeId.get(college.id),
+    }))
     .sort((a, b) => (b.students ?? 0) - (a.students ?? 0))
-  const chartReady = chartData.every((row) => row.students !== undefined)
-  // Each row's mini-bar is scaled against the actual largest value in THIS
-  // (filtered) set, not a fixed/default axis range — so the largest college
-  // always fills the full width and there's no artificial dead space, the
-  // same "domain=dataMax, not a hardcoded max" principle a Recharts axis
-  // would need, just expressed as a width percentage instead of an axis
-  // domain since this isn't an axis chart anymore (see the widget's own
-  // comment below for why).
-  const chartMax = Math.max(1, ...chartData.map((row) => row.students ?? 0))
-
-  // Custom Bar shape for each row's mini chart. Recharts passes `width` here
-  // already scaled against the shared XAxis domain={[0, chartMax]} below —
-  // that domain is chartMax itself (the real max, never a rounded/"nice"
-  // auto domain Recharts might otherwise pick), so this width is exactly
-  // the same (value / chartMax) proportion the old div-based bar used, just
-  // computed by Recharts' scale instead of inline arithmetic.
-  //
-  // Minimum-visible-bar floor:
-  //   - width: Math.max(width, MIN_BAR_PIXEL_WIDTH) only ever RAISES the
-  //     width Recharts already computed — it never touches bars whose real
-  //     proportional width already clears the floor, so relative ranking
-  //     between colleges is untouched. It only rescues values that would
-  //     otherwise round to a sub-pixel sliver. MIN_BAR_PIXEL_WIDTH equals
-  //     BAR_THICKNESS, so a 0-student bar renders as a small rounded
-  //     pill/dot the same height as the bar itself — clearly an
-  //     intentional shape, not a rendering glitch — rather than a stray
-  //     hairline. This floor is a fixed pixel count, not a percentage, so
-  //     it holds regardless of how large chartMax grows.
-  //   - fillOpacity: MIN_BAR_OPACITY + (1 - MIN_BAR_OPACITY) * (value /
-  //     chartMax) ranges from MIN_BAR_OPACITY (value = 0) up to fully
-  //     opaque (value = chartMax) — leaders read visually stronger without
-  //     ever dropping a small college's fill below a solid, legible
-  //     opacity. Since the ratio only ever pulls opacity UP from the
-  //     floor, it can't be pushed lower by any future data shape either.
-  //
-  // Verified at the extremes: value=0 -> width=8px, opacity=0.55 (a small
-  // solid pill, not a blank row). value=1, chartMax=188 -> raw width
-  // ~1.6px clamps to 8px, opacity ~0.552 (visibly dimmer than the leader,
-  // never invisible). value=188=chartMax -> width fills the track at full
-  // 1.0 opacity (no floor applied — the floor is a no-op once a bar's own
-  // proportional size already exceeds it).
-  function renderCollegeBar(props: CollegeBarShapeProps) {
-    const { x = 0, y = 0, width = 0, height = 0, payload } = props
-    const value = payload?.students ?? 0
-    const renderedWidth = Math.max(width, MIN_BAR_PIXEL_WIDTH)
-    const opacity = MIN_BAR_OPACITY + (1 - MIN_BAR_OPACITY) * Math.min(1, value / chartMax)
-    const radius = height / 2
-    return (
-      <rect
-        x={x}
-        y={y}
-        width={renderedWidth}
-        height={height}
-        rx={radius}
-        ry={radius}
-        fill={`url(#${BAR_GRADIENT_ID})`}
-        fillOpacity={opacity}
-      />
-    )
-  }
+  const chartReady = chartData.every((row) => row.students !== undefined && row.batches !== undefined)
+  const pieTotal = chartData.reduce((sum, row) => sum + (row.students ?? 0), 0)
 
   function handleSelectCollege(collegeId: string) {
     if (selectedCollegeId === collegeId) {
@@ -232,23 +240,11 @@ export default function StudentListPage() {
         </motion.div>
       </PageHeader>
 
-      {/* Ranked list with an inline Recharts bar per row (layout="vertical"),
-          not a shared multi-bar axis chart — this is 3-6 categories with a
-          huge value disparity (real colleges in the 180s, next to
-          near-zero ones), which is exactly what pushed this widget to a
-          div-based list in an earlier phase: a shared axis's domain gets
-          padded/rounded past the real max, so even a correct-looking
-          domain still reads a real-but-small college as "basically zero,
-          probably broken" next to the big ones. Each row below is its own
-          single-bar chart, but ALL of them share the exact same XAxis
-          domain={[0, chartMax]} (chartMax = the real max in this dataset,
-          computed with plain Math.max — never a rounded/"nice" auto
-          domain), so a college's rendered bar length is the exact same
-          (value / chartMax) proportion the old div-based bar used — the
-          same fix, just expressed as a Recharts axis domain instead of an
-          inline width percentage. See renderCollegeBar above for the
-          minimum-visible-bar floor that keeps a 0/1-student college a
-          small legible pill instead of a blank or sub-pixel row. */}
+      {/* Two-panel comparison: a glossy pseudo-3D pie (share of total
+          students per college) beside a grouped bar chart (students vs.
+          batches per college). Replaces the earlier single-bar ranked list
+          — see git history for that version's reasoning, now superseded by
+          this two-panel spec. */}
       {chartData.length > 1 && (
         <Card className="p-3.5">
           <div className="flex items-center justify-between gap-2">
@@ -259,62 +255,164 @@ export default function StudentListPage() {
             </Badge>
           </div>
           {chartReady ? (
-            <div className="mt-3 space-y-2">
-              {/* Defs-only, zero-size SVG: SVG paint-server references
-                  (fill="url(#id)") resolve against the whole document, not
-                  just the local <svg>, so one gradient definition here is
-                  reused by every row's own separate BarChart svg below
-                  rather than duplicating (and invalidly re-declaring) the
-                  same id once per row. */}
-              <svg width={0} height={0} className="absolute" aria-hidden="true">
-                <defs>
-                  <linearGradient id={BAR_GRADIENT_ID} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-              </svg>
-              {chartData.map((row, index) => (
-                <div key={row.id} className="flex items-center gap-3">
-                  <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <p className="w-36 shrink-0 truncate text-sm text-foreground" title={row.name}>
-                    {row.name}
-                  </p>
-                  <div className="h-5 flex-1">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={[row]}
-                        layout="vertical"
-                        margin={{ top: 0, right: 26, bottom: 0, left: 0 }}
-                      >
-                        <XAxis type="number" domain={[0, chartMax]} hide />
-                        <YAxis type="category" dataKey="name" hide />
-                        <Tooltip content={<CollegeCountTooltip />} cursor={{ fill: 'var(--muted)' }} />
-                        <Bar
+            <div className="mt-3 grid grid-cols-1 gap-5 lg:grid-cols-2">
+              {/* Pie panel */}
+              <div>
+                {/* Defs-only, zero-size SVG: SVG paint-server references
+                    (fill="url(#id)") resolve against the whole document, so
+                    one <defs> block here supplies every slice's own
+                    per-college radial gradient (light highlight near the
+                    top-left fading through the base hue to a darker shade —
+                    the glossy-sphere fake-3D look) without redeclaring ids. */}
+                <svg width={0} height={0} className="absolute" aria-hidden="true">
+                  <defs>
+                    {chartData.map((row, index) => {
+                      const base = PIE_COLORS[index % PIE_COLORS.length]
+                      return (
+                        <radialGradient key={row.id} id={pieGradientId(index)} cx="35%" cy="30%" r="75%">
+                          <stop offset="0%" stopColor={mixHex(base, '#ffffff', 0.55)} />
+                          <stop offset="55%" stopColor={base} />
+                          <stop offset="100%" stopColor={mixHex(base, '#000000', 0.3)} />
+                        </radialGradient>
+                      )
+                    })}
+                  </defs>
+                </svg>
+
+                <div className="relative mx-auto" style={{ maxWidth: 240, perspective: '900px' }}>
+                  {/* Blurred ellipse standing in for a drop shadow/base
+                      beneath the pie, reinforcing the tilted-disc read. */}
+                  <div
+                    className="absolute bottom-0 left-1/2 h-6 w-36 -translate-x-1/2 rounded-full bg-foreground/25 blur-md"
+                    aria-hidden="true"
+                  />
+                  {/* Subtle rotateX for a tilted 3D feel — kept small enough
+                      (16deg) that the counter-rotated tooltip below stays
+                      legible, and the legend/percent labels live entirely
+                      outside this transformed subtree so they're never
+                      skewed. */}
+                  <div style={{ transform: 'rotateX(16deg)', transformOrigin: '50% 65%' }}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={chartData}
                           dataKey="students"
-                          barSize={BAR_THICKNESS}
-                          shape={renderCollegeBar}
+                          nameKey="name"
+                          outerRadius="78%"
+                          paddingAngle={2}
                           isAnimationActive={!prefersReducedMotion}
-                          animationDuration={600}
-                          animationBegin={index * 40}
+                          animationDuration={700}
                         >
-                          <LabelList
-                            dataKey="students"
-                            position="right"
-                            className="fill-foreground font-mono text-xs font-semibold tabular-nums"
-                          />
-                        </Bar>
-                      </BarChart>
+                          {chartData.map((row, index) => (
+                            <Cell
+                              key={row.id}
+                              fill={`url(#${pieGradientId(index)})`}
+                              stroke="var(--card)"
+                              strokeWidth={2}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={(props) => (
+                            <div style={{ transform: 'rotateX(-16deg)' }}>
+                              <CollegeShareTooltip {...props} total={pieTotal} />
+                            </div>
+                          )}
+                        />
+                      </PieChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-              ))}
+
+                {/* Legend doubling as the on-chart label the spec asks for
+                    (college name + share %) — deliberately outside the
+                    rotateX'd wrapper above so it never inherits the tilt. */}
+                <ul className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1.5">
+                  {chartData.map((row, index) => {
+                    const count = row.students ?? 0
+                    const percent = pieTotal > 0 ? Math.round((count / pieTotal) * 100) : 0
+                    return (
+                      <li key={row.id} className="flex max-w-32 items-center gap-1.5 text-xs">
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                          aria-hidden="true"
+                        />
+                        <span className="truncate text-foreground" title={row.name}>
+                          {row.name}
+                        </span>
+                        <span className="shrink-0 font-mono text-muted-foreground tabular-nums">{percent}%</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+
+              {/* Bar panel — grouped students-vs-batches per college, each
+                  bar a top-lit gradient (never a flat fill) instead of the
+                  old single-hue BAR_GRADIENT_ID pill. */}
+              <div>
+                <svg width={0} height={0} className="absolute" aria-hidden="true">
+                  <defs>
+                    <linearGradient id={STUDENTS_BAR_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={STUDENTS_BAR_HIGHLIGHT} />
+                      <stop offset="100%" stopColor={STUDENTS_BAR_BASE} />
+                    </linearGradient>
+                    <linearGradient id={BATCHES_BAR_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={BATCHES_BAR_HIGHLIGHT} />
+                      <stop offset="100%" stopColor={BATCHES_BAR_BASE} />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: chartData.length > 4 ? 32 : 8 }}
+                  >
+                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+                      tickLine={false}
+                      axisLine={{ stroke: 'var(--border)' }}
+                      interval={0}
+                      angle={chartData.length > 4 ? -25 : 0}
+                      textAnchor={chartData.length > 4 ? 'end' : 'middle'}
+                      tickFormatter={(value: string) => (value.length > 14 ? `${value.slice(0, 13)}…` : value)}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                      tickLine={false}
+                      axisLine={false}
+                      width={28}
+                    />
+                    <Tooltip content={<CollegeCompareTooltip />} cursor={{ fill: 'var(--muted)' }} />
+                    <Legend formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>} />
+                    <Bar
+                      dataKey="students"
+                      name="Students"
+                      fill={`url(#${STUDENTS_BAR_GRADIENT_ID})`}
+                      radius={[6, 6, 0, 0]}
+                      isAnimationActive={!prefersReducedMotion}
+                      animationDuration={600}
+                    />
+                    <Bar
+                      dataKey="batches"
+                      name="Batches"
+                      fill={`url(#${BATCHES_BAR_GRADIENT_ID})`}
+                      radius={[6, 6, 0, 0]}
+                      isAnimationActive={!prefersReducedMotion}
+                      animationDuration={600}
+                      animationBegin={80}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           ) : (
             <div
-              className="mt-3 h-24 animate-pulse rounded-lg bg-muted"
+              className="mt-3 h-64 animate-pulse rounded-lg bg-muted"
               role="status"
               aria-label="Loading chart"
             />
