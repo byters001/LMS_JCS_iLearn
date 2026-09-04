@@ -156,6 +156,11 @@
   gap: 12px;
   position: relative;
   z-index: 1;
+  /* Deliberate breathing room off the panel's top-left corner (.left's own
+     padding), separate from .hero's margin-top so the "HI" heading's own
+     spacing is untouched — and independent of .bgCanvas (a sibling layer,
+     not a child of .left), so the cube's position doesn't move either. */
+  margin: 14px 0 0 10px;
 }
 .mark {
   width: 42px;
