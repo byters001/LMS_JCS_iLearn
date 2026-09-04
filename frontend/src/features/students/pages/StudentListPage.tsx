@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { useBatchCountsByCollege, useColleges } from '@/features/organization/api'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useUIStore } from '@/store/uiStore'
 import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
 import { CARD_GRADIENT, CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import { useStudentCountsByCollege, useStudentProfiles } from '../api'
@@ -24,19 +25,27 @@ const COLLEGE_PAGE_SIZE = 100
 
 // "Students by college" two-panel chart tuning.
 //
-// Pie panel: 7 categorical hues (blue/aqua/yellow/magenta/green/violet/red —
-// the dataviz skill's default 8-hue categorical set with orange dropped per
-// this widget's "no orange anywhere in this chart" requirement, kept in its
-// original relative order). Re-validated with the skill's validator against
-// this app's card surfaces after dropping orange:
-//   node scripts/validate_palette.js "#2a78d6,#1baf7a,#eda100,#e87ba4,#008300,#4a3aa7,#e34948" --mode light
-//   node scripts/validate_palette.js "#3987e5,#199e70,#c98500,#d55181,#008300,#9085e9,#e66767" --mode dark
-// both report ALL CHECKS PASS (light carries a sub-3:1 contrast WARN on 3
+// Pie panel: 5 categorical hues (blue/red/aqua/violet/green — the dataviz
+// skill's default 8-hue categorical set with orange, yellow, AND magenta all
+// dropped, per the Monochrome Premium phase's "no orange/yellow/pink
+// anywhere in this app" requirement — a step further than the prior phase's
+// "no orange" trim). Order re-enumerated (not just filtered in place) so the
+// remaining hues still clear the CVD-adjacency gate — validated with the
+// skill's validator against this app's OWN card surfaces (--card, not the
+// skill's generic default):
+//   node scripts/validate_palette.js "#2a78d6,#e34948,#1baf7a,#4a3aa7,#008300" --mode light --surface "#ffffff"
+//   node scripts/validate_palette.js "#3987e5,#e66767,#199e70,#9085e9,#008300" --mode dark --surface "#141414"
+// both report ALL CHECKS PASS (each carries a CVD/contrast WARN on a couple
 // slots, which is why every slice also gets a legend swatch + name + percent
-// label below — the "relief rule" mitigation the skill requires for that
-// WARN). More than 7 colleges cycles back to slot 0 — an acceptable
-// fallback for a named-entity list like colleges, not a filterable series.
-const PIE_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948']
+// label below — the "relief rule"/secondary-encoding mitigation the skill
+// requires for those WARNs). Genuinely different hex per mode this time (not
+// one static array) — the dark steps are the ones actually validated against
+// the dark card surface; reusing the light hex in dark mode was checked and
+// FAILS the lightness band (violet lands at L 0.43, under dark's 0.48 floor).
+// More than 5 colleges cycles back to slot 0 — an acceptable fallback for a
+// named-entity list like colleges, not a filterable series.
+const PIE_COLORS_LIGHT = ['#2a78d6', '#e34948', '#1baf7a', '#4a3aa7', '#008300']
+const PIE_COLORS_DARK = ['#3987e5', '#e66767', '#199e70', '#9085e9', '#008300']
 
 // Linear interpolation between two hex colors — used to derive each pie
 // slice's glossy highlight/shadow stops, and the bar gradients' highlight
@@ -58,7 +67,7 @@ const pieGradientId = (index: number) => `students-by-college-pie-gradient-${ind
 // students bar / "light grey" batches bar spec, not theme tokens (same
 // reasoning BatchPerformancePage's PASS_COLOR/FAIL_COLOR already documents:
 // this is a fixed chart-data encoding, not a themed UI surface). Violet base
-// matches this app's own --chart-4 brand hex.
+// matches the login page's own --line-soft custom property (LoginPage.module.css).
 const STUDENTS_BAR_GRADIENT_ID = 'students-by-college-students-bar-gradient'
 const BATCHES_BAR_GRADIENT_ID = 'students-by-college-batches-bar-gradient'
 const STUDENTS_BAR_BASE = '#332cad'
@@ -137,6 +146,7 @@ export default function StudentListPage() {
   const [includeArchived, setIncludeArchived] = useState(false)
   const [collegeSearch, setCollegeSearch] = useState('')
   const prefersReducedMotion = usePrefersReducedMotion()
+  const pieColors = useUIStore((s) => s.theme) === 'dark' ? PIE_COLORS_DARK : PIE_COLORS_LIGHT
 
   // Platform-wide, not scoped to the selected college: this row is meant to
   // orient the user BEFORE they pick a college (and stays stable while
@@ -267,7 +277,7 @@ export default function StudentListPage() {
                 <svg width={0} height={0} className="absolute" aria-hidden="true">
                   <defs>
                     {chartData.map((row, index) => {
-                      const base = PIE_COLORS[index % PIE_COLORS.length]
+                      const base = pieColors[index % pieColors.length]
                       return (
                         <radialGradient key={row.id} id={pieGradientId(index)} cx="35%" cy="30%" r="75%">
                           <stop offset="0%" stopColor={mixHex(base, '#ffffff', 0.55)} />
@@ -335,7 +345,7 @@ export default function StudentListPage() {
                       <li key={row.id} className="flex max-w-32 items-center gap-1.5 text-xs">
                         <span
                           className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                          style={{ backgroundColor: pieColors[index % pieColors.length] }}
                           aria-hidden="true"
                         />
                         <span className="truncate text-foreground" title={row.name}>
