@@ -79,10 +79,15 @@ function CollegeCard({
   onDelete: () => void
 }) {
   return (
-    <Card className="gap-2.5 p-3.5">
+    // interactive: unlike BatchCard, this tile has no single card-body
+    // onClick (View/Edit/kebab are each their own button) — but it's the
+    // same "manageable entity tile in a grid" role as BatchCard, just
+    // action-first instead of drill-down-first, so it gets the same
+    // hover-lift affordance for parity between the two.
+    <Card interactive className="gap-2.5 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-heading font-medium text-primary">{college.name}</p>
+          <p className="truncate font-heading font-medium text-foreground">{college.name}</p>
           <p className="truncate text-xs text-muted-foreground">{college.code}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

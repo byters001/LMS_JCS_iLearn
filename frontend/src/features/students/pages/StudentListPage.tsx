@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Building2, ChevronDown, Layers, Search, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
@@ -11,7 +12,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { useBatchCountsByCollege, useColleges } from '@/features/organization/api'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { CARD_GRADIENT, CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import { useStudentCountsByCollege, useStudentProfiles } from '../api'
 import { StudentRosterTable } from '../components/StudentRosterTable'
 
@@ -20,6 +21,54 @@ const PAGE_SIZE = 20
 // anywhere else either — same "small enough to just fetch in one page" call
 // as BatchListPage.tsx's own COLLEGE_PICKER_PAGE_SIZE.
 const COLLEGE_PAGE_SIZE = 100
+
+// "Students by college" mini bar chart tuning. BAR_THICKNESS is the pill's
+// rendered height (also its rx/ry, since radius = height / 2 = a full pill
+// cap on both ends). The two MIN_ constants below are the minimum-visible-
+// bar floor described in detail on renderCollegeBar further down — both are
+// ABSOLUTE floors, independent of chartMax, so they hold the same way
+// whether the largest college in the dataset is 20 or 20,000.
+const BAR_THICKNESS = 8
+const MIN_BAR_PIXEL_WIDTH = BAR_THICKNESS
+const MIN_BAR_OPACITY = 0.55
+const BAR_GRADIENT_ID = 'students-by-college-bar-gradient'
+
+interface CollegeChartRow {
+  id: string
+  name: string
+  students: number | undefined
+}
+
+interface CollegeBarShapeProps {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  payload?: CollegeChartRow
+}
+
+interface CollegeTooltipProps {
+  active?: boolean
+  payload?: Array<{ payload: CollegeChartRow }>
+}
+
+// Themed replacement for Recharts' unstyled default tooltip box — same
+// bg-popover/border-border/text-popover-foreground tokens as
+// TrainersDashboardPage's BatchCountTooltip, the established pattern for
+// every themed Recharts tooltip in this codebase.
+function CollegeCountTooltip({ active, payload }: CollegeTooltipProps) {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  const count = row.students ?? 0
+  return (
+    <div className="rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+      <p className="font-medium text-popover-foreground">{row.name}</p>
+      <p className="text-muted-foreground">
+        {count} student{count === 1 ? '' : 's'}
+      </p>
+    </div>
+  )
+}
 
 export default function StudentListPage() {
   const [selectedCollegeId, setSelectedCollegeId] = useState<string | null>(null)
@@ -70,6 +119,57 @@ export default function StudentListPage() {
   // domain since this isn't an axis chart anymore (see the widget's own
   // comment below for why).
   const chartMax = Math.max(1, ...chartData.map((row) => row.students ?? 0))
+
+  // Custom Bar shape for each row's mini chart. Recharts passes `width` here
+  // already scaled against the shared XAxis domain={[0, chartMax]} below —
+  // that domain is chartMax itself (the real max, never a rounded/"nice"
+  // auto domain Recharts might otherwise pick), so this width is exactly
+  // the same (value / chartMax) proportion the old div-based bar used, just
+  // computed by Recharts' scale instead of inline arithmetic.
+  //
+  // Minimum-visible-bar floor:
+  //   - width: Math.max(width, MIN_BAR_PIXEL_WIDTH) only ever RAISES the
+  //     width Recharts already computed — it never touches bars whose real
+  //     proportional width already clears the floor, so relative ranking
+  //     between colleges is untouched. It only rescues values that would
+  //     otherwise round to a sub-pixel sliver. MIN_BAR_PIXEL_WIDTH equals
+  //     BAR_THICKNESS, so a 0-student bar renders as a small rounded
+  //     pill/dot the same height as the bar itself — clearly an
+  //     intentional shape, not a rendering glitch — rather than a stray
+  //     hairline. This floor is a fixed pixel count, not a percentage, so
+  //     it holds regardless of how large chartMax grows.
+  //   - fillOpacity: MIN_BAR_OPACITY + (1 - MIN_BAR_OPACITY) * (value /
+  //     chartMax) ranges from MIN_BAR_OPACITY (value = 0) up to fully
+  //     opaque (value = chartMax) — leaders read visually stronger without
+  //     ever dropping a small college's fill below a solid, legible
+  //     opacity. Since the ratio only ever pulls opacity UP from the
+  //     floor, it can't be pushed lower by any future data shape either.
+  //
+  // Verified at the extremes: value=0 -> width=8px, opacity=0.55 (a small
+  // solid pill, not a blank row). value=1, chartMax=188 -> raw width
+  // ~1.6px clamps to 8px, opacity ~0.552 (visibly dimmer than the leader,
+  // never invisible). value=188=chartMax -> width fills the track at full
+  // 1.0 opacity (no floor applied — the floor is a no-op once a bar's own
+  // proportional size already exceeds it).
+  function renderCollegeBar(props: CollegeBarShapeProps) {
+    const { x = 0, y = 0, width = 0, height = 0, payload } = props
+    const value = payload?.students ?? 0
+    const renderedWidth = Math.max(width, MIN_BAR_PIXEL_WIDTH)
+    const opacity = MIN_BAR_OPACITY + (1 - MIN_BAR_OPACITY) * Math.min(1, value / chartMax)
+    const radius = height / 2
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={renderedWidth}
+        height={height}
+        rx={radius}
+        ry={radius}
+        fill={`url(#${BAR_GRADIENT_ID})`}
+        fillOpacity={opacity}
+      />
+    )
+  }
 
   function handleSelectCollege(collegeId: string) {
     if (selectedCollegeId === collegeId) {
@@ -132,15 +232,23 @@ export default function StudentListPage() {
         </motion.div>
       </PageHeader>
 
-      {/* Ranked list + inline mini-bar (GitHub language-breakdown style),
-          not a full Recharts axis chart — this is 3-6 categories with a
+      {/* Ranked list with an inline Recharts bar per row (layout="vertical"),
+          not a shared multi-bar axis chart — this is 3-6 categories with a
           huge value disparity (real colleges in the 180s, next to
-          near-zero ones). An axis/gridline chart forces every bar to fight
-          for legibility against the same linear scale, so a real-but-small
-          college would STILL read as "basically zero, probably broken"
-          even with a correct domain — a plain number next to a
-          proportional bar doesn't have that problem, since the exact count
-          is always directly readable regardless of bar length. */}
+          near-zero ones), which is exactly what pushed this widget to a
+          div-based list in an earlier phase: a shared axis's domain gets
+          padded/rounded past the real max, so even a correct-looking
+          domain still reads a real-but-small college as "basically zero,
+          probably broken" next to the big ones. Each row below is its own
+          single-bar chart, but ALL of them share the exact same XAxis
+          domain={[0, chartMax]} (chartMax = the real max in this dataset,
+          computed with plain Math.max — never a rounded/"nice" auto
+          domain), so a college's rendered bar length is the exact same
+          (value / chartMax) proportion the old div-based bar used — the
+          same fix, just expressed as a Recharts axis domain instead of an
+          inline width percentage. See renderCollegeBar above for the
+          minimum-visible-bar floor that keeps a 0/1-student college a
+          small legible pill instead of a blank or sub-pixel row. */}
       {chartData.length > 1 && (
         <Card className="p-3.5">
           <div className="flex items-center justify-between gap-2">
@@ -152,6 +260,20 @@ export default function StudentListPage() {
           </div>
           {chartReady ? (
             <div className="mt-3 space-y-2">
+              {/* Defs-only, zero-size SVG: SVG paint-server references
+                  (fill="url(#id)") resolve against the whole document, not
+                  just the local <svg>, so one gradient definition here is
+                  reused by every row's own separate BarChart svg below
+                  rather than duplicating (and invalidly re-declaring) the
+                  same id once per row. */}
+              <svg width={0} height={0} className="absolute" aria-hidden="true">
+                <defs>
+                  <linearGradient id={BAR_GRADIENT_ID} x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.8} />
+                    <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+              </svg>
               {chartData.map((row, index) => (
                 <div key={row.id} className="flex items-center gap-3">
                   <span className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground">
@@ -160,15 +282,33 @@ export default function StudentListPage() {
                   <p className="w-36 shrink-0 truncate text-sm text-foreground" title={row.name}>
                     {row.name}
                   </p>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${((row.students ?? 0) / chartMax) * 100}%` }}
-                    />
+                  <div className="h-5 flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[row]}
+                        layout="vertical"
+                        margin={{ top: 0, right: 26, bottom: 0, left: 0 }}
+                      >
+                        <XAxis type="number" domain={[0, chartMax]} hide />
+                        <YAxis type="category" dataKey="name" hide />
+                        <Tooltip content={<CollegeCountTooltip />} cursor={{ fill: 'var(--muted)' }} />
+                        <Bar
+                          dataKey="students"
+                          barSize={BAR_THICKNESS}
+                          shape={renderCollegeBar}
+                          isAnimationActive={!prefersReducedMotion}
+                          animationDuration={600}
+                          animationBegin={index * 40}
+                        >
+                          <LabelList
+                            dataKey="students"
+                            position="right"
+                            className="fill-foreground font-mono text-xs font-semibold tabular-nums"
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                  <p className="w-8 shrink-0 text-right font-mono text-sm font-medium tabular-nums text-foreground">
-                    {row.students}
-                  </p>
                 </div>
               ))}
             </div>
@@ -238,8 +378,9 @@ export default function StudentListPage() {
                   aria-expanded={isSelected}
                   onClick={() => handleSelectCollege(college.id)}
                   className={cn(
-                    'rounded-2xl bg-card p-3 text-left shadow-sm transition-shadow hover:shadow-md',
+                    'rounded-2xl bg-card p-3 text-left shadow-sm',
                     CARD_GRADIENT,
+                    CARD_HOVER_LIFT,
                     isSelected && 'ring-2 ring-primary shadow-md',
                   )}
                 >

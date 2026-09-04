@@ -74,15 +74,26 @@ export function BatchCard({
             }
           : undefined
       }
+      // Widened rule (see lib/utils.ts's CARD_HOVER_LIFT comment): lift
+      // applies whenever ANYTHING inside the card does something on click —
+      // the card body's own onSelect drill-down (MyBatchesPage), the kebab
+      // menu's actions, or the active/inactive toggle — not only when the
+      // card body itself is the click target. Both real callers
+      // (BatchListPage, MyBatchesPage) always pass menuItems, so this is
+      // unconditionally true today, but it's written against the actual
+      // props rather than hardcoded so a hypothetical future caller with
+      // none of the three stays correctly static instead of silently
+      // inheriting a misleading lift.
+      interactive={Boolean(onSelect) || Boolean(menuItems?.length) || Boolean(showActiveToggle)}
       className={cn(
-        'gap-2.5 p-3 transition-shadow hover:shadow-md',
+        'gap-2.5 p-3',
         onSelect ? 'cursor-pointer' : undefined,
         isSelected ? 'border-shell-accent ring-2 ring-shell-accent/20' : undefined,
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-primary">{batch.name}</p>
+          <p className="truncate text-sm font-medium text-foreground">{batch.name}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {batch.collegeName} · {batch.departmentName}
           </p>

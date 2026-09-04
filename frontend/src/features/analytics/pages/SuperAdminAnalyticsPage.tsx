@@ -455,7 +455,7 @@ export default function SuperAdminAnalyticsPage() {
                 const performance = collegePerformanceByCollegeId.get(college.id)
                 return (
                   <TableRow key={college.id}>
-                    <TableCell className="font-medium text-primary">{college.name}</TableCell>
+                    <TableCell className="font-medium text-foreground">{college.name}</TableCell>
                     <TableCell>
                       <Badge variant={college.status === 'active' ? 'live' : 'neutral'}>{college.status}</Badge>
                     </TableCell>

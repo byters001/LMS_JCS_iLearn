@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { CARD_GRADIENT, CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
 import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { Assessment, AvailableAssessment } from '../types'
@@ -101,8 +102,9 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
     <Link
       to={linkTo}
       className={cn(
-        'group flex flex-col gap-2.5 rounded-3xl bg-card p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus-visible:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
+        'group flex flex-col gap-2.5 rounded-3xl bg-card p-3.5 shadow-sm focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
         CARD_GRADIENT,
+        CARD_HOVER_LIFT,
         'from-primary/8',
       )}
     >
@@ -187,7 +189,10 @@ function FeaturedAssessmentCard({ assessment }: { assessment: AvailableAssessmen
   return (
     <Link
       to={`/student/assessments/${assessment.id}`}
-      className="group mb-2.5 flex items-center justify-between gap-4 rounded-3xl border-l-4 border-l-primary bg-card p-3.5 shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2"
+      className={cn(
+        'group mb-2.5 flex items-center justify-between gap-4 rounded-3xl border-l-4 border-l-primary bg-card p-3.5 shadow-sm focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shell-accent focus-visible:ring-offset-2',
+        CARD_HOVER_LIFT,
+      )}
     >
       <div className="min-w-0">
         <p className="font-mono text-[10px] font-semibold tracking-widest text-primary uppercase">
@@ -223,10 +228,7 @@ export default function StudentAssessmentsPage() {
   return (
     <div className="p-4">
       <div className="mb-3">
-        <h1 className="font-heading text-xl font-semibold text-primary">Your Assessments</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Live and upcoming assessments for your batch.
-        </p>
+        <PageHeader title="Your Assessments" description="Live and upcoming assessments for your batch." />
       </div>
 
       {isPending && (

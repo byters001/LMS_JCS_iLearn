@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import { PageHeader } from '@/components/ui/PageHeader'
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CARD_GRADIENT, cn } from '@/lib/utils'
+import { CARD_GRADIENT, CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import { useQuestions, useQuestionsWithText } from '../api'
 import { QuestionStatusBadge } from '../components/QuestionStatusBadge'
 import type { QuestionDifficulty, QuestionType } from '../types'
@@ -83,8 +84,9 @@ function TypeCard({
       aria-expanded={isSelected}
       onClick={onSelect}
       className={cn(
-        'rounded-3xl bg-card p-3.5 text-left shadow-sm transition-shadow hover:shadow-md',
+        'rounded-3xl bg-card p-3.5 text-left shadow-sm',
         CARD_GRADIENT,
+        CARD_HOVER_LIFT,
         isSelected && 'ring-2 ring-shell-accent shadow-md',
       )}
     >
@@ -132,8 +134,9 @@ function DifficultySubCard({
       aria-expanded={isSelected}
       onClick={onSelect}
       className={cn(
-        'rounded-2xl bg-card px-3.5 py-2.5 text-left shadow-sm transition-shadow hover:shadow-md',
+        'rounded-2xl bg-card px-3.5 py-2.5 text-left shadow-sm',
         CARD_GRADIENT,
+        CARD_HOVER_LIFT,
         isSelected && 'ring-2 ring-shell-accent shadow-md',
       )}
     >
@@ -235,25 +238,23 @@ export default function QuestionListPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <h1 className="font-heading text-xl font-semibold text-primary">Questions</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Browse the question bank by type, then difficulty.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="bulk-import">Bulk Import</Link>
-          </Button>
-          <Button asChild>
-            <Link to="new">
-              <Plus className="size-4" />
-              Create Question
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Questions"
+        description="Browse the question bank by type, then difficulty."
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link to="bulk-import">Bulk Import</Link>
+            </Button>
+            <Button asChild>
+              <Link to="new">
+                <Plus className="size-4" />
+                Create Question
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {typeCountsError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3.5 text-sm text-destructive">

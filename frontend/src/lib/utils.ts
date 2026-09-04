@@ -40,3 +40,17 @@ export function cn(...inputs: ClassValue[]) {
 // so easy to miss — the class "worked" in isolation, just not merged with
 // a base background.
 export const CARD_GRADIENT = "bg-linear-to-br from-primary/8 to-transparent"
+
+// Shared hover-lift affordance for interactive card-style tiles (a real
+// entity/action tile, not a stat-only display or a page-section container) —
+// scale-up + upward translate + a stronger shadow, elevation only, no color
+// change. Restricted to `transform`/`box-shadow` in the transition list
+// (never `transition-all`) specifically so nothing else on the element can
+// ever pick up an unintended color transition from this.
+// Exported (not just baked silently into <Card interactive>) so hand-rolled
+// card-style elements that can't be the shared Card component itself — a
+// <button> or <Link> styled to look like a card, which needs real
+// click/anchor semantics a plain div doesn't have — get pixel-identical
+// hover behavior instead of a hand-typed near-duplicate of these classes.
+export const CARD_HOVER_LIFT =
+  "transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl"

@@ -8,7 +8,7 @@ import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Combobox, type ComboboxOption } from '@/components/Combobox'
-import { cn } from '@/lib/utils'
+import { CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import {
   useAddCriterion,
   usePoolCriteria,
@@ -305,7 +305,10 @@ export default function PoolDetailPage() {
               (criteria.data ?? []).map((criterion) => (
                 <div
                   key={criterion.id}
-                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl bg-muted/40 px-4 py-2.5 text-sm"
+                  className={cn(
+                    'flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl bg-muted/40 px-4 py-2.5 text-sm',
+                    CARD_HOVER_LIFT,
+                  )}
                 >
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <span className="font-medium text-primary">

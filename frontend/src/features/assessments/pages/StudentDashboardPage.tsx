@@ -13,7 +13,7 @@ import { useMyDashboardProfile } from '@/features/students/api'
 import { useCountUp } from '@/hooks/useCountUp'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { STAT_CONTAINER_VARIANTS, STAT_ITEM_VARIANTS, STATIC_VARIANTS } from '@/lib/motion'
-import { cn } from '@/lib/utils'
+import { CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
 import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { AvailableAssessment, TestCategory } from '../types'
@@ -56,7 +56,10 @@ function UpcomingAssessmentCard({ assessment }: { assessment: AvailableAssessmen
   const buttonState = getAttemptButtonState(assessment)
   const isScheduled = buttonState.kind === 'scheduled'
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
+    // Widened rule: the row itself has no onClick, but its "Open" button
+    // leads to the assessment — that's enough to qualify as interactive now
+    // (previously excluded when only a whole-row click counted).
+    <div className={cn('flex items-center gap-3 rounded-2xl bg-muted/40 p-3', CARD_HOVER_LIFT)}>
       <div
         className={cn(
           'flex size-10 shrink-0 items-center justify-center rounded-full',
@@ -95,7 +98,10 @@ function RecentResultCard({ attempt }: { attempt: { id: string; assessmentTitle:
   return (
     <Link
       to={`/student/attempts/${attempt.id}/submitted`}
-      className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-sm outline-none transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className={cn(
+        'flex items-center gap-3 rounded-2xl bg-card p-3 shadow-sm outline-none focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        CARD_HOVER_LIFT,
+      )}
     >
       <div
         className={cn(

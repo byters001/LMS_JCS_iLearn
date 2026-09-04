@@ -84,6 +84,13 @@ interface StatCardProps {
   // than stretching edge-to-edge like a banner. Omitted entirely elsewhere,
   // so every other StatCard usage is unaffected.
   className?: string
+  // Opt-in hover-lift (see Card's own `interactive` prop / CARD_HOVER_LIFT
+  // in lib/utils.ts) — off by default since StatCard is architecturally a
+  // pure stat display with no click/href of its own at almost every call
+  // site. Exists so a caller that DOES wrap a StatCard in a Link/button (or
+  // gives it an onClick) can opt in explicitly rather than every StatCard
+  // silently gaining a misleading "this is clickable" affordance.
+  interactive?: boolean
   // Soft & Organic phase — opt-in rounded-cap progress ring (ScoreRing)
   // replacing the bare icon chip + number for stats that are genuinely a
   // 0-100 percentage (avg score, pass rate, completion rate). Omitted
@@ -103,7 +110,7 @@ const ACCENT_CHART_VAR = {
   coral: 'var(--accent-coral-fg)',
 } as const
 
-export function StatCard({ label, value, icon: Icon, iconClassName, accent, delta, progress, trend, className, ring }: StatCardProps) {
+export function StatCard({ label, value, icon: Icon, iconClassName, accent, delta, progress, trend, className, ring, interactive }: StatCardProps) {
   const displayValue = useCountUp(value)
   // Narrowed separately from the plain `ring` boolean so TypeScript can
   // actually narrow `accent` to non-undefined inside the ring branches below
@@ -113,7 +120,7 @@ export function StatCard({ label, value, icon: Icon, iconClassName, accent, delt
   const useRing = ringAccent !== undefined
 
   return (
-    <Card className={cn('p-3.5', className)}>
+    <Card interactive={interactive} className={cn('p-3.5', className)}>
       <div className="flex items-center gap-2.5">
         {ringAccent ? (
           <div className="relative size-12 shrink-0">
