@@ -184,75 +184,70 @@
     --status-neutral-fg: #cbd5e1;
 }
 
-/* Obsidian & Ember phase — replaces the prior indigo-family platform theme
-   (which itself had already superseded Parchment & Emerald / Slate & Amber /
-   Graphite & Steel) after client review rejected that indigo scheme as
-   generic/boring. Chosen from 3 proposed directions (Step 1 mockup review,
-   real-data throwaway routes, since deleted) — warm near-black base, one
-   bold ember accent, dark-mode-first confidence instead of another blue/
-   navy SaaS look. Still scoped to `.app-shell` exactly as before — :root/
-   .dark below are LEFT UNTOUCHED, byte-for-byte, same reasoning as every
-   prior phase: AttemptLayout (the exam-taking screen) renders with no
-   `.app-shell` wrapper at all, so it keeps resolving :root's original
-   indigo-family values forever, regardless of this change or the theme
-   toggle's state. Confirmed no file under features/attempts/ or
-   layouts/AttemptLayout.tsx was touched by this phase.
+/* Monochrome Premium phase — replaces Obsidian & Ember's warm orange/ember
+   identity (which itself had superseded an earlier indigo-family theme
+   rejected by client review as generic/boring). This time the source of
+   truth is literal: the login page (LoginPage.module.css) — near-black to
+   light-grey metallic panel, a pure #000 CTA button, white/black text, with
+   its indigo custom properties (--black #211d8c, --line #4a44c4, --white-
+   faint #8b85d6, etc.) used there only as a subtle text-ink tint and focus-
+   ring color, never as a large fill. Same split applies here: primary/
+   background/foreground go near-black-white-grey; the indigo family is
+   demoted to --accent/--ring (hover chips, focus rings, links) so it reads
+   as one accent note, not a wholesale indigo reskin. Still scoped to
+   `.app-shell` exactly as before — :root/.dark below (the exam-taking
+   AttemptLayout's theme) are LEFT UNTOUCHED, byte-for-byte, same reasoning
+   as every prior phase.
    WCAG AA (>=4.5:1 text, >=3:1 non-text) verified for every pairing:
-     LIGHT   foreground/background        17.2:1   muted-fg/muted     5.1:1
-             primary-fg/primary             5.1:1   secondary-fg/secondary 7.0:1
-     DARK    foreground/background        17.5:1   muted-fg/muted     9.4:1
-             primary-fg/primary             6.7:1   secondary-fg/secondary 9.8:1
-   accent-teal/amber/coral and status-* ramps are unchanged from before —
-   they're semantic (positive/warning/danger) or decorative-neutral, not
-   part of the rejected indigo identity, so they carry over as-is. Only
-   accent-indigo-bg/fg (the one chip literally named after the old family)
-   is recolored below to a warm bronze, verified >=4.5:1 in both modes —
-   the `indigo` PROP NAME itself is untouched (StatCard's `accent` type and
-   ~40 call sites all still say `accent="indigo"`; only what that slot
-   resolves to visually changed, so no call-site edits were needed). */
+     LIGHT   foreground/background   16.87:1   muted-fg/muted    4.71:1
+             primary-fg/primary      18.06:1   secondary-fg/secondary 12.60:1
+             accent-fg/accent        10.42:1   ring/background (3:1) 11.59:1
+     DARK    foreground/background   18.01:1   muted-fg/muted    6.71:1
+             primary-fg/primary      18.06:1   secondary-fg/secondary 11.82:1
+             accent-fg/accent         8.91:1   ring/background (3:1)  6.06:1
+   accent-teal/amber/coral and status-* ramps are unchanged — they're
+   semantic (positive/warning/danger) or decorative-neutral, not the primary/
+   brand color this phase replaces. accent-indigo-bg/fg is recolored back to
+   true indigo (matching the login page's own --black/--white-faint), still
+   >=4.5:1 in both modes — the `indigo` PROP NAME was already correct, only
+   what it resolves to visually changes. */
 .app-shell {
-    --background: #faf9f7;
-    --foreground: #171512;
+    --background: #f2f2f2;
+    --foreground: #111111;
     --card: #ffffff;
-    --card-foreground: #171512;
+    --card-foreground: #141414;
     --popover: #ffffff;
-    --popover-foreground: #171512;
-    --primary: #c73e1d;
-    --primary-foreground: #ffffff;
-    --secondary: #f4e7e1;
-    --secondary-foreground: #8a2e10;
-    --muted: #f1eeea;
-    --muted-foreground: #6b6459;
-    --accent: #f4e7e1;
-    --accent-foreground: #8a2e10;
+    --popover-foreground: #141414;
+    --primary: #111111;
+    --primary-foreground: #fafaf7;
+    --secondary: #eceae7;
+    --secondary-foreground: #262626;
+    --muted: #eeece9;
+    --muted-foreground: #6b6862;
+    --accent: #e7e4fa;
+    --accent-foreground: #211d8c;
     --destructive: oklch(0.577 0.245 27.325);
-    --border: #e8e3dc;
-    --input: #e8e3dc;
-    --ring: #c73e1d;
-    --chart-1: #c73e1d;
-    --chart-2: #e8794f;
-    --chart-3: #8a2e10;
-    --chart-4: #4a4038;
-    --chart-5: #f2a98a;
+    --border: #e2e0db;
+    --input: #e2e0db;
+    --ring: #211d8c;
+    --chart-1: #111111;
+    --chart-2: #4a44c4;
+    --chart-3: #8b85d6;
+    --chart-4: #6b6862;
+    --chart-5: #c7c4ee;
 
-    --shell-accent: #c73e1d;
+    --shell-accent: #4a44c4;
 
-    /* Hero-gradient tokens — new. The 3 dashboard hero banners (Student/
-       Trainer/Super-Admin) previously used the fixed brand-gradient-from/to
-       Tailwind utilities (CLAUDE1.md's real, unrelated JCS brand-identity
-       hex, also used nowhere near the login page's own self-scoped CSS
-       module) as a hardcoded, never-theme-aware gradient — the SAME navy
-       gradient rendered in dark mode too, a latent gap independent of this
-       recolor. Given a real name (not reusing brand-gradient-*, which
-       stays defined and untouched for whatever future brand use) and wired
-       through so the hero now actually flips with the toggle. */
-    --hero-gradient-from: #171512;
-    --hero-gradient-to: #c73e1d;
+    /* Hero-gradient tokens — near-black to indigo, echoing the login page's
+       own dark-panel-to-metallic-grey gradient direction. White banner text
+       verified >=4.5:1 against both ends (18.06:1 / 12.40:1). */
+    --hero-gradient-from: #111111;
+    --hero-gradient-to: #211d8c;
 
-    /* Bronze — recolored replacement for the old indigo accent chip (see
-       this block's own header comment). #7d5124 on #f2e3d3 = 5.43:1. */
-    --accent-indigo-bg: #f2e3d3;
-    --accent-indigo-fg: #7d5124;
+    /* True indigo — matches the login page's --black/--white-faint pair
+       (#211d8c on #e7e4fa = 10.42:1). */
+    --accent-indigo-bg: #e7e4fa;
+    --accent-indigo-fg: #211d8c;
     --accent-teal-bg: #ccfbf1;
     --accent-teal-fg: #0f766e;
     --accent-amber-bg: #fef3c7;
@@ -269,91 +264,76 @@
     --status-neutral-bg: #f1f5f9;
     --status-neutral-fg: #475569;
 
-    /* Sidebar-rail override — ADDITIVE only, a new declaration here, not an
-       edit to :root's own --sidebar-* block (still byte-identical, still
-       defined there, just no longer the value anything under `.app-shell`
-       actually resolves — Sidebar.tsx/StudentRail.tsx are always rendered
-       inside a Layout's `.app-shell` wrapper, so this wins the cascade for
-       every real nav-rail render; AttemptLayout never carries `.app-shell`
-       and never renders a sidebar either, so it's unaffected either way).
-       Same values for both light and dark — the rail stays permanently
-       dark regardless of toggle state, same as every prior phase, just
-       recolored from violet-black to warm obsidian + ember accent instead
-       of carrying the old indigo family into an otherwise all-new palette.
-       WCAG AA verified: sidebar-fg #b8a99a/#14100c 8.3:1 (inactive text) ·
-       sidebar-primary-fg #1a0d08/#ff6b45 6.7:1 (active chip) ·
-       sidebar-accent-fg #faf6f0/#241a12 ~15:1 (hover text) ·
-       sidebar-ring #ff8a63/#14100c non-text, well over 3:1. */
-    --sidebar: #14100c;
-    --sidebar-foreground: #b8a99a;
-    --sidebar-primary: #ff6b45;
-    --sidebar-primary-foreground: #1a0d08;
-    --sidebar-accent: #241a12;
-    --sidebar-accent-foreground: #faf6f0;
-    --sidebar-border: #2e2118;
-    --sidebar-ring: #ff8a63;
+    /* Sidebar-rail tokens — kept defined for parity with :root's own
+       --sidebar-* block, but currently unconsumed: Sidebar.tsx's frosted
+       icon rail reads --background/--foreground/--accent/--ring directly
+       (see that file's own module comment), not these. Recolored anyway so
+       nothing stale is left lying around if a future component does read
+       them. Near-black rail with the same indigo accent used for --ring/
+       --accent above. WCAG AA verified: sidebar-fg #b3b0a9/#0a0a0a 9.14:1 ·
+       sidebar-primary-fg #fafaf7/#4a44c4 6.89:1 · sidebar-accent-fg
+       #fafaf7/#1c1c1c 16.30:1 · sidebar-ring #8b85d6/#0a0a0a 6.06:1. */
+    --sidebar: #0a0a0a;
+    --sidebar-foreground: #b3b0a9;
+    --sidebar-primary: #4a44c4;
+    --sidebar-primary-foreground: #fafaf7;
+    --sidebar-accent: #1c1c1c;
+    --sidebar-accent-foreground: #fafaf7;
+    --sidebar-border: #262626;
+    --sidebar-ring: #8b85d6;
 
-    /* Soft & Organic phase — approved direction from the 3-mockup review
-       (large radius, shadow-based elevation instead of hard borders, pill
-       nav/stats). Scoped to `.app-shell` ONLY, additive on top of :root's
-       own `--radius: 0.625rem` (left byte-for-byte untouched) — the exact
-       same isolation technique this block already used for color
-       (`--hero-gradient-*`/`--sidebar-*` above): AttemptLayout.tsx never
-       applies the `.app-shell` class (see that file's own comment), and
-       features/attempts only ever consumes Button/Input from the shared UI
-       kit (confirmed by grep) — both read `rounded-lg`, which derives from
-       `var(--radius)` via the `@theme inline` chain in this file's own head
-       (`--radius-lg: var(--radius)`, etc). Because `@theme inline` re-
-       resolves that `var()` at each consuming element's own computed-value
-       time (not baked once at :root), overriding `--radius` here changes
-       every real role page's Button/Input/Card/Dialog corners while the
-       exam-taking screen — rendered with no `.app-shell` ancestor — keeps
-       resolving :root's original 0.625rem, pixel-for-pixel. Verified live in
-       the browser, not just via diff (see rollout summary).
-       0.75rem -> radius-3xl (Card's new default) = 1.65rem/26.4px,
-       radius-4xl (hero panels) = 1.95rem/31.2px — both inside the approved
-       24-32px band; radius-lg (Button/Input) = 0.75rem/12px, a modest soften
-       rather than a full pill, matching the mockup's own restraint there. */
-    --radius: 0.75rem;
+    /* Radius pulled back from the Soft & Organic phase's 0.75rem toward the
+       login page's flatter, more minimal language (its inputs/buttons carry
+       ~0 radius). Not taken all the way to 0 — cards/dialogs/badges still
+       need some softness to stay legible at dashboard density — but the
+       0.5rem base reads noticeably crisper than the old pill-heavy 0.75rem
+       (radius-lg 8px vs 12px, radius-3xl/Card 1.1rem vs 1.65rem). Still
+       additive on top of :root's own untouched 0.625rem — same isolation
+       mechanism as `--hero-gradient-*`/`--sidebar-*` above; AttemptLayout
+       never applies `.app-shell` so it keeps resolving :root's value. */
+    --radius: 0.5rem;
 }
 
 /* Dense, near-black dashboard mode (structural/density reference: a dark
    assessment-platform dashboard — tight stat cards, inline sparklines,
-   dense tables). Obsidian near-black base with the same ember accent
-   carried through, so light/dark read as one coherent identity rather than
-   two different products. */
+   dense tables). Near-true-black base echoing the login page's own metallic-
+   gradient start (#050505), with the same indigo accent note carried
+   through from the light variant, so light/dark read as one coherent
+   identity rather than two different products. Primary flips to a white/
+   near-white fill (the natural dark-mode inverse of the light theme's
+   literal-black CTA), same pattern the pre-Ember indigo phase used. */
 .app-shell.dark {
-    --background: #0d0b09;
-    --foreground: #f5f1ec;
-    --card: #171410;
-    --card-foreground: #f5f1ec;
-    --popover: #1c1814;
-    --popover-foreground: #f5f1ec;
-    --primary: #ff6b45;
-    --primary-foreground: #1a0d08;
-    --secondary: #2b1710;
-    --secondary-foreground: #f5b79a;
-    --muted: #1f1b16;
-    --muted-foreground: #c9bfb2;
-    --accent: #2b1710;
-    --accent-foreground: #f5b79a;
+    --background: #0a0a0a;
+    --foreground: #f5f4f2;
+    --card: #141414;
+    --card-foreground: #f5f4f2;
+    --popover: #161616;
+    --popover-foreground: #f5f4f2;
+    --primary: #fafaf7;
+    --primary-foreground: #111111;
+    --secondary: #262626;
+    --secondary-foreground: #e5e3e0;
+    --muted: #1f1f1f;
+    --muted-foreground: #a8a5a0;
+    --accent: #26224a;
+    --accent-foreground: #c7c4ee;
     --destructive: oklch(0.704 0.191 22.216);
-    --border: #3a2f26;
-    --input: #3a2f26;
-    --ring: #ff8a63;
-    --chart-1: #ff6b45;
-    --chart-2: #f5b79a;
-    --chart-3: #c73e1d;
-    --chart-4: #8a2e10;
-    --chart-5: #f2a98a;
+    --border: #2a2a2a;
+    --input: #2a2a2a;
+    --ring: #8b85d6;
+    --chart-1: #f5f4f2;
+    --chart-2: #8b85d6;
+    --chart-3: #4a44c4;
+    --chart-4: #6b6862;
+    --chart-5: #c7c4ee;
 
-    --shell-accent: #ff8a63;
-    --hero-gradient-from: #1a0d08;
-    --hero-gradient-to: #c73e1d;
+    --shell-accent: #8b85d6;
+    --hero-gradient-from: #050505;
+    --hero-gradient-to: #4a44c4;
 
-    /* Bronze dark — #e8c89a on #3a2814 = 8.81:1. */
-    --accent-indigo-bg: #3a2814;
-    --accent-indigo-fg: #e8c89a;
+    /* True indigo dark — #c7c4ee on #26224a = 8.91:1. */
+    --accent-indigo-bg: #26224a;
+    --accent-indigo-fg: #c7c4ee;
     --accent-teal-bg: #134e4a;
     --accent-teal-fg: #5eead4;
     --accent-amber-bg: #451a03;

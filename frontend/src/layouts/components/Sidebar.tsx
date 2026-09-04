@@ -85,14 +85,15 @@ function navLinkClassName({ isActive }: { isActive: boolean }) {
 // not an overlay), so alpha-blending --background at any opacity over
 // itself is a no-op for contrast purposes; the numbers below are the
 // same ones any normal page text against --background would get.
-//   LIGHT (.app-shell):  foreground/background        17.31:1
-//                        muted-foreground/background    5.55:1
-//                        accent-foreground/accent        7.01:1  (active pill)
-//                        ring/background                 4.82:1  (focus ring, needs >=3:1)
-//   DARK  (.app-shell.dark): foreground/background     17.47:1
-//                        muted-foreground/background   10.83:1
-//                        accent-foreground/accent        9.84:1  (active pill)
-//                        ring/background                 8.48:1  (focus ring, needs >=3:1)
+// Recomputed for the Monochrome Premium palette (globals.css):
+//   LIGHT (.app-shell):  foreground/background        16.87:1
+//                        muted-foreground/background    4.71:1
+//                        accent-foreground/accent       10.42:1  (active pill)
+//                        ring/background                11.59:1  (focus ring, needs >=3:1)
+//   DARK  (.app-shell.dark): foreground/background     18.01:1
+//                        muted-foreground/background    6.71:1
+//                        accent-foreground/accent        8.91:1  (active pill)
+//                        ring/background                 6.06:1  (focus ring, needs >=3:1)
 // All eight comfortably clear the AA minimums (4.5:1 text, 3:1 non-text).
 export function Sidebar({ navItems }: SidebarProps) {
   return (
