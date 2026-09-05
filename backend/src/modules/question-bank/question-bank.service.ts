@@ -385,6 +385,26 @@ async function createQuestion(
     createdBy,
   });
 
+  // A super_admin's own question skips the normal draft -> pending_review ->
+  // approved workflow entirely — reuses userHasRole exactly as
+  // resolveQuestionListCollegeScope above already does, not reimplemented.
+  // Faculty/trainer-created questions are completely unaffected: this only
+  // short-circuits the STATUS at creation time for one role, it doesn't
+  // touch submitQuestionForApproval/approveQuestion/rejectQuestion, so a
+  // super_admin's question can still be resubmitted/reviewed like any other
+  // later if that's ever needed.
+  const isSuperAdmin = await userHasRole(createdBy, 'super_admin');
+  if (isSuperAdmin) {
+    const { question: approved } = await questionBankRepository.recordApprovalAction(question.id, {
+      status: 'approved',
+      action: 'approved',
+      questionVersionId: version.id,
+      performedBy: createdBy,
+      notes: 'Auto-approved: created by a super admin',
+    });
+    return { ...approved, currentVersion: version };
+  }
+
   return { ...question, currentVersion: version };
 }
 

@@ -145,8 +145,14 @@ function MultiSelectChips({
 // question-pool creation UI here (all explicitly deferred, matching every
 // prior phase's scope discipline). A question is created with its content
 // atomically as version #1 (POST /questions does both in one call — see
-// question-bank.service.ts) and starts in 'draft' status; moving it
-// through submit/approve/reject is a separate future phase's UI.
+// question-bank.service.ts) and starts in 'draft' status, EXCEPT when the
+// creator is a super_admin — question-bank.service.ts's createQuestion
+// auto-approves those, so the response can already come back 'approved'.
+// This page doesn't branch on status either way (it just navigates back to
+// the list on success), and QuestionStatusBadge/QuestionWorkflowActions
+// already render whatever real status comes back — nothing here assumes
+// 'draft'. Moving a non-auto-approved question through submit/approve/
+// reject is a separate future phase's UI.
 export default function CreateQuestionPage() {
   const navigate = useNavigate()
   const createQuestion = useCreateQuestion()
