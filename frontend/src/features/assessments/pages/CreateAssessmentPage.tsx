@@ -7,16 +7,7 @@ import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { useTrainingSessions } from '@/features/trainers/api'
-import { cn } from '@/lib/utils'
 import { useCreateAssessment } from '../api'
-
-// One-shot fetch at the backend's max page size, not a real paginated/
-// searchable picker — this phase only unblocks discovering a valid
-// trainingSessionId at all (previously there was no list endpoint). A
-// searchable picker with its own pagination is deferred, larger scope (same
-// bucket as the question/pool/batch pickers).
-const TRAINING_SESSION_PAGE_SIZE = 100
 
 // Optional numeric fields stay as plain strings at the SCHEMA level (Zod
 // only validates the string's shape here) rather than z.coerce.number() or
@@ -49,17 +40,6 @@ function toOptionalNumber(value: string | undefined): number | undefined {
 // features/assessments/types.ts's CreateAssessmentInput comment for why.
 const createAssessmentFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  // Optional (item 4, decision doc): assessment_batches, not training
-  // session, is what actually controls student visibility (item 8A's
-  // diagnosis) — an empty string means "no specific session," the same
-  // untouched-select-input default this form already uses elsewhere
-  // (optionalIntString above), converted to `undefined` in onSubmit before
-  // it ever reaches the backend's z.string().uuid().optional().
-  trainingSessionId: z
-    .string()
-    .refine((value) => !value || z.string().uuid().safeParse(value).success, {
-      message: 'Must be a valid training session UUID',
-    }),
   testCategory: z.enum(['mcq', 'coding', 'psychometric', 'mixed']),
   description: z.string().optional(),
   timerMinutes: optionalIntString,
@@ -111,7 +91,6 @@ function ToggleRow({
 export default function CreateAssessmentPage() {
   const navigate = useNavigate()
   const createAssessment = useCreateAssessment()
-  const trainingSessions = useTrainingSessions({ page: 1, pageSize: TRAINING_SESSION_PAGE_SIZE })
 
   const {
     register,
@@ -123,7 +102,6 @@ export default function CreateAssessmentPage() {
     resolver: zodResolver(createAssessmentFormSchema),
     defaultValues: {
       title: '',
-      trainingSessionId: '',
       testCategory: 'mcq',
       description: '',
       shuffleQuestions: false,
@@ -144,7 +122,6 @@ export default function CreateAssessmentPage() {
     createAssessment.mutate(
       {
         title: values.title,
-        trainingSessionId: values.trainingSessionId || undefined,
         testCategory: values.testCategory,
         description: values.description || undefined,
         timerMinutes: toOptionalInt(values.timerMinutes),
@@ -197,63 +174,6 @@ export default function CreateAssessmentPage() {
               </label>
               <input id="title" className={inputClassName} {...register('title')} />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="trainingSessionId" className={labelClassName}>
-                Training Session <span className="text-muted-foreground">(optional)</span>
-              </label>
-
-              {trainingSessions.isPending && (
-                <div
-                  role="status"
-                  aria-label="Loading training sessions"
-                  className={cn(inputClassName, 'animate-pulse text-muted-foreground')}
-                >
-                  Loading sessions…
-                </div>
-              )}
-
-              {trainingSessions.isError && (
-                <p className="text-xs text-destructive">
-                  {trainingSessions.error instanceof ApiError
-                    ? trainingSessions.error.message
-                    : 'Failed to load training sessions. Please try again.'}
-                </p>
-              )}
-
-              {trainingSessions.data && (
-                // Never disabled — "No specific session" (value="") is always a
-                // real, selectable option, whether or not any sessions exist
-                // yet. assessment_batches, not training session, is what
-                // controls student visibility (item 8A's diagnosis), so there's
-                // no reason a missing session should block creation.
-                <select id="trainingSessionId" className={inputClassName} {...register('trainingSessionId')}>
-                  <option value="">No specific session</option>
-                  {trainingSessions.data.items.map((session) => (
-                    // "{title} — {date} ({program})" — two sessions from
-                    // DIFFERENT training programs can share the exact same
-                    // title (e.g. both called "Session 1"), so title + date
-                    // alone was ambiguous. trainingProgramName (backend now
-                    // joins training_programs for this) makes each option
-                    // distinguishable.
-                    <option key={session.id} value={session.id}>
-                      {session.title} — {session.sessionDate} ({session.trainingProgramName})
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {trainingSessions.data?.items.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No training sessions exist yet — that&apos;s fine, this assessment can be created
-                  without one and linked to a session later if one becomes relevant.
-                </p>
-              )}
-
-              {errors.trainingSessionId && (
-                <p className="text-xs text-destructive">{errors.trainingSessionId.message}</p>
-              )}
             </div>
 
             <div className="space-y-1">
