@@ -31,7 +31,9 @@ import type {
   ResolvedQuestionPool,
   UpdatePoolCriterionInput,
   UpdatePoolInput,
+  UpdateQuestionCategoryInput,
   UpdateQuestionInput,
+  UpdateQuestionTopicInput,
 } from './types'
 
 function listQuestions(params: ListQuestionsParams): Promise<ListQuestionsResponse> {
@@ -285,6 +287,75 @@ export function useCreateTopic() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: createTopic,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'topics', 'list'] })
+    },
+  })
+}
+
+// --- Category / topic edit / delete (Category & Topic Management page) ---
+// PATCH/DELETE /question-categories/:id and /question-topics/:id were
+// already real, working backend endpoints (confirmed by reading
+// question-bank.routes.ts/.service.ts/.repository.ts directly before
+// building this). Category delete is ON DELETE SET NULL on both
+// questions.category_id and child categories' parent_category_id (schema
+// confirmed directly against db/schema/question-bank.schema.ts) — it
+// un-categorizes, never cascades a real delete. Topic delete cascades only
+// the question_topic_map join row (also ON DELETE CASCADE, but on that join
+// table only) — the underlying question is never touched.
+
+function updateCategory(id: string, input: UpdateQuestionCategoryInput): Promise<QuestionCategory> {
+  return api.patch<QuestionCategory>(`/question-categories/${id}`, input)
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateQuestionCategoryInput }) =>
+      updateCategory(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'categories', 'list'] })
+    },
+  })
+}
+
+function deleteCategory(id: string): Promise<void> {
+  return api.delete<void>(`/question-categories/${id}`)
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'categories', 'list'] })
+    },
+  })
+}
+
+function updateTopic(id: string, input: UpdateQuestionTopicInput): Promise<QuestionTopic> {
+  return api.patch<QuestionTopic>(`/question-topics/${id}`, input)
+}
+
+export function useUpdateTopic() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateQuestionTopicInput }) =>
+      updateTopic(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['question-bank', 'topics', 'list'] })
+    },
+  })
+}
+
+function deleteTopic(id: string): Promise<void> {
+  return api.delete<void>(`/question-topics/${id}`)
+}
+
+export function useDeleteTopic() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteTopic,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['question-bank', 'topics', 'list'] })
     },

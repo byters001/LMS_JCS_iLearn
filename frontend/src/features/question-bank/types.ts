@@ -233,6 +233,14 @@ export interface CreateQuestionCategoryInput {
   parentCategoryId?: string
 }
 
+// Matches backend's updateQuestionCategorySchema exactly (.strict(), all
+// fields optional, backend rejects an empty body). `type` deliberately
+// excluded, same as the backend — see that schema's own comment on why.
+export interface UpdateQuestionCategoryInput {
+  name?: string
+  parentCategoryId?: string | null
+}
+
 export interface QuestionTopic {
   id: string
   name: string
@@ -262,6 +270,13 @@ export interface ListQuestionTopicsResponse {
 export interface CreateQuestionTopicInput {
   name: string
   categoryId?: string
+}
+
+// Matches backend's updateQuestionTopicSchema exactly (.strict(), all
+// fields optional, backend rejects an empty body).
+export interface UpdateQuestionTopicInput {
+  name?: string
+  categoryId?: string | null
 }
 
 // question_tags has no createdAt column at all (checked against the real

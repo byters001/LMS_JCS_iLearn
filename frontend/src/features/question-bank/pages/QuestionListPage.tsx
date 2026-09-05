@@ -246,6 +246,9 @@ export default function QuestionListPage() {
             <Button asChild variant="outline">
               <Link to="bulk-import">Bulk Import</Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link to="categories">Manage Categories</Link>
+            </Button>
             <Button asChild>
               <Link to="new">
                 <Plus className="size-4" />

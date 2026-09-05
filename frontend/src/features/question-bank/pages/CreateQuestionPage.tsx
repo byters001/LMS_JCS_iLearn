@@ -68,7 +68,7 @@ const createQuestionFormSchema = questionContentFieldsSchema
     // so every question must be filed under one. Previously optional/
     // global-bank-if-unset; that fallback goes away along with this change.
     categoryId: z.string().min(1, 'Category is required'),
-    topicIds: z.array(z.string()),
+    topicIds: z.array(z.string()).min(1, 'Select at least one topic'),
     tagIds: z.array(z.string()),
   })
   .superRefine((data, ctx) => applyQuestionContentRefinements(data.type, data, ctx))
@@ -349,9 +349,7 @@ export default function CreateQuestionPage() {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-foreground">
-                Topics <span className="text-muted-foreground">(optional)</span>
-              </span>
+              <span className="text-xs font-medium text-foreground">Topics</span>
               {categoryId && (
                 <button
                   type="button"
@@ -377,6 +375,9 @@ export default function CreateQuestionPage() {
               />
             ) : (
               <p className="text-sm text-muted-foreground">Select a category first.</p>
+            )}
+            {errors.topicIds && (
+              <p className="text-sm text-destructive">{errors.topicIds.message}</p>
             )}
           </div>
 
