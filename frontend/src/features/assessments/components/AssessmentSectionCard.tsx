@@ -1,7 +1,9 @@
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { useQuestionPools } from '@/features/question-bank/api'
+import { cn } from '@/lib/utils'
 import {
   useAssessmentQuestions,
   useAssessmentSectionPools,
@@ -53,13 +55,6 @@ export function AssessmentSectionCard({
   const questionIdByVersionId = new Map(
     (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.id]),
   )
-  // Backs the ▲/▼ reorder buttons below — swapping sortOrder needs each
-  // row's REAL current value off the raw junction row, not its position in
-  // section.resolvedQuestions (that array index is a display artifact, not
-  // necessarily equal to sortOrder).
-  const sortOrderByVersionId = new Map(
-    (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.sortOrder]),
-  )
   // Phase 5 — lets the attached-questions list show what's currently
   // restricted without a separate fetch; rawQuestions already carries
   // allowedLanguages (GET .../questions returns the bare assessment_questions
@@ -68,34 +63,97 @@ export function AssessmentSectionCard({
     (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.allowedLanguages]),
   )
 
+  // --- Click-to-rank manual reordering ---
+  // clientOrder holds assessmentQuestionIds in the order the admin has
+  // clicked them — NOT a swap-on-click interaction like the previous ▲/▼
+  // buttons. Ranks are always DERIVED from clientOrder.indexOf(id), never
+  // stored per-row, so unranking a row (click it again) and re-ranking it
+  // later automatically renumbers everything correctly — no stale rank to
+  // clean up.
+  const [isReordering, setIsReordering] = useState(false)
+  const [clientOrder, setClientOrder] = useState<string[]>([])
+  const [orderSaveError, setOrderSaveError] = useState<string | null>(null)
+  const [isSavingOrder, setIsSavingOrder] = useState(false)
+
   const updateAssessmentQuestion = useUpdateAssessmentQuestion(assessmentId)
+  const queryClient = useQueryClient()
 
-  function handleReorder(currentIndex: number, direction: 'up' | 'down') {
-    const questions = section.resolvedQuestions
-    const adjacentIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    const current = questions[currentIndex]
-    const adjacent = questions[adjacentIndex]
-    if (!current || !adjacent) return
-
-    const currentId = questionIdByVersionId.get(current.questionVersionId)
-    const adjacentId = questionIdByVersionId.get(adjacent.questionVersionId)
-    const currentSortOrder = sortOrderByVersionId.get(current.questionVersionId)
-    const adjacentSortOrder = sortOrderByVersionId.get(adjacent.questionVersionId)
-    if (!currentId || !adjacentId || currentSortOrder === undefined || adjacentSortOrder === undefined) {
-      return
-    }
-
-    updateAssessmentQuestion.mutate({
-      sectionId: section.id,
-      questionId: currentId,
-      input: { sortOrder: adjacentSortOrder },
-    })
-    updateAssessmentQuestion.mutate({
-      sectionId: section.id,
-      questionId: adjacentId,
-      input: { sortOrder: currentSortOrder },
-    })
+  function handleStartReorder() {
+    setClientOrder([])
+    setOrderSaveError(null)
+    setIsReordering(true)
   }
+
+  function handleResetOrder() {
+    setClientOrder([])
+    setOrderSaveError(null)
+  }
+
+  function handleCancelReorder() {
+    setIsReordering(false)
+    setClientOrder([])
+    setOrderSaveError(null)
+  }
+
+  // Toggles one row's rank: appends it if unranked, removes it if already
+  // ranked (lets the admin correct a misclick without starting over — the
+  // row falls back to unranked and re-joins the bottom group in its
+  // original relative order, and re-clicking it later re-appends it at
+  // whatever position is next at THAT time, not its old one).
+  function handleToggleRank(assessmentQuestionId: string) {
+    setClientOrder((current) =>
+      current.includes(assessmentQuestionId)
+        ? current.filter((id) => id !== assessmentQuestionId)
+        : [...current, assessmentQuestionId],
+    )
+  }
+
+  async function handleSaveOrder() {
+    setIsSavingOrder(true)
+    setOrderSaveError(null)
+    try {
+      await Promise.all(
+        clientOrder.map((id, index) =>
+          updateAssessmentQuestion.mutateAsync({
+            sectionId: section.id,
+            questionId: id,
+            input: { sortOrder: index },
+          }),
+        ),
+      )
+      // Safety net — the mutation itself already invalidates this on each
+      // call's own success, but an extra invalidate after the whole batch
+      // resolves is cheap and avoids any race between the LAST mutation's
+      // own invalidation and this component re-reading section.resolvedQuestions.
+      queryClient.invalidateQueries({ queryKey: ['assessments', 'detail', assessmentId] })
+      setIsReordering(false)
+      setClientOrder([])
+    } catch (error) {
+      setOrderSaveError(
+        error instanceof ApiError ? error.message : 'Failed to save the new order. Please try again.',
+      )
+    } finally {
+      setIsSavingOrder(false)
+    }
+  }
+
+  // Display list while reordering: ranked rows first (in clientOrder's own
+  // order), then unranked rows in their existing resolvedQuestions order.
+  // Outside isReordering, resolvedQuestions renders completely unchanged.
+  const displayQuestions = isReordering
+    ? [
+        ...clientOrder.flatMap((id) => {
+          const question = section.resolvedQuestions.find(
+            (q) => questionIdByVersionId.get(q.questionVersionId) === id,
+          )
+          return question ? [question] : []
+        }),
+        ...section.resolvedQuestions.filter((q) => {
+          const id = questionIdByVersionId.get(q.questionVersionId)
+          return !id || !clientOrder.includes(id)
+        }),
+      ]
+    : section.resolvedQuestions
 
   // Attached pools shown as their own list — a pool's resolved questions
   // (in resolvedQuestions below) have no stable per-row identity to remove
@@ -128,6 +186,31 @@ export function AssessmentSectionCard({
           </span>
           {isContentEditable && (
             <>
+              {section.selectionMode === 'manual' &&
+                section.resolvedQuestions.length > 1 &&
+                (isReordering ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={handleCancelReorder}>
+                      Cancel
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleResetOrder}>
+                      Reset
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={
+                        clientOrder.length !== section.resolvedQuestions.length || isSavingOrder
+                      }
+                      onClick={handleSaveOrder}
+                    >
+                      {isSavingOrder ? 'Saving…' : 'Save Order'}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleStartReorder}>
+                    Reorder Questions
+                  </Button>
+                ))}
               <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
                 Edit
               </Button>
@@ -144,47 +227,60 @@ export function AssessmentSectionCard({
         </div>
       </div>
 
+      {orderSaveError && (
+        <p className="px-3.5 pt-3 text-xs text-destructive">{orderSaveError}</p>
+      )}
+
       <div className="p-3.5">
+        {isReordering && (
+          <p className="mb-2 text-xs text-muted-foreground">
+            Click each question in the order it should appear, then Save Order. Click a ranked
+            question again to undo it.
+          </p>
+        )}
         {section.resolvedQuestions.length === 0 ? (
           <p className="text-sm text-muted-foreground">No questions yet.</p>
         ) : (
           <ul className="space-y-1.5 text-sm">
-            {section.resolvedQuestions.map((question, index) => {
+            {displayQuestions.map((question) => {
               const assessmentQuestionId = questionIdByVersionId.get(question.questionVersionId)
               const allowedLanguages = allowedLanguagesByVersionId.get(question.questionVersionId)
+              const rank = assessmentQuestionId ? clientOrder.indexOf(assessmentQuestionId) : -1
+              const isRanked = rank !== -1
+
+              const rankBadge = isReordering && (
+                <span
+                  className={cn(
+                    'flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-medium',
+                    isRanked
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-dashed border-muted-foreground/50 text-muted-foreground',
+                  )}
+                >
+                  {isRanked ? rank + 1 : '–'}
+                </span>
+              )
+
               return (
                 <li
                   key={question.questionVersionId}
                   className="flex items-center justify-between gap-3 text-muted-foreground"
                 >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    {isContentEditable && section.selectionMode === 'manual' && (
-                      <span className="flex shrink-0 flex-col">
-                        <button
-                          type="button"
-                          aria-label="Move up"
-                          disabled={index === 0 || updateAssessmentQuestion.isPending}
-                          onClick={() => handleReorder(index, 'up')}
-                          className="text-muted-foreground hover:text-primary disabled:pointer-events-none disabled:opacity-30"
-                        >
-                          <ChevronUp className="size-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Move down"
-                          disabled={
-                            index === section.resolvedQuestions.length - 1 ||
-                            updateAssessmentQuestion.isPending
-                          }
-                          onClick={() => handleReorder(index, 'down')}
-                          className="text-muted-foreground hover:text-primary disabled:pointer-events-none disabled:opacity-30"
-                        >
-                          <ChevronDown className="size-3.5" />
-                        </button>
-                      </span>
-                    )}
-                    <span className="truncate">{question.questionText}</span>
-                  </span>
+                  {isReordering && assessmentQuestionId ? (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRank(assessmentQuestionId)}
+                      className="flex min-w-0 items-center gap-2 text-left hover:text-foreground"
+                    >
+                      {rankBadge}
+                      <span className="truncate">{question.questionText}</span>
+                    </button>
+                  ) : (
+                    <span className="flex min-w-0 items-center gap-2">
+                      {rankBadge}
+                      <span className="truncate">{question.questionText}</span>
+                    </span>
+                  )}
                   <span className="flex shrink-0 items-center gap-2">
                     {allowedLanguages && allowedLanguages.length > 0 && (
                       <span
@@ -201,12 +297,13 @@ export function AssessmentSectionCard({
                       <button
                         type="button"
                         className="text-xs font-medium text-destructive hover:underline"
-                        onClick={() =>
+                        onClick={(event) => {
+                          event.stopPropagation()
                           setRemovingQuestion({
                             id: assessmentQuestionId,
                             text: question.questionText,
                           })
-                        }
+                        }}
                       >
                         Remove
                       </button>
