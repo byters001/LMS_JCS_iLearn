@@ -11,7 +11,7 @@ import {
   useQuestionsForPicker,
   useTopics,
 } from '@/features/question-bank/api'
-import { CODING_LANGUAGE_LABELS } from '@/features/question-bank/types'
+import { CODING_LANGUAGE_LABELS, type QuestionDifficulty } from '@/features/question-bank/types'
 import { useAttachQuestion } from '../api'
 import type { TestCategory } from '../types'
 
@@ -32,6 +32,13 @@ type AttachQuestionFormValues = z.infer<typeof attachQuestionFormSchema>
 
 const inputClassName =
   'w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+
+const DIFFICULTY_OPTIONS: Array<{ value: QuestionDifficulty | ''; label: string }> = [
+  { value: '', label: 'Any' },
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+]
 
 // A small, bounded page — this feeds AttachQuestionForm's combobox, which
 // enriches every row with a per-question detail fetch to get real text (see
@@ -78,6 +85,7 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
   // "not fetched until a category exists" behavior as CreateQuestionPage.
   const [categoryId, setCategoryId] = useState('')
   const [topicId, setTopicId] = useState('')
+  const [difficulty, setDifficulty] = useState('')
 
   const categories = useCategories({
     type: testCategory === 'mixed' ? undefined : testCategory,
@@ -100,6 +108,7 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
     type: testCategory === 'mixed' ? undefined : testCategory,
     categoryId: categoryId || undefined,
     topicId: topicId || undefined,
+    difficulty: (difficulty || undefined) as QuestionDifficulty | undefined,
     page: 1,
     pageSize: QUESTION_PICKER_PAGE_SIZE,
   })
@@ -236,6 +245,20 @@ export function AttachQuestionForm({ assessmentId, sectionId, testCategory }: At
               Pick a category first
             </p>
           )}
+        </div>
+        <div className="w-40 space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">Filter by difficulty</label>
+          <select
+            className={inputClassName}
+            value={difficulty}
+            onChange={(event) => setDifficulty(event.target.value)}
+          >
+            {DIFFICULTY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

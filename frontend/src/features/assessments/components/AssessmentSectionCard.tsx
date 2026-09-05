@@ -1,7 +1,12 @@
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useQuestionPools } from '@/features/question-bank/api'
-import { useAssessmentQuestions, useAssessmentSectionPools } from '../api'
+import {
+  useAssessmentQuestions,
+  useAssessmentSectionPools,
+  useUpdateAssessmentQuestion,
+} from '../api'
 import type { AssessmentSectionWithResolvedQuestions, TestCategory } from '../types'
 import { AttachPoolForm } from './AttachPoolForm'
 import { AttachQuestionForm } from './AttachQuestionForm'
@@ -48,6 +53,13 @@ export function AssessmentSectionCard({
   const questionIdByVersionId = new Map(
     (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.id]),
   )
+  // Backs the ▲/▼ reorder buttons below — swapping sortOrder needs each
+  // row's REAL current value off the raw junction row, not its position in
+  // section.resolvedQuestions (that array index is a display artifact, not
+  // necessarily equal to sortOrder).
+  const sortOrderByVersionId = new Map(
+    (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.sortOrder]),
+  )
   // Phase 5 — lets the attached-questions list show what's currently
   // restricted without a separate fetch; rawQuestions already carries
   // allowedLanguages (GET .../questions returns the bare assessment_questions
@@ -55,6 +67,35 @@ export function AssessmentSectionCard({
   const allowedLanguagesByVersionId = new Map(
     (rawQuestions.data ?? []).map((q) => [q.questionVersionId, q.allowedLanguages]),
   )
+
+  const updateAssessmentQuestion = useUpdateAssessmentQuestion(assessmentId)
+
+  function handleReorder(currentIndex: number, direction: 'up' | 'down') {
+    const questions = section.resolvedQuestions
+    const adjacentIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const current = questions[currentIndex]
+    const adjacent = questions[adjacentIndex]
+    if (!current || !adjacent) return
+
+    const currentId = questionIdByVersionId.get(current.questionVersionId)
+    const adjacentId = questionIdByVersionId.get(adjacent.questionVersionId)
+    const currentSortOrder = sortOrderByVersionId.get(current.questionVersionId)
+    const adjacentSortOrder = sortOrderByVersionId.get(adjacent.questionVersionId)
+    if (!currentId || !adjacentId || currentSortOrder === undefined || adjacentSortOrder === undefined) {
+      return
+    }
+
+    updateAssessmentQuestion.mutate({
+      sectionId: section.id,
+      questionId: currentId,
+      input: { sortOrder: adjacentSortOrder },
+    })
+    updateAssessmentQuestion.mutate({
+      sectionId: section.id,
+      questionId: adjacentId,
+      input: { sortOrder: currentSortOrder },
+    })
+  }
 
   // Attached pools shown as their own list — a pool's resolved questions
   // (in resolvedQuestions below) have no stable per-row identity to remove
@@ -108,7 +149,7 @@ export function AssessmentSectionCard({
           <p className="text-sm text-muted-foreground">No questions yet.</p>
         ) : (
           <ul className="space-y-1.5 text-sm">
-            {section.resolvedQuestions.map((question) => {
+            {section.resolvedQuestions.map((question, index) => {
               const assessmentQuestionId = questionIdByVersionId.get(question.questionVersionId)
               const allowedLanguages = allowedLanguagesByVersionId.get(question.questionVersionId)
               return (
@@ -116,7 +157,34 @@ export function AssessmentSectionCard({
                   key={question.questionVersionId}
                   className="flex items-center justify-between gap-3 text-muted-foreground"
                 >
-                  <span className="truncate">{question.questionText}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {isContentEditable && section.selectionMode === 'manual' && (
+                      <span className="flex shrink-0 flex-col">
+                        <button
+                          type="button"
+                          aria-label="Move up"
+                          disabled={index === 0 || updateAssessmentQuestion.isPending}
+                          onClick={() => handleReorder(index, 'up')}
+                          className="text-muted-foreground hover:text-primary disabled:pointer-events-none disabled:opacity-30"
+                        >
+                          <ChevronUp className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Move down"
+                          disabled={
+                            index === section.resolvedQuestions.length - 1 ||
+                            updateAssessmentQuestion.isPending
+                          }
+                          onClick={() => handleReorder(index, 'down')}
+                          className="text-muted-foreground hover:text-primary disabled:pointer-events-none disabled:opacity-30"
+                        >
+                          <ChevronDown className="size-3.5" />
+                        </button>
+                      </span>
+                    )}
+                    <span className="truncate">{question.questionText}</span>
+                  </span>
                   <span className="flex shrink-0 items-center gap-2">
                     {allowedLanguages && allowedLanguages.length > 0 && (
                       <span

@@ -297,6 +297,14 @@ export interface CreateAssessmentQuestionInput {
   allowedLanguages?: string[]
 }
 
+// Matches backend's updateAssessmentQuestionSchema exactly (.strict(), all
+// fields optional, backend rejects an empty body) — used by the manual
+// reorder buttons (AssessmentSectionCard.tsx) to swap two rows' sortOrder.
+export interface UpdateAssessmentQuestionInput {
+  marksOverride?: number | null
+  sortOrder?: number
+}
+
 export interface CreateAssessmentSectionPoolInput {
   questionPoolId: string
 }

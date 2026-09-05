@@ -20,6 +20,7 @@ import type {
   PoolUsageRow,
   ScheduleAssessmentInput,
   UpdateAssessmentInput,
+  UpdateAssessmentQuestionInput,
   UpdateAssessmentSectionInput,
 } from './types'
 
@@ -323,6 +324,40 @@ export function useAttachQuestion(assessmentId: string) {
   return useMutation({
     mutationFn: (variables: AttachQuestionVariables) => attachQuestion(assessmentId, variables),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assessments', 'detail', assessmentId] })
+    },
+  })
+}
+
+// --- Update a manual section's question (manual reordering) ---
+// Backs the ▲/▼ reorder buttons in AssessmentSectionCard.tsx — each click
+// swaps two rows' sortOrder via two calls to this same mutation.
+
+function updateAssessmentQuestion(
+  assessmentId: string,
+  sectionId: string,
+  questionId: string,
+  input: UpdateAssessmentQuestionInput,
+): Promise<AssessmentQuestion> {
+  return api.patch<AssessmentQuestion>(
+    `/assessments/${assessmentId}/sections/${sectionId}/questions/${questionId}`,
+    input,
+  )
+}
+
+export function useUpdateAssessmentQuestion(assessmentId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      sectionId,
+      questionId,
+      input,
+    }: { sectionId: string; questionId: string; input: UpdateAssessmentQuestionInput }) =>
+      updateAssessmentQuestion(assessmentId, sectionId, questionId, input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['assessments', 'section-questions', assessmentId, variables.sectionId],
+      })
       queryClient.invalidateQueries({ queryKey: ['assessments', 'detail', assessmentId] })
     },
   })
