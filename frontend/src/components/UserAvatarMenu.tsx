@@ -55,7 +55,21 @@ export function UserAvatarMenu({ name, email, onLogout, isLoggingOut }: UserAvat
         aria-label="Account menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
-        className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        // Item 3 — fixed blue regardless of theme, not the token-driven
+        // bg-primary/text-primary-foreground pairing (which is the
+        // Obsidian & Ember orange --primary here). One change in this
+        // shared component covers all three roles' layouts automatically —
+        // StudentLayout.tsx/TrainerLayout.tsx/AdminLayout.tsx all render
+        // this same component, none of their own markup.
+        // Contrast checked (relative-luminance formula, not eyeballed —
+        // same method attemptButtonState.ts's ATTEMPT_BUTTON_COLOR_CLASSES
+        // comment documents): white on blue-700 #1d4ed8 -> 6.70:1, white on
+        // blue-600 #2563eb -> 5.17:1 — both clear WCAG AA's 4.5:1. blue-500
+        // was tried for dark mode first and rejected (~3.68:1, under AA),
+        // which is why dark mode keeps -600 rather than stepping lighter —
+        // exactly the "don't assume the light shade still contrasts, check
+        // the dark tokens" gotcha this task called out.
+        className="flex size-8 items-center justify-center rounded-full bg-blue-700 text-xs font-semibold text-white transition-opacity hover:opacity-90 dark:bg-blue-600"
       >
         {getInitials(name)}
       </button>

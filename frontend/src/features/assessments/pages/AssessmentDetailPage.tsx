@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Clock, Lock, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Clock, Lock, RotateCcw, ShieldX } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
+import { ATTEMPT_BUTTON_COLOR_CLASSES, ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { Assessment, ListAvailableAssessmentsResponse } from '../types'
 
 function formatStartDate(startAt: string | null): string | null {
@@ -151,16 +151,39 @@ export default function AssessmentDetailPage() {
           >
             {ATTEMPT_BUTTON_LABELS.completed}
           </Link>
+        ) : buttonState.kind === 'missed' ? (
+          // Item 4 fix (the endAt gap) — same non-clickable treatment as
+          // StudentAssessmentsPage.tsx's card branch for this kind: the
+          // window is closed and nothing was ever submitted, so there's no
+          // report to view and nothing left to start. A plain styled div,
+          // not a disabled Button — matches how 'scheduled' above is also a
+          // div, not a disabled-but-still-says-"Start Test" button.
+          <div
+            className={cn(
+              buttonVariants({ variant: 'default', size: 'lg' }),
+              'mt-4 w-full cursor-not-allowed gap-1.5',
+              ATTEMPT_BUTTON_COLOR_CLASSES.missed,
+            )}
+          >
+            <ShieldX className="size-4" />
+            {ATTEMPT_BUTTON_LABELS.missed}
+          </div>
         ) : (
           // Every other state uses the same instructions-flow navigation as
           // before ("Continue"/"Retake" resuming/re-starting is the
           // backend's own job — attempts.service.ts's startAttempt already
           // returns the existing in_progress attempt instead of creating a
           // new one when one exists, so this click handler doesn't need to
-          // know which case it is).
+          // know which case it is). Item 2 fix — start/continue/retake now
+          // get their explicit green/blue color from the same
+          // ATTEMPT_BUTTON_COLOR_CLASSES map StudentAssessmentsPage.tsx's
+          // card uses, instead of the bare default variant's orange
+          // bg-primary; 'not-live' (the only other kind reaching this
+          // branch) has no entry in that map, so it keeps its existing
+          // disabled default-variant look untouched.
           <Button
             size="lg"
-            className="mt-4 w-full"
+            className={cn('mt-4 w-full', ATTEMPT_BUTTON_COLOR_CLASSES[buttonState.kind])}
             disabled={buttonState.kind === 'not-live'}
             onClick={() => navigate(`/student/assessments/${assessment.id}/instructions`)}
           >

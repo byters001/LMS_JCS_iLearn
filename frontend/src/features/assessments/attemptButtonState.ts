@@ -14,6 +14,10 @@ export type AttemptButtonState =
   | { kind: 'continue' }
   | { kind: 'retake' }
   | { kind: 'completed'; resultsAttemptId: string }
+  // The assessment's window closed (endAt passed) while status is still
+  // 'live' and the student never reached a completed-tier attempt — see the
+  // endAt check below, replacing the "known gap" this kind used to be.
+  | { kind: 'missed' }
 
 // Attempts are always created with status 'in_progress' directly (see
 // backend's attempts.repository.ts's createAttemptWithSelections) —
@@ -43,21 +47,23 @@ export function getAttemptButtonState(assessment: AvailableAssessment): AttemptB
   // than inventing a parallel one — both surfaces already render that
   // kind's "Opens at X" message from `startAt` alone, so nothing else
   // needs to change to pick this up.
-  //
-  // Known gap, NOT fixed here (flagging rather than silently leaving half
-  // done, same as the retake-ceiling gap below): endAt passing while
-  // status is still 'live' isn't checked in this function at all. The
-  // backend now also rejects startAttempt once endAt has passed, but a
-  // student with no existing attempt would still see "Start Test" here and
-  // only discover the window closed after clicking. Confirm if you want
-  // this branch to also treat a passed endAt as 'not-live' (or a new
-  // dedicated kind) before that gets added.
   if (assessment.startAt && new Date(assessment.startAt).getTime() > Date.now()) {
     return { kind: 'scheduled', startAt: assessment.startAt }
   }
 
+  // Fix for the endAt gap this comment used to flag: a 'live' assessment's
+  // window can still close (endAt passes) while status never flips away
+  // from 'live'. The backend already rejects startAttempt past endAt
+  // (attempts.service.ts's assertAssessmentAttemptable) — this mirrors that
+  // here so a student never sees "Start Test" for a window that's already
+  // shut. Only applies to the two branches below that would otherwise fall
+  // back to 'start' (no attempt, or an attempt whose status is in neither
+  // RESUMABLE_STATUSES nor COMPLETED_TIER_STATUSES) — an attempt already
+  // resumable or completed-tier is unaffected by the deadline passing.
+  const isPastEnd = assessment.endAt !== null && new Date(assessment.endAt).getTime() <= Date.now()
+
   const attempt = assessment.myLatestAttempt
-  if (!attempt) return { kind: 'start' }
+  if (!attempt) return isPastEnd ? { kind: 'missed' } : { kind: 'start' }
 
   if (RESUMABLE_STATUSES.has(attempt.status)) return { kind: 'continue' }
 
@@ -77,9 +83,9 @@ export function getAttemptButtonState(assessment: AvailableAssessment): AttemptB
   }
 
   // Exhaustive over AttemptStatus's real current values; falls back to
-  // 'start' for anything unrecognized rather than silently blocking a
-  // student from ever starting.
-  return { kind: 'start' }
+  // 'start' (or 'missed', once the window's closed) for anything
+  // unrecognized rather than silently blocking a student from ever starting.
+  return isPastEnd ? { kind: 'missed' } : { kind: 'start' }
 }
 
 // Shared button copy — StudentAssessmentsPage.tsx's card and
@@ -103,4 +109,39 @@ export const ATTEMPT_BUTTON_LABELS: Record<AttemptButtonState['kind'], string> =
   // and that retarget travel together, not a redundant second button next
   // to the old one.
   completed: 'View Report',
+  // The assessment's window is closed and nothing was ever submitted —
+  // distinct from 'completed' (which did get a submission), so it can't
+  // reuse that label or its "View Report" link (there's no attempt/report
+  // to view).
+  missed: 'Missed',
+}
+
+// Shared per-kind CTA color — StudentAssessmentsPage.tsx's card/featured CTA
+// and AssessmentDetailPage.tsx's button all read from this ONE map (same
+// reasoning as ATTEMPT_BUTTON_LABELS above: one source, so the two surfaces
+// can never render a different color for the same kind), replacing the
+// bare buttonVariants({ variant: 'default' }) bg-primary/text-primary-
+// foreground pairing every clickable kind used to share — that resolved to
+// the app's orange --primary regardless of what the button actually meant.
+// 'completed'/'scheduled'/'not-live' aren't here: each call site already
+// gives them their own distinct (outline / locked-box) treatment, unrelated
+// to this solid-CTA coloring.
+//
+// Contrast verified against WCAG's relative-luminance formula for white
+// text on each fill (not eyeballed): green-700 #15803d -> 5.01:1,
+// blue-700 #1d4ed8 -> 6.70:1, blue-600 #2563eb -> 5.17:1, red-700 #b91c1c
+// -> 6.47:1, red-600 #dc2626 -> 4.83:1 — all clear WCAG AA's 4.5:1 for
+// normal text. green-600 #16a34a was rejected for this (measures ~3.3:1,
+// under AA) — that's why green keeps the same darker -700 shade in both
+// modes instead of following blue/red's light-700/dark-600 pattern; a
+// lighter dark-mode green would fail the same check that light-mode "just
+// assumed" the gap comment above used to warn against.
+export const ATTEMPT_BUTTON_COLOR_CLASSES: Partial<Record<AttemptButtonState['kind'], string>> = {
+  start: 'bg-green-700 text-white hover:bg-green-800 dark:bg-green-700 dark:hover:bg-green-800',
+  continue: 'bg-green-700 text-white hover:bg-green-800 dark:bg-green-700 dark:hover:bg-green-800',
+  retake: 'bg-blue-700 text-white hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-700',
+  // No hover shade — every call site renders this as a non-interactive
+  // disabled-style element, not a clickable button (see ATTEMPT_BUTTON_LABELS'
+  // own comment on why: there's no attempt to resume and no report to view).
+  missed: 'bg-red-700 text-white dark:bg-red-600',
 }

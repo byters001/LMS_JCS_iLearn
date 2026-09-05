@@ -1,13 +1,20 @@
-import { Clock, Lock } from 'lucide-react'
+import { ChevronDown, Clock, Lock, ShieldX } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ApiError } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CARD_GRADIENT, CARD_HOVER_LIFT, cn } from '@/lib/utils'
 import { useAvailableAssessments } from '../api'
-import { ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
+import { ATTEMPT_BUTTON_COLOR_CLASSES, ATTEMPT_BUTTON_LABELS, getAttemptButtonState } from '../attemptButtonState'
 import type { Assessment, AvailableAssessment } from '../types'
 
 const PAGE_SIZE = 12
@@ -93,6 +100,49 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
     )
   }
 
+  // Item 4 fix (the endAt gap) — the window closed and the student never
+  // reached a completed-tier attempt, so there's nothing to start, resume,
+  // or view a report for. Same "not a Link" treatment as the scheduled
+  // branch above (there's nowhere real to navigate), just red instead of
+  // the neutral grayscale lock — this genuinely is a bad outcome for the
+  // student, not merely "not open yet".
+  if (buttonState.kind === 'missed') {
+    return (
+      <div className="flex flex-col gap-2.5 rounded-3xl bg-card p-3.5 opacity-75 shadow-sm">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-heading font-semibold text-foreground">{assessment.title}</h3>
+          <StatusBadge status={assessment.status} />
+        </div>
+
+        {assessment.description && (
+          <p className="line-clamp-2 text-sm text-muted-foreground">{assessment.description}</p>
+        )}
+
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="size-3.5" />
+          <span>{durationLabel}</span>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary">{TEST_CATEGORY_LABELS[assessment.testCategory]}</Badge>
+          <Badge variant="outline">
+            {assessment.maxAttempts} attempt{assessment.maxAttempts === 1 ? '' : 's'}
+          </Badge>
+        </div>
+
+        <span
+          className={cn(
+            'mt-1 flex h-9 w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-lg',
+            ATTEMPT_BUTTON_COLOR_CLASSES.missed,
+          )}
+        >
+          <ShieldX className="size-3.5" />
+          {ATTEMPT_BUTTON_LABELS.missed}
+        </span>
+      </div>
+    )
+  }
+
   const linkTo =
     buttonState.kind === 'completed'
       ? `/student/attempts/${buttonState.resultsAttemptId}/report`
@@ -133,16 +183,19 @@ function AssessmentCard({ assessment }: { assessment: AvailableAssessment }) {
           instead of the same solid CTA color every clickable action state
           uses, so it reads at a glance as "done", not "here's another thing
           to click." Still a real link to the results page — only the
-          styling branches, not the behavior. Uses the plain default Button
-          variant's own bg-primary/text-primary-foreground (token-driven,
-          same pairing AssessmentDetailPage.tsx's Start/Continue/Retake
-          button uses) rather than a dead per-role student-accent color. */}
+          styling branches, not the behavior.
+          Item 2 fix — every other kind now gets its own explicit color from
+          ATTEMPT_BUTTON_COLOR_CLASSES (green start/continue, blue retake)
+          instead of buttonVariants({ variant: 'default' })'s bg-primary,
+          which resolved to the app's orange --primary regardless of what
+          the action actually meant. */}
       <span
         className={cn(
           buttonVariants({ variant: buttonState.kind === 'completed' ? 'outline' : 'default' }),
           'mt-1 h-9 w-full',
-          buttonState.kind === 'completed' &&
-            'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground',
+          buttonState.kind === 'completed'
+            ? 'border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground'
+            : ATTEMPT_BUTTON_COLOR_CLASSES[buttonState.kind],
         )}
       >
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
@@ -207,28 +260,101 @@ function FeaturedAssessmentCard({ assessment }: { assessment: AvailableAssessmen
           </span>
         </div>
       </div>
-      <span className={cn(buttonVariants({ variant: 'default' }), 'h-9 shrink-0 px-4')}>
+      {/* buttonState.kind here is always continue/start/retake — the only
+          kinds FEATURED_KIND_PRIORITY admits — so ATTEMPT_BUTTON_COLOR_CLASSES
+          always has an entry; same green/blue recolor as AssessmentCard's own
+          CTA above, from the same shared map so the two can't disagree. */}
+      <span className={cn(buttonVariants({ variant: 'default' }), 'h-9 shrink-0 px-4', ATTEMPT_BUTTON_COLOR_CLASSES[buttonState.kind])}>
         {ATTEMPT_BUTTON_LABELS[buttonState.kind]}
       </span>
     </Link>
   )
 }
 
+// Item 4 — status filter. "Live" deliberately covers both 'start' (live,
+// never attempted) and 'continue' (in progress) — the task's own wording
+// for this filter, and the two states a student would call "something I can
+// go do right now." 'retake' gets its own "Re-attempt" label rather than
+// reusing "Live" — a retake is still live, but conflating it with a
+// never-attempted assessment would make the filter useless for "show me
+// just the ones I haven't touched yet" vs. "show me the ones I get to redo."
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'live', label: 'Live' },
+  { value: 'missed', label: 'Missed' },
+  { value: 'retake', label: 'Re-attempt' },
+] as const
+
+type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number]['value']
+
+function matchesStatusFilter(assessment: AvailableAssessment, filter: StatusFilterValue): boolean {
+  if (filter === 'all') return true
+  const kind = getAttemptButtonState(assessment).kind
+  if (filter === 'live') return kind === 'start' || kind === 'continue'
+  return kind === filter
+}
+
+function StatusFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: StatusFilterValue
+  onChange: (value: StatusFilterValue) => void
+}) {
+  const selectedLabel = STATUS_FILTER_OPTIONS.find((option) => option.value === value)?.label ?? 'All'
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          {selectedLabel}
+          <ChevronDown className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as StatusFilterValue)}>
+          {STATUS_FILTER_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export default function StudentAssessmentsPage() {
   const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all')
   const { data, isPending, isError, error, isFetching } = useAvailableAssessments({
     page,
     pageSize: PAGE_SIZE,
   })
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
-  const featured = data && page === 1 ? pickFeatured(data.items) : undefined
-  const gridItems = data ? (featured ? data.items.filter((a) => a.id !== featured.id) : data.items) : []
+
+  // Client-side only, and only over data.items — the CURRENT server page
+  // (PAGE_SIZE = 12), not the full backend result set. A student with, say,
+  // a missed assessment sitting on page 2 won't see it here while browsing
+  // page 1 with the "Missed" filter selected; the "Page X of Y" count below
+  // still reflects the unfiltered server page too. A real full-dataset
+  // filter would need a status/kind query param added to GET
+  // /assessments/available (server-side, since "missed"/"retake" aren't raw
+  // DB columns — they're this same derived getAttemptButtonState logic) —
+  // out of scope here, flagged rather than silently presented as complete.
+  const filteredItems = data ? data.items.filter((a) => matchesStatusFilter(a, statusFilter)) : []
+  const featured = filteredItems.length > 0 && page === 1 ? pickFeatured(filteredItems) : undefined
+  const gridItems = featured ? filteredItems.filter((a) => a.id !== featured.id) : filteredItems
 
   return (
     <div className="p-4">
       <div className="mb-3">
-        <PageHeader title="Your Assessments" description="Live and upcoming assessments for your batch." />
+        <PageHeader
+          title="Your Assessments"
+          description="Live and upcoming assessments for your batch."
+          actions={<StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />}
+        />
       </div>
 
       {isPending && (
@@ -256,6 +382,10 @@ export default function StudentAssessmentsPage() {
           {data.items.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               No assessments available right now.
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              No assessments on this page match that filter.
             </div>
           ) : (
             <>
