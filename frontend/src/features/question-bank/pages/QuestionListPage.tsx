@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import { Combobox, type ComboboxOption } from '@/components/Combobox'
 import { PageHeader } from '@/components/ui/PageHeader'
 import {
   Table,
@@ -15,12 +16,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { CARD_GRADIENT, CARD_HOVER_LIFT, cn } from '@/lib/utils'
-import { useQuestions, useQuestionsWithText } from '../api'
+import { useCategories, useQuestions, useQuestionsWithText, useTopics } from '../api'
 import { QuestionStatusBadge } from '../components/QuestionStatusBadge'
 import type { QuestionDifficulty, QuestionType } from '../types'
 
 const PAGE_SIZE = 20
 const QUESTION_TEXT_TRUNCATE_LENGTH = 100
+// Cheap lookups (no per-row detail fetch fan-out) — same page size
+// AttachQuestionForm.tsx's own category/topic filter pickers use.
+const FILTER_PICKER_PAGE_SIZE = 100
 
 const TYPE_LABELS: Record<QuestionType, string> = {
   mcq: 'MCQ',
@@ -168,6 +172,8 @@ function DifficultySubCard({
 export default function QuestionListPage() {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState<QuestionDifficulty | null>(null)
+  const [categoryId, setCategoryId] = useState('')
+  const [topicId, setTopicId] = useState('')
   const [page, setPage] = useState(1)
 
   // Level 1 counts — fixed 3-way enum (TYPE_ORDER), so 3 plain useQuestions
@@ -210,14 +216,42 @@ export default function QuestionListPage() {
     hard: hardCount.data?.total,
   }
 
+  // Category/topic filters, same "cheap type-scoped lookup, topic scoped to
+  // whichever category is selected" shape as AttachQuestionForm.tsx's own
+  // filter pair. Only meaningful once a type is selected (a category filter
+  // has to be scoped to SOME type — question_categories.type — and there's
+  // no sensible "all types" category list), gated the same way the level-2
+  // difficulty counts already are.
+  const categories = useCategories(
+    { type: selectedType ?? 'mcq', page: 1, pageSize: FILTER_PICKER_PAGE_SIZE },
+    { enabled: selectedType !== null },
+  )
+  const topics = useTopics(
+    { categoryId, page: 1, pageSize: FILTER_PICKER_PAGE_SIZE },
+    { enabled: Boolean(categoryId) },
+  )
+  const categoryOptions: ComboboxOption[] = (categories.data?.items ?? []).map((c) => ({
+    value: c.id,
+    label: c.name,
+  }))
+  const topicOptions: ComboboxOption[] = (topics.data?.items ?? []).map((t) => ({
+    value: t.id,
+    label: t.name,
+  }))
+
   // Level 3 — the existing filtered list, reusing useQuestionsWithText with
   // the type+difficulty filters listQuestionsQuerySchema already supports
   // (confirmed by reading question-bank.schema.ts directly), gated so it
-  // doesn't fetch until both a type and a difficulty are selected.
+  // doesn't fetch until both a type and a difficulty are selected. category/
+  // topic are additional, optional, combinable filters on top of that —
+  // same AND-combined shape AttachQuestionForm.tsx's picker already
+  // established for the identical pair of params.
   const questions = useQuestionsWithText(
     {
       type: selectedType ?? undefined,
       difficulty: selectedDifficulty ?? undefined,
+      categoryId: categoryId || undefined,
+      topicId: topicId || undefined,
       page,
       pageSize: PAGE_SIZE,
     },
@@ -228,11 +262,29 @@ export default function QuestionListPage() {
   function handleSelectType(type: QuestionType) {
     setSelectedType((current) => (current === type ? null : type))
     setSelectedDifficulty(null)
+    // A category/topic filter scoped to the old type is meaningless for a
+    // new type (or no type at all).
+    setCategoryId('')
+    setTopicId('')
     setPage(1)
   }
 
   function handleSelectDifficulty(difficulty: QuestionDifficulty) {
     setSelectedDifficulty((current) => (current === difficulty ? null : difficulty))
+    setPage(1)
+  }
+
+  function handleSelectCategory(value: string) {
+    setCategoryId(value)
+    // Switching (or clearing) category invalidates whatever topic was
+    // selected under the previous category — same pattern
+    // AttachQuestionForm.tsx already established.
+    setTopicId('')
+    setPage(1)
+  }
+
+  function handleSelectTopic(value: string) {
+    setTopicId(value)
     setPage(1)
   }
 
@@ -322,6 +374,67 @@ export default function QuestionListPage() {
                     Add Question
                   </Link>
                 </Button>
+              </div>
+
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="w-56 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Filter by category
+                    </label>
+                    {categoryId && (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-primary hover:underline"
+                        onClick={() => handleSelectCategory('')}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <Combobox
+                    options={categoryOptions}
+                    value={categoryId || null}
+                    onSelect={handleSelectCategory}
+                    placeholder="Any category…"
+                    isLoading={categories.isPending}
+                    isError={categories.isError}
+                    errorMessage="Failed to load categories."
+                    emptyMessage={categories.isPending ? 'Loading…' : 'No categories found.'}
+                  />
+                </div>
+                <div className="w-56 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Filter by topic
+                    </label>
+                    {topicId && (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-primary hover:underline"
+                        onClick={() => handleSelectTopic('')}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  {categoryId ? (
+                    <Combobox
+                      options={topicOptions}
+                      value={topicId || null}
+                      onSelect={handleSelectTopic}
+                      placeholder="Any topic…"
+                      isLoading={topics.isPending}
+                      isError={topics.isError}
+                      errorMessage="Failed to load topics."
+                      emptyMessage={topics.isPending ? 'Loading…' : 'No topics for this category yet.'}
+                    />
+                  ) : (
+                    <p className="rounded-md border border-dashed border-input px-3 py-2 text-xs text-muted-foreground">
+                      Pick a category first
+                    </p>
+                  )}
+                </div>
               </div>
 
               {questions.isPending && (

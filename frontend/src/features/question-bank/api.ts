@@ -220,11 +220,15 @@ function listCategories(
   return api.get<ListQuestionCategoriesResponse>('/question-categories', { params })
 }
 
-export function useCategories(params: ListQuestionCategoriesParams) {
+export function useCategories(
+  params: ListQuestionCategoriesParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: ['question-bank', 'categories', 'list', params],
     queryFn: () => listCategories(params),
     placeholderData: keepPreviousData,
+    enabled: options?.enabled,
   })
 }
 
