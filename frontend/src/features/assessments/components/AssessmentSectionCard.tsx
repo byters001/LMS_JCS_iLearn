@@ -79,6 +79,12 @@ export function AssessmentSectionCard({
   const queryClient = useQueryClient()
 
   function handleStartReorder() {
+    // Guards against entering reorder mode before questionIdByVersionId (built
+    // from rawQuestions.data) exists — the button below is also disabled
+    // while rawQuestions.isPending, but a fast double-click can fire this
+    // handler before React re-renders with the disabled state, so the check
+    // is repeated here rather than trusted to the button alone.
+    if (rawQuestions.isPending) return
     setClientOrder([])
     setOrderSaveError(null)
     setIsReordering(true)
@@ -207,8 +213,13 @@ export function AssessmentSectionCard({
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={handleStartReorder}>
-                    Reorder Questions
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={rawQuestions.isPending}
+                    onClick={handleStartReorder}
+                  >
+                    {rawQuestions.isPending ? 'Loading…' : 'Reorder Questions'}
                   </Button>
                 ))}
               <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
