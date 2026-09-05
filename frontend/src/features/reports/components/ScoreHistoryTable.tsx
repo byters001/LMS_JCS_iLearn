@@ -103,7 +103,11 @@ export default function ScoreHistoryTable() {
 
   return (
     <Card className="mb-3 p-3.5">
-      <h2 className="font-heading text-lg font-semibold text-primary">Score History</h2>
+      {/* Info-blue recolor — was text-primary (orange); same shared
+          --accent-info-fg token PerformanceAnalyticsSection.tsx's heading
+          now uses (globals.css), the same blue as UserAvatarMenu.tsx's
+          avatar circle — one source of truth, not a second hardcoded hex. */}
+      <h2 className="font-heading text-lg font-semibold text-[var(--accent-info-fg)]">Score History</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Every graded attempt, most recent first, with your % change vs. the attempt before it.
       </p>
@@ -153,7 +157,13 @@ export default function ScoreHistoryTable() {
                 <TableBody>
                   {rows.map(({ attempt, scorePercent, changeVsPrevious }) => (
                     <TableRow key={attempt.id} className="hover:bg-muted/30">
-                      <TableCell className="pl-4 font-medium text-primary">
+                      {/* text-foreground, not text-primary (orange) or a
+                          literal black hex — theme-token-driven so this
+                          reads near-black in light mode / near-white in
+                          dark mode automatically, like any other plain body
+                          text in the app, rather than calling out these two
+                          cells as if they were still an accent/CTA color. */}
+                      <TableCell className="pl-4 font-medium text-foreground">
                         {attempt.assessmentTitle}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -161,7 +171,7 @@ export default function ScoreHistoryTable() {
                           new Date(attempt.submissionTime ?? attempt.createdAt),
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-medium text-primary">
+                      <TableCell className="text-right font-medium text-foreground">
                         {formatPercent(scorePercent)}
                       </TableCell>
                       <TableCell className="pr-4 text-right">

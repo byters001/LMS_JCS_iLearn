@@ -25,16 +25,17 @@ import type { MyAttemptSummary } from '../types'
 const FETCH_SIZE = 50
 const MAX_CHART_POINTS = 20
 
-// Parchment & Emerald rollout — was the literal brand-accent hex ('#4A44C4',
-// this codebase's other Recharts widgets' usual convention for a fixed
-// color Recharts needs as a real value, not a Tailwind class). This
-// component is Student-only (PerformancePage.tsx, AttemptReportPage.tsx —
-// no other role renders it), and Recharts accepts a CSS var string directly
-// here exactly like SuperAdminAnalyticsPage's own chart already does for
-// its axis/grid colors, so this resolves to the scoped --primary (deep
-// emerald) automatically instead of needing a hardcoded student-specific
-// hex that Tailwind's static color config isn't involved in at all.
-const SCORE_LINE_COLOR = 'var(--primary)'
+// Info-blue/dark-green recolor phase — was 'var(--primary)', which under
+// Obsidian & Ember resolves to the app's orange brand accent. A line chart
+// tracking "did the student's score go up" reads far more naturally as
+// green than brand-orange, and orange here was never meaningful (this
+// component doesn't share identity with the primary CTA color anywhere) —
+// just the leftover default every Recharts widget in this codebase reaches
+// for when nothing more specific has been chosen yet. Uses the new
+// --chart-score-line token (globals.css) rather than --status-success-fg:
+// that token's dark-mode value is a bright/light green meant for text on a
+// dark badge chip, not a "dark green" line — see the token's own comment.
+const SCORE_LINE_COLOR = 'var(--chart-score-line)'
 // Phase 4 (AttemptReportPage.tsx's highlightAttemptId dot) — the same
 // success/positive meaning this codebase's status-success token already
 // carries elsewhere (BatchPerformancePage.tsx's PASS_COLOR, the Super
@@ -153,7 +154,11 @@ export default function PerformanceAnalyticsSection({
 
   const sectionShell = (children: ReactNode) => (
     <Card className="mb-3 p-3.5">
-      <h2 className="font-heading text-lg font-semibold text-primary">{heading}</h2>
+      {/* Info-blue recolor — was text-primary (orange); this heading has no
+          particular tie to the brand/CTA color, so it now uses the shared
+          --accent-info-fg token (globals.css) instead, the same blue as
+          UserAvatarMenu.tsx's avatar circle. */}
+      <h2 className="font-heading text-lg font-semibold text-[var(--accent-info-fg)]">{heading}</h2>
       {children}
     </Card>
   )
@@ -251,7 +256,8 @@ export default function PerformanceAnalyticsSection({
           anchor that's already there, not a new structural element. */}
       <div className="mt-1 flex items-end justify-between gap-4">
         <div>
-          <p className="font-heading text-3xl leading-none font-bold text-primary">
+          {/* Info-blue recolor — same reasoning/token as the heading above. */}
+          <p className="font-heading text-3xl leading-none font-bold text-[var(--accent-info-fg)]">
             {formatScore(target.score)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Latest score · points across your completed attempts</p>

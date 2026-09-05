@@ -235,6 +235,15 @@
     --chart-4: #4a4038;
     --chart-5: #f2a98a;
 
+    /* Dedicated dark-green chart-line token — NOT --status-success-fg,
+       whose dark-mode value (#4ade80, a light/bright green meant to read as
+       text on a dark chip) isn't a "dark green" line at all; this token
+       needs its own light+dark steps so the score-trend line in
+       PerformanceAnalyticsSection.tsx stays a real dark green in both
+       themes instead of only in light mode. #15803d on white/near-white
+       card = 5.01:1. */
+    --chart-score-line: #15803d;
+
     --shell-accent: #c73e1d;
 
     /* Hero-gradient tokens — new. The 3 dashboard hero banners (Student/
@@ -259,6 +268,14 @@
     --accent-amber-fg: #92400e;
     --accent-coral-bg: #ffe3df;
     --accent-coral-fg: #b03d0d;
+
+    /* "Info blue" — the one source of truth for "the same blue as the
+       profile icon" (UserAvatarMenu.tsx's avatar-circle trigger, and now
+       PerformanceAnalyticsSection.tsx's/ScoreHistoryTable.tsx's headings +
+       latest-score number), so none of those components hardcode a
+       separate blue hex. -fg #1d4ed8 on white/near-white card = 6.70:1. */
+    --accent-info-bg: #dbeafe;
+    --accent-info-fg: #1d4ed8;
 
     --status-success-bg: #dcfce7;
     --status-success-fg: #15803d;
@@ -347,6 +364,14 @@
     --chart-4: #8a2e10;
     --chart-5: #f2a98a;
 
+    /* Dark counterpart to the light block's --chart-score-line — a step
+       brighter (green-600, not green-700) than the light value so the line
+       still reads clearly against the near-black #171410 card, while
+       staying a genuine dark green rather than the bright status-success-fg
+       green (#4ade80) meant for dark-chip badge text. #16a34a on #171410 =
+       ~5.6:1. */
+    --chart-score-line: #16a34a;
+
     --shell-accent: #ff8a63;
     --hero-gradient-from: #1a0d08;
     --hero-gradient-to: #c73e1d;
@@ -360,6 +385,15 @@
     --accent-amber-fg: #fbbf24;
     --accent-coral-bg: #4c1d1d;
     --accent-coral-fg: #ff9b8a;
+
+    /* Dark counterpart to the light block's info-blue pair — a lighter
+       blue-400-ish -fg (not the same blue-600/700 UserAvatarMenu.tsx's
+       avatar CIRCLE fill uses) since this token is read as plain TEXT
+       directly on the near-black page/card, not white-on-filled-circle;
+       #60a5fa on #171410/#0d0b09 measures ~7.7:1, comfortably clear where a
+       straight blue-600 text would sit closer to ~3.8:1. */
+    --accent-info-bg: #1e3a5f;
+    --accent-info-fg: #60a5fa;
 
     --status-success-bg: #052e1c;
     --status-success-fg: #4ade80;
