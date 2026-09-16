@@ -1,7 +1,20 @@
 import { motion } from 'framer-motion'
 import { Building2, ChevronDown, Layers, Search, UserCheck, Users, UserX } from 'lucide-react'
 import { useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  type TooltipContentProps,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
@@ -82,9 +95,22 @@ interface CollegeChartRow {
   batches: number | undefined
 }
 
-interface CollegeShareTooltipProps {
-  active?: boolean
-  payload?: Array<{ payload: CollegeChartRow }>
+// Bug fix — active/payload used to be hand-rolled ({ active?: boolean;
+// payload?: Array<{ payload: CollegeChartRow }> }), which is a MUTABLE array
+// type; Recharts' own TooltipContentProps (what <Tooltip content={fn}>
+// actually passes into fn, and what `{...props}` here spreads) types
+// `payload` as a READONLY array, so the hand-rolled type was never actually
+// structurally compatible with it — TS just never caught it here until a
+// stricter build (Vercel's `tsc`) did. Basing this on Recharts' own type
+// keeps it correct by construction; `payload[N].payload` (the original
+// datum) is typed `any` by Recharts itself (it has no idea about our
+// CollegeChartRow shape), so that one specific read is narrowed with an
+// explicit cast below rather than left as an implicit `any`. Wrapped in
+// Partial<> (TooltipContentProps itself declares both as required — Recharts
+// always supplies them to a real content FUNCTION) since CollegeCompareTooltip
+// below is also used as a bare `<CollegeCompareTooltip />` JSX element with no
+// props at all, which only type-checks if they stay optional here too.
+interface CollegeShareTooltipProps extends Partial<Pick<TooltipContentProps<number, string>, 'active' | 'payload'>> {
   total: number
 }
 
@@ -94,7 +120,7 @@ interface CollegeShareTooltipProps {
 // every themed Recharts tooltip in this codebase.
 function CollegeShareTooltip({ active, payload, total }: CollegeShareTooltipProps) {
   if (!active || !payload?.length) return null
-  const row = payload[0].payload
+  const row = payload[0].payload as CollegeChartRow
   const count = row.students ?? 0
   const percent = total > 0 ? Math.round((count / total) * 100) : 0
   return (
@@ -107,14 +133,13 @@ function CollegeShareTooltip({ active, payload, total }: CollegeShareTooltipProp
   )
 }
 
-interface CollegeCompareTooltipProps {
-  active?: boolean
-  payload?: Array<{ payload: CollegeChartRow }>
-}
+// Same fix/reasoning as CollegeShareTooltipProps above (including the
+// Partial<> — this one is the bare-JSX-element usage that actually needs it).
+type CollegeCompareTooltipProps = Partial<Pick<TooltipContentProps<number, string>, 'active' | 'payload'>>
 
 function CollegeCompareTooltip({ active, payload }: CollegeCompareTooltipProps) {
   if (!active || !payload?.length) return null
-  const row = payload[0].payload
+  const row = payload[0].payload as CollegeChartRow
   const students = row.students ?? 0
   const batches = row.batches ?? 0
   return (

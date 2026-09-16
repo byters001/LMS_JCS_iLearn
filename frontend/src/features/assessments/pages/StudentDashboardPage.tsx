@@ -2,7 +2,17 @@ import { motion } from 'framer-motion'
 import { Award, ChevronRight, ClipboardList, Crown, Flame, Medal, Rocket, Sparkles, Star, Trophy, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { Link } from 'react-router-dom'
-import { Legend, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
+import {
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  type TooltipContentProps,
+} from 'recharts'
 import { ApiError } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -213,20 +223,35 @@ function buildSkillInsights(axes: SkillsRadarPoint[]): string[] {
 // border-border shape every other Recharts tooltip in this codebase already
 // uses (see e.g. FacultyAnalyticsPage.tsx's own RadarTooltipContent), a
 // fresh small copy rather than an import since that one isn't exported.
-function SkillsRadarTooltipContent({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: { name?: string; value?: number; color?: string }[]
-}) {
+//
+// Bug fix — the hand-rolled payload type here ({ name?; value?; color? }[],
+// a MUTABLE array) was never actually structurally compatible with what
+// <Tooltip content={fn}> really passes into fn: Recharts' own
+// TooltipContentProps types `payload` as a READONLY array of its own
+// Payload<TValue, TName> shape. Basing this on TooltipContentProps directly
+// (pinning TValue=number, TName=string, matching this chart's actual
+// dataKey/axis value types) keeps it correct by construction instead of
+// hand-guessing a shape that happened to work locally but not under a
+// stricter build. name/value/color below keep the exact same runtime
+// behavior — Recharts' own Payload type already carries those three fields
+// (name?: TName, value?: TValue, color?: string), so nothing here changes
+// except where the type comes from.
+type SkillsRadarTooltipContentProps = Pick<TooltipContentProps<number, string>, 'active' | 'payload'>
+
+function SkillsRadarTooltipContent({ active, payload }: SkillsRadarTooltipContentProps) {
   if (!active || !payload || payload.length === 0) return null
   return (
     <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs shadow-md">
       {payload.map((entry, i) => (
         <p key={i} className="flex items-center gap-1.5 text-popover-foreground">
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} aria-hidden="true" />
-          {entry.name}: {Math.round(entry.value ?? 0)}
+          {/* entry.value is typed ValueType (number | string | ReadonlyArray<...>)
+              by Recharts' own Payload type — it isn't actually narrowed by the
+              TValue=number pin above (Recharts' TooltipPayloadEntry hardcodes
+              Payload<ValueType, NameType> regardless of the caller's generic).
+              Number(...) coerces safely for the plain-number values this
+              specific radar chart always produces, without an `any`/unsafe cast. */}
+          {entry.name}: {Math.round(Number(entry.value ?? 0))}
         </p>
       ))}
     </div>
